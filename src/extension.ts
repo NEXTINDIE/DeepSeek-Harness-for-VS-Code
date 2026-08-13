@@ -44,6 +44,7 @@ export function activate(ctx: vscode.ExtensionContext) {
         );
       }
     },
+    onLog: (message) => output.appendLine(message),
   });
   output.appendLine(`[activate] 服务器地址 ${dshUrl()}`);
 
@@ -279,17 +280,47 @@ export function activate(ctx: vscode.ExtensionContext) {
   );
 
   // ---------- 启动 ----------
-  // 探测服务器(不自动启动);聊天参与者/面板首次使用时才按需启动
-  void hub.probe().then((ok) => {
-    output.appendLine(`[activate] 服务器探测结果: ${ok ? "在线" : "离线(首次使用时自动启动)"}`);
-  });
+  // 启动时先探测;若服务器离线且 dsh.autoStart=true,立即自动启动 dsh web。
+  // 启动失败后每 15 秒重新探测:服务器一旦上线(手动启动 / npx 下载完成)自动连接,无需手动重试。
+  let watchTimer: ReturnType<typeof setInterval> | undefined;
+  const stopWatcher = () => {
+    if (watchTimer !== undefined) {
+      clearInterval(watchTimer);
+      watchTimer = undefined;
+    }
+  };
+  const watchServer = () => {
+    if (watchTimer !== undefined) return;
+    output.appendLine("[activate] 服务器离线,每 15 秒重新探测,上线后自动连接");
+    watchTimer = setInterval(() => {
+      void hub.probe().then((ok) => {
+        if (ok) {
+          output.appendLine("[activate] 服务器已上线,停止探测");
+          stopWatcher();
+        }
+      });
+    }, 15_000);
+  };
+  void (async () => {
+    const ok = await hub.probe();
+    output.appendLine(`[activate] 服务器探测结果: ${ok ? "在线" : "离线"}`);
+    if (!ok) {
+      if (cfg().get<boolean>("autoStart", true)) {
+        output.appendLine("[activate] dsh.autoStart=true · 服务器离线,启动时自动启动…");
+        const ensured = await hub.ensureReady();
+        output.appendLine(`[activate] 启动时自动启动结果: ${ensured.ok ? "成功" : `失败 · ${ensured.message ?? "未知错误"}`}`);
+        if (ensured.ok) return;
+      }
+      watchServer();
+    }
+  })();
   output.appendLine("[activate] 注册完成 · 活动栏图标 / 辅助侧栏 tab / 命令与右键菜单均来自 package.json 静态贡献");
   // 可选:启动时自动打开独立聊天窗口(默认关闭;主入口是内置 Chat 的 @dsh)
   if (cfg().get<boolean>("openPanelOnStartup", false)) {
     setTimeout(() => chatWindow.open(), 800);
   }
 
-  ctx.subscriptions.push({ dispose: () => hub.dispose() });
+  ctx.subscriptions.push({ dispose: () => { stopWatcher(); hub.dispose(); } });
 }
 
 export function deactivate() {

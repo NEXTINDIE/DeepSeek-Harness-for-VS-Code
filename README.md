@@ -72,7 +72,7 @@ npm run watch
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `dsh.url` | `http://127.0.0.1:3080` | DSH Web 服务器地址(修改后需重载) |
-| `dsh.autoStart` | `true` | 服务器未运行时首次使用自动启动 `dsh web` |
+| `dsh.autoStart` | `true` | VS Code 启动时若服务器未运行则自动启动 `dsh web` |
 | `dsh.command` | `dsh` | 启动命令;找不到时回退 npx |
 | `dsh.autoStartTimeoutSec` | `60` | 自动启动最长等待秒数 |
 | `dsh.participantSessionMode` | `per-workspace` | @dsh 会话范围:每项目 / 全局 |
@@ -86,6 +86,7 @@ npm run watch
 - **Webview 报 Service Worker 错误**:VS Code 1.100.x 平台缺陷,升级 VS Code 或清空 `%APPDATA%\Code\Service Worker\CacheStorage`。
 - **"agent preset is fixed"**:已开始的会话不可切换预设,预设胶囊只在新会话显示。
 - **未连接**:执行 `DSH: 启动服务器`;检查 `dsh.url` 端口。
+- **启动时无法自动启动服务器**:扩展会在 VS Code 启动时自动启动 `dsh web`(失败后每 15 秒重探,服务器上线即自动连接);具体失败原因见输出通道 "DeepSeek Harness" 的 `[server]` 日志。若报错含 `0xC0000142`/`EPERM`,说明 VS Code 是从 DSH 会话或受限终端启动的(子进程创建被拦截)——改用普通方式启动 VS Code,或把该会话权限调为 `danger-full-access`。
 
 ## 开发
 
@@ -157,7 +158,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 | Key | Default | Description |
 | --- | --- | --- |
 | `dsh.url` | `http://127.0.0.1:3080` | DSH web server URL |
-| `dsh.autoStart` | `true` | Auto-start `dsh web` on first use |
+| `dsh.autoStart` | `true` | On VS Code startup, start `dsh web` if the server is not running |
 | `dsh.command` | `dsh` | Start command; falls back to npx |
 | `dsh.autoStartTimeoutSec` | `60` | Auto-start timeout (seconds) |
 | `dsh.participantSessionMode` | `per-workspace` | @dsh session scope: per-project / global |

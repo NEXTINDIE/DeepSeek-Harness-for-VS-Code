@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { join } from "node:path";
 
 export interface ServerManagerConfig {
   url: string;
@@ -7,6 +8,8 @@ export interface ServerManagerConfig {
   timeoutSec: number;
   /** 翻译函数;缺省时回退到英文。 */
   t?: (key: string, args?: Record<string, string | number>) => string;
+  /** 诊断日志回调(启动器解析 / 进程退出码等),用于输出到日志通道。 */
+  onLog?: (message: string) => void;
 }
 
 export interface ServerStatus {
@@ -79,93 +82,221 @@ export class ServerManager {
       return { up: false, message: this.cfg.t?.("hub.serverTimeout", { url: this.cfg.url }) ?? `Waiting for the DSH server timed out (${this.cfg.url})` };
     }
     const started = await this.start();
-    if (started) {
+    if (started.ok) {
       this.setStatus({ up: true, starting: false, startedByUs: true });
       return { up: true };
     }
-    const msg = this.cfg.t?.("hub.startFailed") ?? "Cannot start the DSH server: the dsh command was not found and the npx fallback failed.";
+    const detail = started.detail ?? "unknown";
+    let msg = this.cfg.t?.("hub.startFailed", { detail }) ?? `Cannot start the DSH server: ${detail}`;
+    // 0xC0000142 / EPERM 是环境级进程创建拦截(如从 DSH 会话/受限终端启动 VS Code),给出针对性提示
+    if (/3221225794|EPERM|EACCES/.test(detail)) {
+      const hint = this.cfg.t?.("hub.startRestrictedHint") ?? "Process creation appears to be blocked by the environment.";
+      msg = `${msg} ${hint}`;
+    }
     this.setStatus({ up: false, starting: false, message: msg });
     return { up: false, message: msg };
   }
 
   /** 启动服务器并轮询等待就绪。 */
-  private async start(): Promise<boolean> {
-    const launcher = await this.resolveLauncher();
-    if (!launcher) return false;
+  private async start(): Promise<{ ok: boolean; detail?: string }> {
+    const resolved = await this.resolveLauncher();
+    if (!resolved.launcher) {
+      const detail = resolved.detail ?? "no launcher found (dsh/npx/npm)";
+      this.log(`启动器解析失败: ${detail}`);
+      return { ok: false, detail };
+    }
+    const launcher = resolved.launcher;
+    this.log(`使用启动器: ${launcher}`);
     this.starting = true;
     this.setStatus({ starting: true, up: false });
+    let childExited = false;
+    let exitInfo = "";
     try {
-      this.child = spawn(launcher, ["web"], {
+      this.child = spawn(shellCommand(launcher, ["web"]), {
         shell: true,
         stdio: "ignore",
         windowsHide: true,
-        detached: false,
+        // POSIX 下分离进程组,使服务器在扩展宿主重载后仍存活;Windows 子进程本就独立存活
+        detached: process.platform !== "win32",
       });
       this.startedByUs = true;
-      this.child.once("exit", () => {
+      this.log(`已启动子进程 pid=${this.child.pid ?? "?"}(首次 npx 下载包可能较慢)`);
+      this.child.once("exit", (code, signal) => {
+        exitInfo = `exit code=${code ?? "null"} signal=${signal ?? "none"}`;
+        childExited = true;
+        this.log(`子进程退出: ${exitInfo}`);
         this.child = undefined;
         this.startedByUs = false;
         this.setStatus({ up: false, startedByUs: false, starting: false });
       });
-      this.child.once("error", () => {
+      this.child.once("error", (error) => {
+        exitInfo = `spawn error: ${error.message}`;
+        childExited = true;
+        this.log(`子进程启动失败: ${exitInfo}`);
         this.child = undefined;
         this.startedByUs = false;
         this.setStatus({ up: false, startedByUs: false, starting: false });
       });
-    } catch {
+    } catch (error) {
       this.starting = false;
       this.setStatus({ starting: false });
-      return false;
+      const detail = `spawn 抛出异常: ${error instanceof Error ? error.message : String(error)}`;
+      this.log(detail);
+      return { ok: false, detail };
     }
 
     const deadline = Date.now() + this.cfg.timeoutSec * 1000;
     while (Date.now() < deadline) {
-      if (await this.isUp(800)) return true;
+      if (await this.isUp(800)) {
+        this.log("服务器已就绪");
+        return { ok: true };
+      }
+      // 子进程提前退出:不再傻等,立即失败并给出退出码(如端口被占用 / npx 报错 / 环境拦截)
+      if (childExited) {
+        this.log(`子进程在就绪前退出(${exitInfo}),停止等待`);
+        break;
+      }
       await sleep(500);
     }
     this.starting = false;
-    this.setStatus({ starting: false, up: false, message: this.cfg.t?.("hub.serverNotReady", { secs: this.cfg.timeoutSec }) ?? `DSH server not ready within ${this.cfg.timeoutSec}s, it may have started on another port` });
-    return false;
+    const detail =
+      this.cfg.t?.("hub.serverNotReady", { secs: this.cfg.timeoutSec, detail: exitInfo || "no exit info" }) ??
+      `DSH server not ready within ${this.cfg.timeoutSec}s (${exitInfo}). It may have started on another port, or the first npx download needs longer than the timeout.`;
+    this.setStatus({ starting: false, up: false, message: detail });
+    return { ok: false, detail };
   }
 
-  /** 找到可用的启动命令:dsh → npx 回退。 */
-  private async resolveLauncher(): Promise<string | undefined> {
-    if (await this.canRun(this.cfg.command)) return this.cfg.command;
-    const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-    if (await this.canRun(npx)) return `${npx} --yes @deepseek-ai/dsh@latest`;
-    return undefined;
+  /** 找到可用的启动命令:dsh → npx → npm exec 回退(含常见绝对路径,规避 VS Code PATH 不含 node 的问题)。 */
+  private async resolveLauncher(): Promise<{ launcher?: string; detail?: string }> {
+    const failures: string[] = [];
+    const configured = await this.canRun(this.cfg.command);
+    if (configured.ok) {
+      this.log(`启动器命中配置 dsh.command = ${this.cfg.command}`);
+      return { launcher: this.cfg.command };
+    }
+    failures.push(`${this.cfg.command}:${configured.detail}`);
+    this.log(`dsh.command = ${this.cfg.command} 不可用(${configured.detail}),尝试 npx 回退`);
+    for (const npx of this.npxCandidates()) {
+      const r = await this.canRun(npx);
+      if (r.ok) {
+        this.log(`npx 可用: ${npx}`);
+        return { launcher: `${npx} --yes @deepseek-ai/dsh@latest` };
+      }
+      failures.push(`${npx}:${r.detail}`);
+    }
+    for (const npm of this.npmCandidates()) {
+      const r = await this.canRun(npm);
+      if (r.ok) {
+        this.log(`npm 可用: ${npm}`);
+        return { launcher: `${npm} exec --yes @deepseek-ai/dsh@latest` };
+      }
+      failures.push(`${npm}:${r.detail}`);
+    }
+    return { detail: failures.join("; ") };
   }
 
-  private canRun(command: string): Promise<boolean> {
+  /** npx 候选命令:PATH 中的 npx + Windows 常见 node 安装位置(去重)。 */
+  private npxCandidates(): string[] {
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    const push = (c: string) => {
+      if (c && !seen.has(c)) {
+        seen.add(c);
+        candidates.push(c);
+      }
+    };
+    if (process.platform === "win32") {
+      push("npx.cmd");
+      push("npx");
+      const bases = [
+        process.env.ProgramFiles,
+        process.env["ProgramFiles(x86)"],
+        process.env.APPDATA ? join(process.env.APPDATA, "npm") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "npm") : undefined,
+      ];
+      for (const base of bases) {
+        if (!base) continue;
+        push(join(base, "nodejs", "npx.cmd"));
+        push(join(base, "npx.cmd"));
+      }
+      push(join("C:\\Program Files", "nodejs", "npx.cmd"));
+      push(join("C:\\Program Files (x86)", "nodejs", "npx.cmd"));
+    } else {
+      push("npx");
+      push("/usr/local/bin/npx");
+      push("/opt/homebrew/bin/npx");
+    }
+    return candidates;
+  }
+
+  /** npm 候选命令(与 npx 同位置;npm exec 可作为 npx 的替代)。 */
+  private npmCandidates(): string[] {
+    const seen = new Set<string>();
+    const candidates: string[] = [];
+    const push = (c: string) => {
+      if (c && !seen.has(c)) {
+        seen.add(c);
+        candidates.push(c);
+      }
+    };
+    if (process.platform === "win32") {
+      push("npm.cmd");
+      push("npm");
+      const bases = [
+        process.env.ProgramFiles,
+        process.env["ProgramFiles(x86)"],
+        process.env.APPDATA ? join(process.env.APPDATA, "npm") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "npm") : undefined,
+      ];
+      for (const base of bases) {
+        if (!base) continue;
+        push(join(base, "nodejs", "npm.cmd"));
+        push(join(base, "npm.cmd"));
+      }
+      push(join("C:\\Program Files", "nodejs", "npm.cmd"));
+      push(join("C:\\Program Files (x86)", "nodejs", "npm.cmd"));
+    } else {
+      push("npm");
+      push("/usr/local/bin/npm");
+      push("/opt/homebrew/bin/npm");
+    }
+    return candidates;
+  }
+
+  private log(message: string) {
+    this.cfg.onLog?.(`[server] ${message}`);
+  }
+
+  private canRun(command: string): Promise<{ ok: boolean; detail: string }> {
     return new Promise((resolve) => {
       const args = ["--version"];
       let settled = false;
       const timer = setTimeout(() => {
         if (!settled) {
           settled = true;
-          resolve(false);
+          resolve({ ok: false, detail: "timeout(15s)" });
         }
       }, 15_000);
       try {
-        const child = spawn(command, args, { shell: true, stdio: "ignore", windowsHide: true });
-        child.once("error", () => {
+        const child = spawn(shellCommand(command, args), { shell: true, stdio: "ignore", windowsHide: true });
+        child.once("error", (error) => {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            resolve(false);
+            resolve({ ok: false, detail: `error ${error.message}` });
           }
         });
         child.once("exit", (code) => {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            resolve(code === 0);
+            resolve({ ok: code === 0, detail: `exit ${code}` });
           }
         });
-      } catch {
+      } catch (error) {
         settled = true;
         clearTimeout(timer);
-        resolve(false);
+        resolve({ ok: false, detail: `throw ${error instanceof Error ? error.message : String(error)}` });
       }
     });
   }
@@ -196,6 +327,12 @@ export class ServerManager {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** 拼接 shell 命令(Windows 下为带空格的可执行路径加引号,避免 cmd 截断)。 */
+function shellCommand(file: string, args: string[]): string {
+  const quote = (s: string) => (process.platform === "win32" && /\s/.test(s) && !/^".*"$/.test(s) ? `"${s}"` : s);
+  return [file, ...args].map(quote).join(" ");
 }
 
 function runDetached(command: string, args: string[]): Promise<void> {

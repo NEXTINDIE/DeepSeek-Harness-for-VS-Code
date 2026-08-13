@@ -24,6 +24,8 @@ export interface HubDeps {
   defaultReasoningEffort?: string;
   onStatus?: (status: HubStatus) => void;
   onNotice?: (message: string, kind: "info" | "warning" | "error") => void;
+  /** 诊断日志(启动器解析 / 服务器进程状态),由宿主输出到日志通道。 */
+  onLog?: (message: string) => void;
   /** 翻译函数(vscode.l10n.t);hub 保持对 vscode 无依赖。 */
   t?: (key: string, args?: Record<string, string | number>) => string;
 }
@@ -51,7 +53,7 @@ export class DshHub {
   constructor(private readonly deps: HubDeps) {
     this.client = new DshApiClient(deps.url);
     this.server = new ServerManager(
-      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, t: deps.t },
+      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, t: deps.t, onLog: deps.onLog },
       (s) => {
         this.statusState.serverUp = s.up;
         this.statusState.serverStartedByUs = s.startedByUs;

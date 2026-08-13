@@ -2,7 +2,7 @@
   "name": "dsh-vscode",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.9.20",
+  "version": "0.9.22",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",

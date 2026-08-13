@@ -19,7 +19,7 @@
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",
   "config.url": "DSH web server URL (usually the local loopback address).",
-  "config.autoStart": "Automatically start `dsh web` on first use when the server is not running.",
+  "config.autoStart": "On VS Code startup, automatically start `dsh web` if the server is not running (falls back to `npx --yes @deepseek-ai/dsh@latest` when `dsh` is not found).",
   "config.command": "Command used to start the server; falls back to `npx --yes @deepseek-ai/dsh@latest` when not found.",
   "config.autoStartTimeoutSec": "Maximum seconds to wait when auto-starting the server.",
   "config.participantSessionMode": "Session scope for the @dsh chat participant.",

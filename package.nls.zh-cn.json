@@ -19,7 +19,7 @@
   "view.chat.name": "聊天",
   "config.title": "DeepSeek Harness",
   "config.url": "DSH Web 服务器地址(通常是本机环回地址)。",
-  "config.autoStart": "服务器未运行时,在首次使用时自动启动 dsh web。",
+  "config.autoStart": "VS Code 启动时,若服务器未运行则自动启动 dsh web(找不到 dsh 时回退 npx --yes @deepseek-ai/dsh@latest)。",
   "config.command": "用于启动服务器的命令;找不到该命令时回退到 npx --yes @deepseek-ai/dsh@latest。",
   "config.autoStartTimeoutSec": "自动启动服务器时的最长等待秒数。",
   "config.participantSessionMode": "@dsh 聊天参与者的会话范围。",
