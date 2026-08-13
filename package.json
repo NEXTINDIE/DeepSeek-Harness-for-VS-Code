@@ -1,0 +1,244 @@
+{
+  "name": "dsh-vscode",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.9.20",
+  "publisher": "Jager",
+  "icon": "media/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deepseek-ai/deepseek-harness.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "deepseek",
+    "harness",
+    "agent",
+    "chat"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "dsh.openChat",
+        "title": "%cmd.openChat.title%",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "dsh.openChatWindow",
+        "title": "%cmd.openChatWindow.title%",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "dsh.openSidebar",
+        "title": "%cmd.openSidebar.title%"
+      },
+      {
+        "command": "dsh.newChat",
+        "title": "%cmd.newChat.title%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dsh.selectSession",
+        "title": "%cmd.selectSession.title%"
+      },
+      {
+        "command": "dsh.stop",
+        "title": "%cmd.stop.title%",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "dsh.startServer",
+        "title": "%cmd.startServer.title%"
+      },
+      {
+        "command": "dsh.stopServer",
+        "title": "%cmd.stopServer.title%"
+      },
+      {
+        "command": "dsh.openInBrowser",
+        "title": "%cmd.openInBrowser.title%",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "dsh.askSelection",
+        "title": "%cmd.askSelection.title%"
+      },
+      {
+        "command": "dsh.askFile",
+        "title": "%cmd.askFile.title%"
+      },
+      {
+        "command": "dsh.showInfo",
+        "title": "%cmd.showInfo.title%"
+      },
+      {
+        "command": "dsh.showOutput",
+        "title": "%cmd.showOutput.title%"
+      },
+      {
+        "command": "dsh.repairViews",
+        "title": "%cmd.repairViews.title%"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dsh",
+          "title": "%container.title%",
+          "icon": "media/icon.png",
+          "when": "!dsh:supportsSecondarySidebar"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "dsh-secondary",
+          "title": "%container.title%",
+          "icon": "media/icon.png",
+          "when": "dsh:supportsSecondarySidebar"
+        }
+      ]
+    },
+    "views": {
+      "dsh": [
+        {
+          "id": "dsh.chatView",
+          "type": "webview",
+          "name": "%view.chat.name%",
+          "icon": "media/icon.png"
+        }
+      ],
+      "dsh-secondary": [
+        {
+          "id": "dsh.chatViewSecondary",
+          "type": "webview",
+          "name": "%view.chat.name%",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dsh.newChat",
+          "when": "view == dsh.chatView || view == dsh.chatViewSecondary",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dsh.openInBrowser",
+          "when": "view == dsh.chatView || view == dsh.chatViewSecondary",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "dsh.askSelection",
+          "when": "editorHasSelection",
+          "group": "dsh@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "dsh.askFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "dsh@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%config.title%",
+      "properties": {
+        "dsh.url": {
+          "type": "string",
+          "default": "http://127.0.0.1:3080",
+          "description": "%config.url%"
+        },
+        "dsh.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.autoStart%"
+        },
+        "dsh.command": {
+          "type": "string",
+          "default": "dsh",
+          "description": "%config.command%"
+        },
+        "dsh.autoStartTimeoutSec": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "%config.autoStartTimeoutSec%"
+        },
+        "dsh.participantSessionMode": {
+          "type": "string",
+          "enum": [
+            "per-workspace",
+            "global"
+          ],
+          "enumDescriptions": [
+            "%config.participantSessionMode.perWorkspace%",
+            "%config.participantSessionMode.global%"
+          ],
+          "default": "per-workspace",
+          "description": "%config.participantSessionMode%"
+        },
+        "dsh.openPanelOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.openPanelOnStartup%"
+        },
+        "dsh.defaultReasoningEffort": {
+          "type": "string",
+          "default": "",
+          "description": "%config.defaultReasoningEffort%"
+        },
+        "dsh.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "zh-cn",
+            "en"
+          ],
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "%config.language.zh%",
+            "%config.language.en%"
+          ],
+          "default": "auto",
+          "description": "%config.language%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run build && node tools/clean-releases.mjs && vsce package -o Releases",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dompurify": "^3.2.4",
+    "marked": "^15.0.7",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.5.13",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}

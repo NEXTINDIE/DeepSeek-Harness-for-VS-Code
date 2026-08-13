@@ -1,0 +1,47 @@
+# ==========================================================
+#  DSH VS Code extension — files that must never be pushed
+# ==========================================================
+
+# --- Dependencies (reinstallable via package-lock.json) ---
+node_modules/
+
+# --- Build outputs & packaged artifacts ---
+dist/
+out/
+*.vsix
+Releases/
+
+# --- DSH agent session snapshots (local data, never push) ---
+.dsh-snapshots/
+
+# --- IDE / editor settings ---
+.vscode/
+.vscode-test/
+*.code-workspace
+
+# --- Logs & temp files ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Environment files & secrets ---
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Misc editor temp ---
+*.tmp
+*~

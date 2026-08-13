@@ -1,0 +1,13 @@
+.vscode/**
+.vscode-test/**
+.dsh-snapshots/**
+src/**
+node_modules/**
+esbuild.mjs
+tsconfig.json
+**/*.map
+**/*.ts
+.gitignore
+tools/**
+dist/test.js
+media/icon.svg
