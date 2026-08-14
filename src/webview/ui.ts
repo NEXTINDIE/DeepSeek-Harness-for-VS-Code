@@ -119,6 +119,8 @@ interface NodeState {
 const state = {
   sessions: [] as StoredSession[],
   current: null as string | null,
+  mode: "chat" as "chat" | "list",
+  locked: false,
   running: false,
   status: { serverUp: false, serverStartedByUs: false, serverStarting: false, muxConnected: false, hostConnected: false } as HubStatus,
   nodes: [] as NodeState[],
@@ -405,6 +407,9 @@ const EN_TEXT: Record<string, string> = {
   "✅ 批准计划并开始执行": "✅ Approve plan and start",
   "✏️ 继续修改计划": "✏️ Keep editing the plan",
   "⚠️ 还有问题未回答,请作答或点击跳过本题": "⚠️ Some questions are unanswered; answer or skip them",
+  "对话列表": "Conversations",
+  "新建对话": "New conversation",
+  "暂无会话,点击新建对话": "No conversations yet, start a new one",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -2196,6 +2201,10 @@ function handleMessage(msg: any) {
       stopTurnStatus();
       state.sessions = msg.sessions ?? [];
       state.current = msg.current ?? null;
+      state.mode = msg.mode === "list" ? "list" : "chat";
+      state.locked = !!msg.locked;
+      applyLayout();
+      refreshList();
       state.running = msg.running ?? false;
       state.status = msg.status ?? state.status;
       state.nodes = [];
@@ -2310,6 +2319,7 @@ function handleMessage(msg: any) {
       state.sessions = msg.sessions ?? [];
       renderSessions();
       renderPresetSelect();
+      refreshList();
       break;
     }
     case "running": {
@@ -2462,5 +2472,60 @@ window.addEventListener("message", (event) => {
   const msg = event.data;
   if (msg && typeof msg === "object") handleMessage(msg);
 });
+
+// ---------- 布局模式(侧边栏会话列表 / 编辑器标签页聊天) ----------
+
+let listRoot: HTMLDivElement | undefined;
+
+/** 按 state.mode 切换整体布局:列表模式渲染会话列表,聊天模式渲染完整聊天 UI。 */
+function applyLayout() {
+  if (state.mode === "list") {
+    if (!listRoot) listRoot = buildListApp();
+    app.replaceChildren(listRoot);
+  } else {
+    app.replaceChildren(root);
+    // 编辑器标签页模式:标签即会话,隐藏会话切换下拉与新建按钮
+    sessionSelectWrap.style.display = state.locked ? "none" : "";
+    btnNew.style.display = state.locked ? "none" : "";
+  }
+}
+
+function buildListApp(): HTMLDivElement {
+  const wrap = el("div", "list-view");
+  const head = el("div", "list-header");
+  head.append(el("span", "list-title", t("对话列表")));
+  const btnNewChat = el("button", "btn btn-list-new");
+  btnNewChat.append(lineIcon(ICONS.plus, 14), el("span", undefined, t("新建对话")));
+  btnNewChat.addEventListener("click", () => vscode.postMessage({ kind: "newTab" }));
+  head.append(btnNewChat);
+  const rows = el("div", "list-rows");
+  wrap.append(head, rows);
+  updateListRows(rows);
+  return wrap;
+}
+
+function refreshList() {
+  if (state.mode !== "list" || !listRoot) return;
+  const rows = listRoot.querySelector(".list-rows");
+  if (rows) updateListRows(rows as HTMLElement);
+}
+
+function updateListRows(rows: HTMLElement) {
+  rows.replaceChildren();
+  const sessions = state.sessions;
+  if (!sessions || sessions.length === 0) {
+    rows.append(el("div", "list-empty", t("暂无会话,点击新建对话")));
+    return;
+  }
+  for (const s of sessions) {
+    const item = el("div", "list-item" + (s.sessionId === state.current ? " active" : ""));
+    item.append(
+      el("div", "list-item-title", s.title || s.sessionId.slice(0, 16)),
+      el("div", "list-item-sub", [s.cwd, s.running ? t("运行中") : ""].filter(Boolean).join(" · ")),
+    );
+    item.addEventListener("click", () => vscode.postMessage({ kind: "openTab", sessionId: s.sessionId }));
+    rows.append(item);
+  }
+}
 
 vscode.postMessage({ kind: "ready" });

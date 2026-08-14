@@ -139,6 +139,11 @@
           "command": "dsh.openInBrowser",
           "when": "view == dsh.chatView || view == dsh.chatViewSecondary",
           "group": "navigation@2"
+        },
+        {
+          "command": "dsh.openChatWindow",
+          "when": "view == dsh.chatView || view == dsh.chatViewSecondary",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [

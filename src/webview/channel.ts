@@ -17,18 +17,39 @@ export interface ChatSink {
   dispose(): void;
 }
 
+/** ChatChannel 构造选项:锁定会话(编辑器标签页模式)与列表模式(侧边栏会话列表)。 */
+export interface ChatChannelOptions {
+  /** 锁定会话:该通道只服务于指定会话,忽略会话切换(编辑器标签页模式,一个对话一个标签)。 */
+  lockSession?: string;
+  /** 列表模式:仅渲染会话列表;点击会话经 onOpenTab 在编辑器标签页打开。 */
+  mode?: "chat" | "list";
+  /** 列表模式下"打开会话"回调(宿主打开对应会话的编辑器标签页)。 */
+  onOpenTab?: (sessionId: string) => void;
+  /** 列表/锁定模式下"新建会话"回调(宿主创建会话并打开新标签页)。 */
+  onNewTab?: () => void;
+}
+
 /**
  * 聊天通道:会话存储的增量同步 + webview 消息处理 + HTML/CSP 装配。
- * 侧边栏视图与独立窗口共用这一份逻辑。
+ * 侧边栏视图(列表模式)与编辑器区标签页(锁定会话模式)共用这一份逻辑。
  */
 export class ChatChannel {
   private disposables: vscode.Disposable[] = [];
+  private readonly mode: "chat" | "list";
+  private readonly lockSession: string | undefined;
+  private readonly onOpenTab: ((sessionId: string) => void) | undefined;
+  private readonly onNewTab: (() => void) | undefined;
 
   constructor(
     private readonly hub: DshHub,
     private readonly ctx: vscode.ExtensionContext,
     private readonly sink: ChatSink,
+    options: ChatChannelOptions = {},
   ) {
+    this.mode = options.mode ?? "chat";
+    this.lockSession = options.lockSession;
+    this.onOpenTab = options.onOpenTab;
+    this.onNewTab = options.onNewTab;
     sink.webview.options = {
       ...sink.webview.options,
       enableScripts: true,
@@ -61,51 +82,51 @@ export class ChatChannel {
       { dispose: store.on("sessionsChanged", () => this.post({ kind: "sessions", sessions: this.serializeSessions() })) },
       {
         dispose: store.on("sessionEvent", (sid: string, stored: StoredEvent) => {
-          if (sid === store.currentSessionId) {
+          if (sid === this.session()) {
             this.post({ kind: "delta", sessionId: sid, events: [this.serializeEvent(stored)] });
           }
         }),
       },
       {
         dispose: store.on("running", (sid: string, running: boolean) => {
-          if (sid === store.currentSessionId) this.post({ kind: "running", sessionId: sid, running });
+          if (sid === this.session()) this.post({ kind: "running", sessionId: sid, running });
         }),
       },
       {
         dispose: store.on("approval", (approval: PendingApproval) => {
-          if (approval.sessionId === store.currentSessionId) this.post({ kind: "approval", ...approval });
+          if (approval.sessionId === this.session()) this.post({ kind: "approval", ...approval });
         }),
       },
       { dispose: store.on("approvalResolved", (approvalId: string) => this.post({ kind: "approvalResolved", approvalId })) },
       {
         dispose: store.on("question", (question: PendingQuestion) => {
-          if (question.sessionId === store.currentSessionId) this.post({ kind: "question", ...question });
+          if (question.sessionId === this.session()) this.post({ kind: "question", ...question });
         }),
       },
       { dispose: store.on("questionResolved", (frameRpcId: string) => this.post({ kind: "questionResolved", frameRpcId })) },
       {
         dispose: store.on("goal", (sid: string, value: unknown) => {
-          if (sid === store.currentSessionId) this.post({ kind: "goal", sessionId: sid, value });
+          if (sid === this.session()) this.post({ kind: "goal", sessionId: sid, value });
         }),
       },
       {
         dispose: store.on("context", (sid: string, value: unknown) => {
-          if (sid === store.currentSessionId) this.post({ kind: "context", sessionId: sid, value });
+          if (sid === this.session()) this.post({ kind: "context", sessionId: sid, value });
         }),
       },
       {
         dispose: store.on("permissions", (sid: string, value: unknown) => {
-          if (sid === store.currentSessionId) this.post({ kind: "permissions", sessionId: sid, value });
+          if (sid === this.session()) this.post({ kind: "permissions", sessionId: sid, value });
         }),
       },
       {
         dispose: store.on("stats", (sid: string, value: unknown) => {
-          if (sid === store.currentSessionId) this.post({ kind: "stats", sessionId: sid, value });
+          if (sid === this.session()) this.post({ kind: "stats", sessionId: sid, value });
         }),
       },
       {
         dispose: store.on("todos", (sid: string, value: unknown) => {
-          if (sid === store.currentSessionId) this.post({ kind: "todos", sessionId: sid, value });
+          if (sid === this.session()) this.post({ kind: "todos", sessionId: sid, value });
         }),
       },
       {
@@ -118,6 +139,11 @@ export class ChatChannel {
 
     void this.ensureAndPush();
     this.postActiveFile();
+  }
+
+  /** 本通道服务的会话:锁定模式固定为锁定会话(编辑器标签页),否则跟随全局当前会话。 */
+  private session(): string | undefined {
+    return this.lockSession ?? this.hub.store.currentSessionId;
   }
 
   private postActiveFile() {
@@ -138,7 +164,7 @@ export class ChatChannel {
 
   private async ensureAndPush() {
     await this.hub.ensureReady();
-    const current = this.hub.store.currentSessionId;
+    const current = this.session();
     if (current) void this.hub.updateCurrentModel(current);
     await this.pushFullState();
   }
@@ -153,9 +179,11 @@ export class ChatChannel {
 
   private async pushFullState() {
     const store = this.hub.store;
-    const current = store.currentSessionId;
+    const current = this.session();
     this.post({
       kind: "init",
+      mode: this.mode,
+      locked: this.lockSession !== undefined,
       lang: effectiveLanguage(),
       status: this.hub.status,
       sessions: this.serializeSessions(),
@@ -175,10 +203,18 @@ export class ChatChannel {
 
   private async onMessage(msg: { kind: string; [key: string]: any }) {
     const store = this.hub.store;
-    const current = store.currentSessionId;
+    const current = this.session();
     switch (msg.kind) {
       case "ready":
         await this.ensureAndPush();
+        break;
+      case "openTab":
+        // 侧边栏列表模式:点击会话 → 在编辑器标签页打开
+        if (this.mode === "list" && typeof msg.sessionId === "string") this.onOpenTab?.(msg.sessionId);
+        break;
+      case "newTab":
+        // 侧边栏列表模式:新建对话 → 创建会话并打开新标签页
+        if (this.mode === "list") this.onNewTab?.();
         break;
       case "send": {
         if (current && typeof msg.text === "string" && msg.text.trim()) {
@@ -279,6 +315,8 @@ export class ChatChannel {
         if (current) await this.hub.cancel(current);
         break;
       case "select":
+        // 锁定会话的标签页忽略会话切换(标签即会话)
+        if (this.lockSession) break;
         if (typeof msg.sessionId === "string") {
           await this.hub.openSession(msg.sessionId);
           void this.hub.updateCurrentModel(msg.sessionId);
@@ -286,6 +324,11 @@ export class ChatChannel {
         }
         break;
       case "new": {
+        // 锁定/列表模式:交给宿主新建标签页
+        if (this.lockSession || this.mode === "list") {
+          this.onNewTab?.();
+          break;
+        }
         const cwd = folderCwd();
         try {
           const sessionId = await this.hub.createSession(cwd);
