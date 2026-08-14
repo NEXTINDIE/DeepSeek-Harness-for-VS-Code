@@ -113,6 +113,11 @@ export class SessionStore {
   }
 
   /** 通知会话列表已变化(供外部刷新调用)。 */
+  /** session.list 刷新写入统计后通知订阅者(触发 webview 实时渲染)。 */
+  emitStats(sessionId: string, value: unknown) {
+    this.emit("stats", sessionId, value);
+  }
+
   notifySessionsChanged() {
     this.emit("sessionsChanged", this.listSessions());
   }

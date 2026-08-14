@@ -202,6 +202,7 @@ export class DshHub {
           if (sessionStats !== undefined) current.sessionStats = sessionStats;
           if (tokenUsage !== undefined) current.tokenUsage = tokenUsage;
           this.store.stats.set(item.sessionId, current);
+          this.store.emitStats(item.sessionId, current);
         }
       }
       if (changed) {

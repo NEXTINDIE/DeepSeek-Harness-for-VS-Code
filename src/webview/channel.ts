@@ -70,6 +70,7 @@ export class ChatChannel {
     sink.webview.onDidReceiveMessage((msg) => void this.onMessage(msg), undefined, this.disposables);
     this.disposables.push(
       sink.onDidDispose(() => {
+        this.stopStatsPoll();
         for (const d of this.disposables) d.dispose();
         this.disposables = [];
       }),
@@ -102,7 +103,12 @@ export class ChatChannel {
       },
       {
         dispose: store.on("running", (sid: string, running: boolean) => {
-          if (sid === this.session()) this.post({ kind: "running", sessionId: sid, running });
+          if (sid !== this.session()) return;
+          this.post({ kind: "running", sessionId: sid, running });
+          if (this.mode === "chat") {
+            if (running) this.startStatsPoll();
+            else this.stopStatsPoll();
+          }
         }),
       },
       {
@@ -181,6 +187,21 @@ export class ChatChannel {
     if (current) void this.hub.updateCurrentModel(current);
     if (this.mode === "list") await this.pushWorkspaces();
     await this.pushFullState();
+  }
+
+  /** 统计轮询:会话运行期间每 5 秒刷新 session.list 投影,统计行实时更新(与 Web 端一致)。 */
+  private statsTimer: ReturnType<typeof setInterval> | undefined;
+  private startStatsPoll() {
+    if (this.statsTimer !== undefined) return;
+    this.statsTimer = setInterval(() => {
+      void this.hub.refreshSessions().catch(() => undefined);
+    }, 5000);
+  }
+  private stopStatsPoll() {
+    if (this.statsTimer !== undefined) {
+      clearInterval(this.statsTimer);
+      this.statsTimer = undefined;
+    }
   }
 
   /** 列表模式:推送工作区信息(侧边栏按工作区分组会话)。 */
@@ -343,6 +364,7 @@ export class ChatChannel {
         if (this.lockSession) break;
         if (typeof msg.sessionId === "string") {
           await this.hub.openSession(msg.sessionId);
+          await this.hub.refreshSessions();
           void this.hub.updateCurrentModel(msg.sessionId);
           await this.pushFullState();
         }

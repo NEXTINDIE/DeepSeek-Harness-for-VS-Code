@@ -993,9 +993,6 @@ body {
 }
 .stats-line {
   flex-basis: 100%;
-  width: min(100% - 16px, 760px);
-  margin-left: auto;
-  margin-right: auto;
   font-size: 10px;
   color: var(--dsh-muted);
   opacity: 0.85;
@@ -1690,9 +1687,6 @@ body {
 .context-bar {
   flex: 1;
   min-width: 0;
-  width: min(100% - 16px, 760px);
-  margin-left: auto;
-  margin-right: auto;
   display: flex;
   align-items: center;
   gap: 6px;
