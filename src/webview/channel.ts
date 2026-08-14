@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession, SessionStore } from "../dsh/sessionStore";
+import type { QueueItem } from "../dsh/types";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
@@ -149,6 +150,11 @@ export class ChatChannel {
         }),
       },
       {
+        dispose: store.on("queue", (sid: string, items: QueueItem[]) => {
+          if (sid === this.session()) this.post({ kind: "queue", sessionId: sid, items });
+        }),
+      },
+      {
         dispose: store.on("currentChanged", () => {
           void this.pushFullState();
         }),
@@ -244,6 +250,7 @@ export class ChatChannel {
       permissions: current ? store.permissions.get(current) : undefined,
       stats: current ? store.stats.get(current) : undefined,
       todos: current ? store.todos.get(current) : undefined,
+      queue: current ? (store.queues.get(current) ?? []) : [],
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
     });
   }
@@ -272,6 +279,25 @@ export class ChatChannel {
             void this.hub.refreshSessions();
           } catch {
             // 错误已通过 notice 提示
+          }
+        }
+        break;
+      }
+      case "queueAction": {
+        // 排队消息操作:插话发送(steer)/ 移除(remove) / 编辑(edit)
+        if (current && typeof msg.itemId === "string") {
+          const action =
+            msg.action === "remove"
+              ? { kind: "remove" as const }
+              : msg.action === "edit"
+                ? { kind: "edit" as const, content: msg.content ?? [] }
+                : { kind: "steer" as const };
+          try {
+            await this.hub.client.updateQueue(current, msg.itemId, action);
+            // 队列状态经 mux 帧自动同步;顺手刷新投影保持统计行准确
+            void this.hub.refreshSessions();
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.queueActionFailed", { error: String(error) }), level: "error" });
           }
         }
         break;

@@ -548,13 +548,55 @@ body {
   padding-left: 4px;
 }
 
-.msg-note,
-.msg-queued {
+.msg-note {
   align-self: center;
   color: var(--dsh-muted);
   font-size: 11px;
   border: 1px dashed var(--dsh-border);
   background: transparent;
+}
+
+/* 排队消息:靠右的消息块 + 插话发送按钮(对应 Web 端排队 dock) */
+.msg-queued {
+  align-self: flex-end;
+  color: var(--dsh-muted);
+  font-size: 12px;
+  border: 1px solid var(--dsh-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  max-width: 92%;
+}
+
+.msg-queued-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px 7px;
+  border-top: 1px dashed var(--dsh-border);
+}
+
+.btn-queued-steer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-radius: 11px;
+  border: 1px solid var(--dsh-border);
+  background: transparent;
+  color: var(--dsh-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.btn-queued-steer:hover:not(:disabled) {
+  border-color: var(--dsh-accent);
+  color: var(--dsh-accent);
+}
+
+.btn-queued-steer:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .msg-role {

@@ -112,6 +112,8 @@ interface NodeState {
   attachContext?: string;
   /** note 节点是否为命令行(斜杠命令执行记录) */
   cmd?: boolean;
+  /** 排队消息节点对应的队列项 id(插话/移除等操作需要) */
+  queueItemId?: string;
 }
 
 // ---------- 状态 ----------
@@ -422,6 +424,8 @@ const EN_TEXT: Record<string, string> = {
   "搜索会话": "Search conversations",
   "无匹配会话": "No matching conversations",
   "未分组会话": "Ungrouped",
+  "插话发送": "Send as steer",
+  "仅运行中可插话发送": "Steer is only available while running",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -902,6 +906,20 @@ function renderNode(node: NodeState): HTMLElement {
       const body = el("div", "msg-body");
       setHtml(body, node.text ?? "");
       wrap.append(body);
+      // 插话发送按钮(对应 Web 端排队消息操作:打断当前回合,立即发送这条排队消息)
+      if (node.queueItemId) {
+        const actions = el("div", "msg-queued-actions");
+        const btn = el("button", "btn btn-queued-steer");
+        btn.type = "button";
+        btn.disabled = !state.running;
+        btn.title = state.running ? t("插话发送") : t("仅运行中可插话发送");
+        btn.append(lineIcon(ICONS.send, 12), el("span", undefined, t("插话发送")));
+        btn.addEventListener("click", () => {
+          vscode.postMessage({ kind: "queueAction", itemId: node.queueItemId, action: { kind: "steer" } });
+        });
+        actions.append(btn);
+        wrap.append(actions);
+      }
       return wrap;
     }
     case "assistant": {
@@ -1983,6 +2001,12 @@ function stopTurnStatus() {
 
 function updateRunning() {
   updateSendButton();
+  // 排队消息的插话按钮:仅运行中可用(与 Web 端一致)
+  const canSteer = state.running;
+  document.querySelectorAll<HTMLButtonElement>(".btn-queued-steer").forEach((b) => {
+    b.disabled = !canSteer;
+    b.title = canSteer ? t("插话发送") : t("仅运行中可插话发送");
+  });
 }
 
 /** 发送/停止合一按钮 + 提示语状态。 */
@@ -2417,7 +2441,16 @@ function handleMessage(msg: any) {
       break;
     }
     case "queue": {
-      for (const item of msg.items ?? []) {
+      const items = msg.items ?? [];
+      // 差集清理:已从队列移除的项(如插话后转正、被移除)删除对应节点
+      const alive = new Set(items.map((i: any) => i.id));
+      for (const [id, node] of state.queuedIds) {
+        if (!alive.has(id)) {
+          state.queuedIds.delete(id);
+          removeNode(node);
+        }
+      }
+      for (const item of items) {
         if (item.placement !== "queued") continue;
         const id: string = item.id;
         if (state.queuedIds.has(id)) continue;
@@ -2430,6 +2463,7 @@ function handleMessage(msg: any) {
           kind: "queued",
           key: `q:${id}`,
           el: null,
+          queueItemId: id,
           text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
         };
         state.queuedIds.set(id, node);

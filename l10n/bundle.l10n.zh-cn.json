@@ -19,6 +19,7 @@
   "msg.noActiveEditor": "DSH: 没有活动的编辑器",
   "msg.noFile": "DSH: 未指定文件",
   "notice.attachmentsFailed": "选择文件失败: {error}",
+  "notice.queueActionFailed": "排队消息操作失败: {error}",
   "notice.newSessionFailed": "新建会话失败: {error}",
   "notice.renameFailed": "重命名失败: {error}",
   "notice.archiveFailed": "归档失败: {error}",
