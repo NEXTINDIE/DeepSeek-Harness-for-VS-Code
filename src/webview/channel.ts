@@ -186,6 +186,8 @@ export class ChatChannel {
     const current = this.session();
     if (current) void this.hub.updateCurrentModel(current);
     if (this.mode === "list") await this.pushWorkspaces();
+    // 推送前强制刷新一次投影,保证统计/上下文等数据最新
+    await this.hub.refreshSessions();
     await this.pushFullState();
   }
 

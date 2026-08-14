@@ -23,6 +23,11 @@ export class ChatWindowProvider {
     if (!ready.ok) return undefined;
     let sid = sessionId ?? this.hub.store.currentSessionId;
     if (!sid) {
+      // 默认续接最新会话(与 Web 端一致),而不是新建空会话
+      const latest = this.hub.store.listSessions()[0];
+      sid = latest?.sessionId;
+    }
+    if (!sid) {
       try {
         sid = await this.hub.createSession(folderCwd());
       } catch {
