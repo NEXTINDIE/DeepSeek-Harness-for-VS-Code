@@ -44,9 +44,12 @@ export async function snapshotCommit(
     // 空索引:以空树还原
   }
   try {
-    // 全量入暂存,但排除插件自己的记录目录(.dsh/rollback 是插件状态,不进快照)
-    const add = await gitExec(gitBin, cwd, ["add", "-A", "--", ".", ":!.dsh/rollback"]);
+    // 全量入暂存(无 pathspec:ignored 文件静默跳过、退出码恒为 0);
+    // 带 pathspec 的写法会在工作区 .gitignore 忽略某些目录时以非零退出。
+    const add = await gitExec(gitBin, cwd, ["add", "-A"]);
     if (!add.ok) return { ok: false, reason: `add: ${add.stderr || "failed"}` };
+    // 插件自己的记录目录(.dsh/rollback)不进快照:从索引撤出;目录尚不存在时忽略失败
+    await gitExec(gitBin, cwd, ["reset", "--quiet", "--", ".dsh/rollback"]);
     const tree = await gitExec(gitBin, cwd, ["write-tree"]);
     if (!tree.ok) return { ok: false, reason: `write-tree: ${tree.stderr || "failed"}` };
     let parentTree: string | undefined;

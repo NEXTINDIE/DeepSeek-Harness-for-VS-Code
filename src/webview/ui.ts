@@ -1947,11 +1947,7 @@ function renderActions(node: NodeState) {
       add(ICONS.ledger, t("查看检查点"), () => {
         vscode.postMessage({ kind: "command", line: "/checkpoints" });
       });
-      // 方法 1:回退到此处(去掉这条及之后)
-      add(ICONS.rewind, t("回退到此处"), () => {
-        vscode.postMessage({ kind: "forkAt", seq: lastTurnStartAtOrBefore(node.seq!) });
-      });
-      // 方法 2:从此处新建分支(保留到此)
+      // 从此处新建分支(保留到此;回退语义由"分支并回退到更早位置"承载,不再提供重复的"回退到此处")
       add(ICONS.branch, t("从此处新建分支"), () => {
         vscode.postMessage({ kind: "forkAt", seq: node.seq });
       });
@@ -2009,16 +2005,6 @@ function renderActions(node: NodeState) {
   });
   if (node.feedback === "positive") up.classList.add("selected-positive");
   if (node.feedback === "negative") down.classList.add("selected-negative");
-}
-
-/** 找到 seq 之前(含)最近的回合开始点;没有则回退到该消息自身。 */
-function lastTurnStartAtOrBefore(seq: number): number {
-  let found = seq;
-  for (const ts of state.turnStarts) {
-    if (ts <= seq) found = ts;
-    else break;
-  }
-  return found;
 }
 
 // ---------- 事件折叠 ----------

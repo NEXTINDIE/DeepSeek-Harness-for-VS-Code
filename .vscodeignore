@@ -2,7 +2,10 @@
 .vscode-test/**
 .dsh-snapshots/**
 .dsh/**
+.claude/**
 _chrome_profile*/**
+dsh-git-rollback/**
+git-checkpoint-test/**
 plan-*.json
 plan-*.mjs
 Releases/**

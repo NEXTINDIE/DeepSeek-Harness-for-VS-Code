@@ -156,6 +156,34 @@ test("回退失败路径:非 git、无检查点、无回合号、运行中由命
   }
 });
 
+test("gitignore 忽略 .dsh 时:add 不再非零退出、记录目录不入快照(回归)", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    // 复刻真实工作区:dsh-vscode 的 .gitignore 忽略 .dsh
+    writeFileSync(join(dir, ".gitignore"), ".dsh\n");
+    writeFileSync(join(dir, "a.txt"), "v1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    mkdirSync(join(dir, ".dsh/agent"), { recursive: true });
+    writeFileSync(join(dir, ".dsh/agent/a.md"), "ignored-agent");
+    // 第一次检查点:创建记录目录
+    writeFileSync(join(dir, "a.txt"), "v1.5");
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    assert.equal(readRecord(dir, SID).checkpoints.length, 1);
+    // 第二次检查点:记录目录已存在且 .dsh 被 gitignore → 旧实现 add 会非零退出
+    writeFileSync(join(dir, "a.txt"), "v2");
+    await checkpointTurn(GIT, dir, SID, 2, 2000, OPTS);
+    const rec = readRecord(dir, SID);
+    assert.equal(rec.checkpoints.length, 2);
+    const tree = run(["ls-tree", "-r", "--name-only", rec.checkpoints[1].commit]);
+    assert.ok(tree.includes("a.txt"));
+    assert.ok(!tree.includes(".dsh/rollback")); // 记录目录不进快照
+    assert.ok(!tree.includes(".dsh/agent/a.md")); // ignored 不进快照
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("unborn 仓库:首检查点为根提交;身份兜底生效", async () => {
   const { dir, run } = makeRepo();
   try {

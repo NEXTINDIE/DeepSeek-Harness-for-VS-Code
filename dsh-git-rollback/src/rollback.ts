@@ -53,8 +53,9 @@ export async function performRollback(
   if (!idx.ok) return { kind: "error", text: `保存点失败:${idx.stderr || "write-tree failed"}` };
   let saveCommit: string | undefined;
   try {
-    const add = await gitExec(gitBin, cwd, ["add", "-A", "--", ".", ":!.dsh/rollback"]);
+    const add = await gitExec(gitBin, cwd, ["add", "-A"]);
     if (!add.ok) return { kind: "error", text: `保存点失败:${add.stderr || "add failed"}` };
+    await gitExec(gitBin, cwd, ["reset", "--quiet", "--", ".dsh/rollback"]);
     const tree = await gitExec(gitBin, cwd, ["write-tree"]);
     if (!tree.ok) return { kind: "error", text: `保存点失败:${tree.stderr || "write-tree failed"}` };
     const commit = await gitExec(gitBin, cwd, [
