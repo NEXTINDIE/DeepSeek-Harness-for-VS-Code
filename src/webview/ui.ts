@@ -1110,12 +1110,37 @@ function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState) {
   scrollToBottom();
 }
 
+/** 流式渲染节流定时器:合并高频 chunk,避免每个 token 都全量 markdown 解析。 */
+let streamRenderTimer: ReturnType<typeof setTimeout> | undefined;
+
 function appendToStream(blockType: string, text: string) {
   if (!state.streamBlock) return;
   if ((state.streamBlock.type === "reasoning") !== (blockType === "reasoning")) return;
   state.streamBlock.text += text;
-  if (state.streamBlock.el) setHtml(state.streamBlock.el, state.streamBlock.text);
+  if (!state.streamBlock.el) return;
+  // 流式进行中:显示闪烁光标(assistant/message 到达后移除)
+  state.streamBlock.el.classList.add("streaming");
+  // 节流渲染:80ms 合并一次全量解析,滚动保持即时跟随
+  if (streamRenderTimer === undefined) {
+    streamRenderTimer = setTimeout(() => {
+      streamRenderTimer = undefined;
+      if (state.streamBlock?.el && typeof state.streamBlock.text === "string") {
+        setHtml(state.streamBlock.el, state.streamBlock.text);
+      }
+    }, 80);
+  }
   scrollToBottom();
+}
+
+/** 流式结束:立即落盘剩余内容并移除闪烁光标(assistant/message 与回合结束时调用)。 */
+function endStreaming() {
+  if (streamRenderTimer !== undefined) {
+    clearTimeout(streamRenderTimer);
+    streamRenderTimer = undefined;
+  }
+  const sb = state.streamBlock;
+  if (sb?.el && typeof sb.text === "string") setHtml(sb.el, sb.text);
+  document.querySelectorAll(".streaming").forEach((el) => el.classList.remove("streaming"));
 }
 
 function findToolNode(callId: string): NodeState | undefined {
@@ -1296,6 +1321,7 @@ function handleEvent(wire: WireEvent) {
       break;
     }
     case "assistant/message": {
+      endStreaming();
       state.streamBlock = null;
       state.streamKey = null;
       const content: any[] = data?.message?.content ?? [];
@@ -1431,6 +1457,7 @@ function handleEvent(wire: WireEvent) {
       break;
     }
     case "turn/end": {
+      endStreaming();
       state.running = false;
       state.streamBlock = null;
       state.streamKey = null;
@@ -2174,9 +2201,16 @@ function updateStatus(status: HubStatus) {
   statusDot.onclick = null;
 }
 
+/** 滚动节流:rAF 合并,流式高频 chunk 不重复触发布局抖动。 */
+let streamScrollRaf: number | undefined;
+
 function scrollToBottom() {
-  const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 260;
-  if (nearBottom) messages.scrollTop = messages.scrollHeight;
+  if (streamScrollRaf !== undefined) return;
+  streamScrollRaf = requestAnimationFrame(() => {
+    streamScrollRaf = undefined;
+    const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 260;
+    if (nearBottom) messages.scrollTop = messages.scrollHeight;
+  });
 }
 
 /** 顶部"加载更早的消息"按钮:仅在服务器确认还有更早历史时显示。 */
@@ -2382,6 +2416,7 @@ function handleMessage(msg: any) {
       state.approvals = new Map();
       state.questions = new Map();
       state.hasMore = !!msg.hasMore;
+      endStreaming();
       state.streamBlock = null;
       state.streamKey = null;
       state.goal = msg.goal;
