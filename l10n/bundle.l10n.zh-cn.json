@@ -52,6 +52,7 @@
   "hub.startRestrictedHint": "进程创建疑似被当前环境拦截(0xC0000142/EPERM)。若 VS Code 是从 DSH 会话或受限终端启动的,请改用普通方式启动 VS Code,或将该会话权限调整为 danger-full-access。",
   "hub.serverNoResponse": "DSH 服务器在 {url} 无响应",
   "hub.sendFailed": "发送失败: {message}",
+  "hub.commandFailed": "命令执行失败 ({line}): {message}",
   "hub.approvalGone": "审批已不在待处理状态",
   "hub.approvalFailed": "回应审批失败: {error}",
   "hub.questionGone": "提问已不在待处理状态",

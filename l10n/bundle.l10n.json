@@ -52,6 +52,7 @@
   "hub.startRestrictedHint": "Process creation appears to be blocked by the current environment (0xC0000142/EPERM). If VS Code was launched from a DSH session or a restricted terminal, start VS Code normally, or set the session permission to danger-full-access.",
   "hub.serverNoResponse": "DSH server at {url} is not responding",
   "hub.sendFailed": "Send failed: {message}",
+  "hub.commandFailed": "Command failed ({line}): {message}",
   "hub.approvalGone": "The approval is no longer pending",
   "hub.approvalFailed": "Respond to approval failed: {error}",
   "hub.questionGone": "The question is no longer pending",

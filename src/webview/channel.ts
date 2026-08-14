@@ -572,10 +572,11 @@ export class ChatChannel {
         break;
       }
       case "command": {
-        // 预设命令(计划模式等):直接作为斜杠命令发送
+        // 预设命令(计划模式等):宿主直接执行(与 Web 端同通道),不经 agent
         if (current && typeof msg.line === "string" && msg.line.trim()) {
           try {
-            await this.hub.send(current, msg.line.trim());
+            await this.hub.runCommand(current, msg.line.trim());
+            void this.hub.refreshSessions();
           } catch {
             // 错误已通过 notice 提示
           }
@@ -585,7 +586,9 @@ export class ChatChannel {
       case "permission": {
         if (current && typeof msg.preset === "string") {
           try {
-            await this.hub.send(current, `/permission ${msg.preset}`);
+            // 宿主直接执行 /permission(与 Web 端同通道):运行中切换也立即生效,无需审批,投影即时更新
+            await this.hub.runCommand(current, `/permission ${msg.preset}`);
+            void this.hub.refreshSessions();
             this.post({ kind: "notice", message: t("notice.permissionSet", { preset: msg.preset }), level: "info" });
           } catch {
             // 错误已通过 notice 提示

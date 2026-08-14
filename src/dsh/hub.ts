@@ -319,6 +319,16 @@ export class DshHub {
     }
   }
 
+  /** 宿主执行斜杠命令(/permission、/plan、/compact 等),与 Web 端同通道,不经 agent。 */
+  async runCommand(sessionId: string, line: string): Promise<string | undefined> {
+    const { result } = await this.client.executeCommand(sessionId, line);
+    if (result.kind === "error") {
+      this.deps.onNotice?.(this.deps.t?.("hub.commandFailed", { line, message: result.text ?? "" }) ?? `Command failed: ${line}`, "error");
+      throw new Error(result.text ?? `command failed: ${line}`);
+    }
+    return result.text;
+  }
+
   async respondApproval(sessionId: string, approvalId: string, outcome: "allowed-once" | "rejected") {
     const pending = this.store.pendingApprovals.get(approvalId);
     if (!pending) {

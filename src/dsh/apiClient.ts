@@ -139,6 +139,13 @@ export class DshApiClient {
   updateQueue(sessionId: string, itemId: string, action: { kind: "edit"; content: unknown[] } | { kind: "remove" } | { kind: "steer" }) {
     return this.post<{ accepted: true }>("session.updateQueue", { sessionId, itemId, action });
   }
+  /**
+   * 宿主执行斜杠命令(与 Web 端同通道):/permission、/plan、/compact 等由宿主直接执行,
+   * 不经 agent(经 agent 的命令会被拒绝执行,权限/命令因此不生效)。
+   */
+  executeCommand(sessionId: string, line: string) {
+    return this.post<{ commandId: string; result: { kind: "success" | "error"; text?: string } }>("commands/execute", { args: { agentId: sessionId, line } });
+  }
   renameSession(sessionId: string, title: string) {
     return this.post<{ title: string; seq: number }>("session.rename", { sessionId, title });
   }
