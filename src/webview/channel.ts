@@ -951,18 +951,20 @@ export class ChatChannel {
         // 从设置面板切换智能体配置目录扫描开关(写入 dsh.agentConfigDirs,全局)
         const value = msg.value;
         if (value && typeof value === "object") {
+          const next = {
+            claude: value.claude !== false,
+            codex: value.codex !== false,
+            githubCopilot: value.githubCopilot !== false,
+          };
           try {
-            const next = {
-              claude: value.claude !== false,
-              codex: value.codex !== false,
-              githubCopilot: value.githubCopilot !== false,
-            };
             await vscode.workspace.getConfiguration("dsh").update("agentConfigDirs", next, vscode.ConfigurationTarget.Global);
-            this.post({ kind: "agentDirs", value: next });
-            void this.rescanAgentConfigs();
           } catch (error) {
-            this.post({ kind: "notice", message: t("notice.agentDirsSetFailed", { error: String(error) }), level: "error" });
+            // 配置未注册(旧版本扩展 / 开发宿主未重载):回退到扩展全局状态存储,开关依然生效
+            console.warn("[dsh] dsh.agentConfigDirs not registered, falling back to globalState:", error);
+            await this.ctx.globalState.update("dsh.agentConfigDirs", next);
           }
+          this.post({ kind: "agentDirs", value: next });
+          void this.rescanAgentConfigs();
         }
         break;
       }
@@ -1083,13 +1085,15 @@ export class ChatChannel {
     return vscode.workspace.getConfiguration("dsh").get<string>("language", "auto");
   }
 
-  /** 扫描目录开关(dsh.agentConfigDirs):默认全部勾选(全部扫描)。 */
+  /** 扫描目录开关(dsh.agentConfigDirs):默认全部勾选(全部扫描);配置未注册时回退扩展全局状态。 */
   private agentDirsConfig(): { claude: boolean; codex: boolean; githubCopilot: boolean } {
     const cfg = vscode.workspace.getConfiguration("dsh").get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean }>("agentConfigDirs", {});
+    const fallback = this.ctx.globalState.get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean }>("dsh.agentConfigDirs");
+    const pick = (v: boolean | undefined, f: boolean | undefined) => v ?? f ?? true;
     return {
-      claude: cfg.claude !== false,
-      codex: cfg.codex !== false,
-      githubCopilot: cfg.githubCopilot !== false,
+      claude: pick(cfg?.claude, fallback?.claude),
+      codex: pick(cfg?.codex, fallback?.codex),
+      githubCopilot: pick(cfg?.githubCopilot, fallback?.githubCopilot),
     };
   }
 

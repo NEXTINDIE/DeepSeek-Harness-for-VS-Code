@@ -81,6 +81,10 @@ export interface PanelsContext {
   fmtTokens: (n: number) => string;
   /** 会话行点击 → 打开会话 */
   selectSession: (sessionId: string) => void;
+  /** 预设展示文案(内置按 id 本地化,用户预设用文件元数据),与网页端一致 */
+  presetDisplayText: (preset: { id: string; name?: string; description?: string; trust?: string }) => { name: string; description?: string };
+  /** 仅预设名称(会话行/选择器等) */
+  presetName: (id: string) => string;
   /** 打开文件(产物等) */
   openFile: (path: string) => void;
   /** 在系统资源管理器中显示 */
@@ -204,7 +208,7 @@ function sessionRowTitle(ctx: PanelsContext, s: PanelSession): string {
   const id = s.sessionId.slice(0, 12);
   const cwd = s.cwd ? ctx.basename(s.cwd) : "";
   const branch = s.parentSessionId ? "↪ " : "";
-  return `${branch}${s.title || (s.blank ? "🆕 新会话" : `💬 ${id}`)}${cwd && !s.title ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${s.agentPreset}` : ""}`;
+  return `${branch}${s.title || (s.blank ? "🆕 新会话" : `💬 ${id}`)}${cwd && !s.title ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${ctx.presetName(s.agentPreset)}` : ""}`;
 }
 
 function statusIconFor(s: PanelSession, ctx: PanelsContext): { icon: string; cls: string; title: string } {
@@ -1374,7 +1378,9 @@ export function createPanels(ctx: PanelsContext) {
       const row = ctx.el("div", "provider-row preset-row");
       const main = ctx.el("span", "ws-main");
       const titleLine = ctx.el("span", "ws-title");
-      titleLine.textContent = p.name ?? p.id;
+      // 内置(system)预设按 id 本地化名称与描述;用户预设保留文件元数据(与网页端一致)
+      const text = ctx.presetDisplayText(p);
+      titleLine.textContent = text.name;
       main.append(titleLine);
       const badges = ctx.el("span", "ws-sub");
       const bits: string[] = [p.id];
@@ -1383,9 +1389,9 @@ export function createPanels(ctx: PanelsContext) {
       if (p.broken) bits.push(`⚠️ ${p.broken}`);
       badges.textContent = bits.join(" · ");
       main.append(badges);
-      if (p.description) {
+      if (text.description) {
         const d = ctx.el("span", "ws-sub");
-        d.textContent = p.description.slice(0, 200);
+        d.textContent = text.description.slice(0, 200);
         main.append(d);
       }
       row.append(main);
@@ -1398,7 +1404,7 @@ export function createPanels(ctx: PanelsContext) {
         iconBtn(ctx, ctx.ICONS.copy, t("复制为新预设(本地作者)"), () => {
           void ctx.showDialog({ title: t("复制预设"), text: t("新预设 id(小写字母数字与连字符)"), input: true, value: `${p.id}-copy` }).then((v) => {
             if (!v) return;
-            void ctx.showDialog({ title: t("复制预设"), text: t("显示名(可留空)"), input: true, value: p.name ?? "" }).then((name) => {
+            void ctx.showDialog({ title: t("复制预设"), text: t("显示名(可留空)"), input: true, value: text.name }).then((name) => {
               post({ kind: "presetCopy", from: p.id, preset: v.trim(), name: name?.trim() || undefined });
             });
           });

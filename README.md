@@ -1,10 +1,16 @@
 # DeepSeek Harness for VS Code (dsh-vscode)
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.12.14
+> **Before using this extension**: start the DeepSeek Harness server from your terminal first — the extension connects to it inside VS Code.
+>
+> ```bash
+> npx @deepseek-ai/dsh web
+> ```
+
+[中文版](#chinese) | Publisher: Jager · Latest: 0.12.23
 
 Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
 
-![DeepSeek Harness for VS Code](media/home.jpg)
+![DeepSeek Harness for VS Code](https://raw.githubusercontent.com/NEXTINDIE/DeepSeek-Harness-for-VS-Code/main/media/home.jpg)
 
 ## Features
 
@@ -101,7 +107,13 @@ npm run package     # → Releases/
 
 # DeepSeek Harness for VS Code (dsh-vscode)
 
-[English version](#) | 发布者:Jager · 最新版本:0.12.14
+> **使用前请先启动 DSH Web 服务**:先在命令行中执行以下命令,安装并启动 `dsh web`,之后才能在 VS Code 中使用本插件。
+>
+> ```bash
+> npx @deepseek-ai/dsh web
+> ```
+
+[English version](#) | 发布者:Jager · 最新版本:0.12.23
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية,跟随 VS Code 显示语言或手动切换)。
 

@@ -300,5 +300,13 @@
   "✅ 允许": "✅ Izinkan",
   "❌ 拒绝": "❌ Tolak",
   "子代理": "Subagen",
-  "(暂无)": "(belum ada)"
+  "(暂无)": "(belum ada)",
+  "标准模式": "Mode standar",
+  "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Agen pengodean lengkap dengan penyuntingan file, shell, pencarian file dan web, skill, perencanaan, tujuan, subagen, dan alur kerja.",
+  "PTC 模式": "Mode kode",
+  "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "Semua kemampuan mode standar, dengan alat yang diekspos melalui Code Mode SDK sehingga model dapat menggabungkan operasi multi-langkah dalam satu program TypeScript.",
+  "极简模式": "Mode minimal",
+  "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Agen pengodean dua alat dengan bash persisten dan str_replace_editor.",
+  "创造模式": "Mode kreator",
+  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Dibuat untuk membuat preset agen kustom, dengan semua kemampuan mode standar plus inspeksi runtime, eksperimen plugin, dan panduan penulisan preset."
 }

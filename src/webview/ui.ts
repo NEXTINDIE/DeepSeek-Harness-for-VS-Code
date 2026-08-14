@@ -107,6 +107,7 @@ interface ModelsValue {
 interface PresetInfo {
   id: string;
   isDefault: boolean;
+  trust?: "system" | "user";
   name?: string;
   description?: string;
 }
@@ -135,17 +136,28 @@ interface NodeState {
   feedback?: "positive" | "negative";
   actionsEl?: HTMLElement | null;
   roleEl?: HTMLElement | null;
+  /** 助手消息内产物卡容器(位于回答与操作条之间) */
+  filesEl?: HTMLElement | null;
   /** 消息头后缀(思考耗时 · token 消耗),模型名变化时重建 */
   roleSuffix?: string;
   /** 所属回合/步骤,用于把流式内容定位到正确的节点 */
   turn?: number;
   step?: number;
+  /** 思考耗时:首个推理块开始到首个文本块开始的间隔 */
+  reasoningMs?: number;
+  reasoningStartMs?: number;
+  /** 助手节点内联的工具行(网页端工作流:工具插在所属思考块之后) */
+  tools?: NodeState[];
+  /** 工具行插入位置:渲染在 blocks[afterBlock] 之后(-1 = 最前) */
+  afterBlock?: number;
   // files 卡片节点
   files?: string[];
   /** 附件上下文(注入模型的内容,界面默认折叠) */
   attachContext?: string;
   /** note 节点是否为命令行(斜杠命令执行记录) */
   cmd?: boolean;
+  /** 工具调用失败(结果 isError) */
+  failed?: boolean;
   /** 用户消息携带的图片引用(官方 image 内容块) */
   images?: { attachmentId: string; mediaType?: string }[];
 }
@@ -243,8 +255,22 @@ const state = {
   } | null,
 };
 
-/** 当前回合产出的文件(来自 turn/start 事件的 data.deliverables) */
-let currentTurnDeliverables: string[] = [];
+/**
+ * 当前回合产出的文件(与网页端 ui-deliverables 一致:由 mutation 工具调用视图的
+ * 跟随 locations 推导,turn/start 的 data.deliverables 在本部署上为空,不可依赖)
+ */
+let turnProduced: string[] = [];
+const turnProducedSet = new Set<string>();
+/** 当前回合工具调用视图(callId → call view),tool/result 时据此判定哪些调用产生了文件 */
+const turnCallViews = new Map<string, any>();
+
+/** 与网页端 producedPaths 一致:仅 diff 卡或 kind=edit 的 generic 卡的 locations 计入产物(读/删/失败不算) */
+function producedPathsFromCallView(view: any): string[] {
+  if (!view || typeof view !== "object") return [];
+  if (view.card !== "diff" && !(view.card === "generic" && view.kind === "edit")) return [];
+  if (!Array.isArray(view.locations)) return [];
+  return view.locations.map((l: any) => l?.path).filter((p: unknown): p is string => typeof p === "string");
+}
 
 /** 输入框上方的回合活动指示(深度思考中… / 执行工具… + 已用时长,与网页版一致) */
 let turnStatusStartedAt = 0;
@@ -356,6 +382,8 @@ const panels = createPanels({
   openFile: (path) => vscode.postMessage({ kind: "openFile", path }),
   reveal: (path) => vscode.postMessage({ kind: "revealInExplorer", path }),
   requestAttachment: (_sessionId, attachmentId, messageId) => vscode.postMessage({ kind: "attachmentRead", attachmentId, messageId }),
+  presetDisplayText,
+  presetName,
 } as PanelsContext);
 
 /** 权限预设的中文名称(经 t() 翻译)。 */
@@ -380,6 +408,44 @@ function permissionIcon(value: string): string {
 
 function permissionLabel(value: string, fallback?: string): string {
   return t(PERMISSION_LABELS[value] ?? fallback ?? value);
+}
+
+// ---------- Agent 预设展示文案(与网页端 ui-agent-preset 一致) ----------
+
+/**
+ * 内置预设 id → 本地化键(源文案 = 中文,其余语言查词典)。
+ * trust=system 时按 id 翻译名称与描述;用户预设保留文件元数据(不翻译)。
+ */
+const BUILT_IN_PRESET_TEXTS: Record<string, { name: string; description: string }> = {
+  standard: {
+    name: "标准模式",
+    description: "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。",
+  },
+  code: {
+    name: "PTC 模式",
+    description: "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。",
+  },
+  minimal: {
+    name: "极简模式",
+    description: "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。",
+  },
+  cordis: {
+    name: "创造模式",
+    description: "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。",
+  },
+};
+
+/** 与网页端 presetDisplayText 同款:内置(system)预设按 id 本地化,用户预设用文件元数据。 */
+function presetDisplayText(preset: { id: string; name?: string; description?: string; trust?: string }): { name: string; description?: string } {
+  const keys = preset.trust === "system" ? BUILT_IN_PRESET_TEXTS[preset.id] : undefined;
+  if (keys !== undefined) return { name: t(keys.name), description: t(keys.description) };
+  return { name: preset.name ?? preset.id, ...(preset.description === undefined ? {} : { description: preset.description }) };
+}
+
+/** 会话/列表等仅需名称的场景:本地化后的预设名,查不到回退 id。 */
+function presetName(id: string): string {
+  const p = state.presets?.find((x) => x.id === id);
+  return p ? presetDisplayText(p).name : id;
 }
 
 // ---------- 国际化(中文为源语言,英文词典翻译;宿主传入显示语言) ----------
@@ -717,12 +783,21 @@ const EN_TEXT: Record<string, string> = {
   "技能(选中插入 /名称 调用)": "Skills (pick inserts /name to invoke)",
   "▾ 展开全部技能 ({n})": "▾ Expand all skills ({n})",
   // ---- 产物 ----
-  "📦 产物 ({n})": "📦 Deliverables ({n})",
+  "产物 ({n})": "Deliverables ({n})",
   "在文件夹中显示": "Show in folder",
   "在系统资源管理器中显示产物目录": "Reveal the deliverables folder in the system file explorer",
   "＋ 其余 {n} 个文件": "+ {n} more files",
   "收起": "Collapse",
   "在资源管理器中显示": "Reveal in File Explorer",
+  // ---- 内置 Agent 预设(按 id 本地化,与网页端一致) ----
+  "标准模式": "Standard mode",
+  "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.",
+  "PTC 模式": "Code mode",
+  "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "All Standard mode capabilities, with tools exposed through the Code Mode SDK so the model can combine multi-step operations in one TypeScript program.",
+  "极简模式": "Minimal mode",
+  "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Two-tool coding agent with persistent bash and str_replace_editor.",
+  "创造模式": "Creator mode",
+  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Built for creating custom agent presets, with all Standard mode capabilities plus runtime inspection, plugin experiments, and preset-authoring guidance.",
   // ---- 设置命名空间与字段本地化 ----
   "引导设置": "Onboarding",
   "网页搜索(DeepSeek)": "Web search (DeepSeek)",
@@ -949,7 +1024,7 @@ function toolSelect(label: string, title: string): { wrap: HTMLElement; select: 
   return { wrap, select, label: labelEl };
 }
 
-// 思考 / 模型 / 预设:位于输入框右下角
+// 思考:位于输入框右上角;模型:位于输入框右下角;预设:位于输入框右上角(仅新会话)
 const thinkingTool = toolSelect(t("思考"), t("思考深度(推理强度)"));
 const thinkingSelect = thinkingTool.select;
 const modelTool = toolSelect(t("模型"), t("模型"));
@@ -957,7 +1032,7 @@ const modelSelect = modelTool.select;
 const presetTool = toolSelect(t("预设"), t("Agent 预设"));
 const presetSelect = presetTool.select;
 const composerRight = el("div", "composer-right");
-composerRight.append(thinkingTool.wrap, modelTool.wrap);
+composerRight.append(modelTool.wrap);
 
 const inputWrap = el("div", "input-wrap");
 const input = el("textarea", "input");
@@ -979,13 +1054,14 @@ btnBackToMain.hidden = true;
 const modeChips = el("div", "mode-chips");
 const todoPanel = el("details", "todo-panel");
 todoPanel.hidden = true;
+/** 会话统计行:位于输入框最底部(网页端 composer.dock 同款),始终可见 */
 const statsLine = el("div", "stats-line");
 statsLine.hidden = true;
 const contextBar = el("div", "context-bar");
 contextBar.hidden = true;
-conversationBottom.append(btnBackToMain, modeChips, todoPanel, statsLine, contextBar);
+conversationBottom.append(btnBackToMain, modeChips, todoPanel, contextBar);
 
-// 输入框底部行:左下角 / 命令菜单、权限选择;右下角 思考/模型/预设
+// 输入框底部行:左下角 / 命令菜单、权限选择;右下角 模型
 const composerBottom = el("div", "composer-bottom");
 const btnPlus = el("button", "btn-icon-btn plus-btn");
 btnPlus.title = t("输入命令(/plan、/compact、.claude 命令…)");
@@ -995,13 +1071,16 @@ btnAddAttach.title = t("添加文件或文件夹到对话");
 btnAddAttach.append(lineIcon(ICONS.plus, 12));
 const permissionTool = toolSelect(t("权限"), t("读写权限(沙箱模式 + 审批策略)"));
 const permissionSelect = permissionTool.select;
+composerBottom.append(btnPlus, permissionTool.wrap, composerRight);
+// 发送提示:独占一行,位于输入框左下角
 const hint = el("div", "hint", t("Enter 发送 · Shift+Enter 换行"));
-composerBottom.append(btnPlus, permissionTool.wrap, composerRight, hint);
-// 对话框顶部行:左上角 ＋ 添加文件 + 芯片;右上角 预设胶囊(仅新会话显示)
+const hintRow = el("div", "hint-row");
+hintRow.append(hint);
+// 对话框顶部行:左上角 ＋ 添加文件 + 芯片;右上角 预设胶囊(仅新会话) + 思考
 const composerTop = el("div", "composer-top");
 attachmentsRow.append(btnAddAttach);
-composerTop.append(attachmentsRow, presetTool.wrap);
-composer.append(imagesRow, composerTop, inputWrap, composerBottom);
+composerTop.append(attachmentsRow, presetTool.wrap, thinkingTool.wrap);
+composer.append(imagesRow, composerTop, inputWrap, composerBottom, hintRow, statsLine);
 
 // 添加文件/文件夹选择菜单(挂在 composer 内)
 const attachMenu = el("div", "plus-menu attach-menu");
@@ -1377,35 +1456,32 @@ function renderNode(node: NodeState): HTMLElement {
       const wrap = el("div", "msg msg-assistant");
       const role = el("div", "msg-role", state.models?.current?.model ?? "DeepSeek");
       node.roleEl = role;
-      const blocks = el("div", "msg-blocks");
-      for (const block of node.blocks ?? []) {
-        if (block.type === "reasoning") {
-          const details = el("details", "block-reasoning-details");
-          details.append(el("summary", "block-reasoning-summary", t("💭 思考过程")));
-          const body = el("div", "block-body");
-          setHtml(body, block.text);
-          block.el = body;
-          details.append(body);
-          blocks.append(details);
-          continue;
-        }
-        const bwrap = el("div", "block");
-        const body = el("div", "block-body");
-        setHtml(body, block.text);
-        block.el = body;
-        bwrap.append(body);
-        blocks.append(bwrap);
-      }
+      const blocks = renderAssistantBlocks(node);
+      // 产物卡容器:位于回答内容与操作条(复制/分支/点赞)之间 —— 与网页端回合尾链一致
+      const filesBox = el("div", "msg-files");
+      filesBox.hidden = true;
+      node.filesEl = filesBox;
       const actions = el("div", "msg-actions");
       node.actionsEl = actions;
-      wrap.append(role, blocks, actions);
+      wrap.append(role, blocks, filesBox, actions);
+      renderNodeFiles(node);
       return wrap;
     }
     case "tool": {
-      const wrap = el("details", "msg tool-card");
+      // 工具执行过程行(网页端 tool view 同款):图标 + 名称 + 状态 + 参数预览,点击展开参数/结果
+      const wrap = el("details", "msg tool-card" + (node.done ? (node.failed ? " tool-failed" : " tool-done") : " tool-running"));
       const summary = el("summary", "tool-summary");
-      const nameSpan = el("span", "tool-name", (node.done ? "🔧" : "🔧⏳") + " " + (node.name ?? "tool"));
+      const nameSpan = el("span", "tool-name");
+      nameSpan.append(el("span", "tool-icon", toolIcon(node.name)));
+      nameSpan.append(el("span", "tool-name-text", node.name ?? "tool"));
       summary.append(nameSpan);
+      const statusSpan = el("span", "tool-status" + (node.done ? (node.failed ? " tool-status-failed" : " tool-status-done") : " tool-status-running"), node.done ? (node.failed ? "✗" : "✓") : "⏳");
+      summary.append(statusSpan);
+      if (node.args) {
+        const preview = el("span", "tool-args-preview");
+        preview.textContent = String(node.args).replace(/\s+/g, " ").slice(0, 90);
+        summary.append(preview);
+      }
       const body = el("div", "tool-body");
       const argsLabel = el("div", "tool-label", t("参数"));
       const argsPre = el("pre", "tool-pre", node.args ?? "");
@@ -1417,65 +1493,77 @@ function renderNode(node: NodeState): HTMLElement {
       return wrap;
     }
     case "files": {
-      // 产物列表框(网页端 ProducedFiles 同款:最多 6 个条目,余量折叠为 +N;点击在 VS Code 中打开)
-      const wrap = el("div", "msg files-card");
-      const head = el("div", "files-card-head");
-      head.append(lineIcon(ICONS.box, 13), el("span", undefined, t("📦 产物 ({n})", { n: String(node.files?.length ?? 0) })));
-      const revealAll = el("button", "files-card-reveal", t("在文件夹中显示"));
-      revealAll.title = t("在系统资源管理器中显示产物目录");
-      const firstDir = node.files?.length ? parentDir(node.files[0]) : undefined;
-      revealAll.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (firstDir) vscode.postMessage({ kind: "revealInExplorer", path: firstDir });
-      });
-      head.append(revealAll);
-      wrap.append(head);
-
-      const files = node.files ?? [];
-      const MAX = 6;
-      const rows = el("div", "files-card-rows");
-      const renderRows = (list: string[]) => {
-        rows.innerHTML = "";
-        for (const path of list) {
-          const row = el("button", "files-card-row");
-          row.append(lineIcon(ICONS.copy, 12));
-          const main = el("span", "files-card-main");
-          main.append(el("span", "files-card-name", basename(path)));
-          const dir = parentDir(path);
-          if (dir) {
-            const sub = el("span", "files-card-sub");
-            sub.textContent = dir;
-            sub.title = path;
-            main.append(sub);
-          }
-          row.append(main);
-          const reveal = el("button", "files-card-reveal-btn", "📁");
-          reveal.title = t("在资源管理器中显示");
-          reveal.addEventListener("click", (e) => {
-            e.stopPropagation();
-            vscode.postMessage({ kind: "revealInExplorer", path });
-          });
-          row.append(reveal);
-          row.title = path;
-          row.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path }));
-          rows.append(row);
-        }
-      };
-      renderRows(files.slice(0, MAX));
-      wrap.append(rows);
-      if (files.length > MAX) {
-        let expanded = false;
-        const more = el("button", "files-card-more", t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) }));
-        more.addEventListener("click", () => {
-          expanded = !expanded;
-          renderRows(expanded ? files : files.slice(0, MAX));
-          more.textContent = expanded ? t("收起") : t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) });
-        });
-        wrap.append(more);
-      }
-      return wrap;
+      return buildFilesCard(node.files ?? []);
     }
   }
+}
+
+/** 产物文件列表框(网页端 ProducedFiles 同款:最多 6 条,余量折叠 +N;点击在 VS Code 打开)。 */
+function buildFilesCard(files: string[]): HTMLElement {
+  const wrap = el("div", "files-card");
+  const head = el("div", "files-card-head");
+  head.append(lineIcon(ICONS.box, 13), el("span", undefined, t("产物 ({n})", { n: String(files.length) })));
+  const revealAll = el("button", "files-card-reveal", t("在文件夹中显示"));
+  revealAll.title = t("在系统资源管理器中显示产物目录");
+  const firstDir = files.length ? parentDir(files[0]) : undefined;
+  revealAll.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (firstDir) vscode.postMessage({ kind: "revealInExplorer", path: firstDir });
+  });
+  head.append(revealAll);
+  wrap.append(head);
+
+  const MAX = 6;
+  const rows = el("div", "files-card-rows");
+  const renderRows = (list: string[]) => {
+    rows.innerHTML = "";
+    for (const path of list) {
+      const row = el("button", "files-card-row");
+      row.append(lineIcon(ICONS.copy, 12));
+      const main = el("span", "files-card-main");
+      main.append(el("span", "files-card-name", basename(path)));
+      const dir = parentDir(path);
+      if (dir) {
+        const sub = el("span", "files-card-sub");
+        sub.textContent = dir;
+        sub.title = path;
+        main.append(sub);
+      }
+      row.append(main);
+      const reveal = el("button", "files-card-reveal-btn", "📁");
+      reveal.title = t("在资源管理器中显示");
+      reveal.addEventListener("click", (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ kind: "revealInExplorer", path });
+      });
+      row.append(reveal);
+      row.title = path;
+      row.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path }));
+      rows.append(row);
+    }
+  };
+  renderRows(files.slice(0, MAX));
+  wrap.append(rows);
+  if (files.length > MAX) {
+    let expanded = false;
+    const more = el("button", "files-card-more", t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) }));
+    more.addEventListener("click", () => {
+      expanded = !expanded;
+      renderRows(expanded ? files : files.slice(0, MAX));
+      more.textContent = expanded ? t("收起") : t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) });
+    });
+    wrap.append(more);
+  }
+  return wrap;
+}
+
+/** 把本轮产物渲染进助手消息的产物容器(位于操作条之前);无产物时隐藏容器。 */
+function renderNodeFiles(node: NodeState) {
+  if (!node.filesEl) return;
+  node.filesEl.innerHTML = "";
+  const files = node.deliverables ?? [];
+  node.filesEl.hidden = files.length === 0;
+  if (files.length > 0) node.filesEl.append(buildFilesCard(files));
 }
 
 function findAssistantTail(): NodeState | undefined {
@@ -1485,7 +1573,7 @@ function findAssistantTail(): NodeState | undefined {
   return undefined;
 }
 
-function beginAssistantBlock(turn: number, step: number, index: number, blockType: string) {
+function beginAssistantBlock(turn: number, step: number, index: number, blockType: string, startTime?: number) {
   state.streamBlock = null;
   state.streamKey = null;
   // 网页版布局:一个回合一个 assistant 节点,各步骤的文本块追加到同一节点
@@ -1494,45 +1582,74 @@ function beginAssistantBlock(turn: number, step: number, index: number, blockTyp
     assistant = { kind: "assistant", key: `a:${turn}:${state.nodes.length}`, el: null, blocks: [], turn };
     appendNode(assistant);
   }
+  // 思考耗时:推理块开始 → 首个文本块开始
+  if (blockType === "reasoning") {
+    if (assistant.reasoningStartMs === undefined) assistant.reasoningStartMs = startTime;
+  } else if (assistant.reasoningStartMs !== undefined && assistant.reasoningMs === undefined && startTime !== undefined) {
+    assistant.reasoningMs = Math.max(0, startTime - assistant.reasoningStartMs);
+  }
   state.currentStreamTurn = turn;
   const block: BlockState = { type: blockType === "reasoning" ? "reasoning" : "text", text: "", el: null };
   assistant.blocks!.push(block);
   state.streamedBlockKeys.add(`${turn}:${step}:${index}`);
-  refreshAssistantNode(assistant, block);
+  // 先把 streamBlock 指向新块再渲染:推理块开始时 detail 默认展开(思考中),文本块开始后自动收起
   state.streamBlock = block;
+  refreshAssistantNode(assistant, block);
+}
+
+/** 思考折叠条文案:💭 思考过程 · 耗时(网页端 Think 折叠同款)。 */
+function reasoningSummary(assistant: NodeState, first: boolean): string {
+  const base = t("💭 思考过程");
+  if (first && assistant.reasoningMs !== undefined) return `${base} · ${fmtDuration(assistant.reasoningMs)}`;
+  return base;
+}
+
+/** 渲染助手内容:推理/文本块与内联工具行按执行顺序交错(Think → 工具 → Think → 答案)。 */
+function renderAssistantBlocks(assistant: NodeState): HTMLElement {
+  const container = el("div", "msg-blocks");
+  const tools = assistant.tools ?? [];
+  const appendToolsAfter = (index: number) => {
+    for (const t of tools) {
+      if ((t.afterBlock ?? -1) !== index) continue;
+      if (!t.el) t.el = renderNode(t);
+      container.append(t.el);
+    }
+  };
+  appendToolsAfter(-1);
+  let seenReasoning = false;
+  (assistant.blocks ?? []).forEach((block, index) => {
+    if (block.type === "reasoning") {
+      const first = !seenReasoning;
+      seenReasoning = true;
+      // 思考进行中默认展开,思考结束(下一个块开始)后收起 —— 与网页端 Think 折叠一致
+      const details = el("details", "block-reasoning-details");
+      if (block === state.streamBlock && state.running) details.open = true;
+      details.append(el("summary", "block-reasoning-summary", reasoningSummary(assistant, first)));
+      const body = el("div", "block-body");
+      setHtml(body, block.text);
+      block.el = body;
+      details.append(body);
+      container.append(details);
+    } else {
+      const bwrap = el("div", "block");
+      const body = el("div", "block-body");
+      setHtml(body, block.text);
+      block.el = body;
+      bwrap.append(body);
+      container.append(bwrap);
+    }
+    appendToolsAfter(index);
+  });
+  return container;
 }
 
 function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState, force = false) {
   if (!assistant.el || !assistant.blocks) return;
   // 重放历史时跳过中间渲染(block-start),仅在 assistant/message(force)时一次性渲染最终内容
   if (state.replaying && !force) return;
-  const container = assistant.el.querySelector(".msg-blocks") as HTMLElement;
-  container.innerHTML = "";
-  for (const block of assistant.blocks) {
-    if (block.type === "reasoning") {
-      // 思考过程:可折叠,默认隐藏
-      const details = el("details", "block-reasoning-details");
-      details.append(el("summary", "block-reasoning-summary", t("💭 思考过程")));
-      const body = el("div", "block-body");
-      setHtml(body, block.text);
-      block.el = body;
-      details.append(body);
-      container.append(details);
-      continue;
-    }
-    const bwrap = el("div", "block");
-    const body = el("div", "block-body");
-    setHtml(body, block.text);
-    block.el = body;
-    bwrap.append(body);
-    container.append(bwrap);
-  }
-  if (activeBlock) {
-    activeBlock.el = container.querySelector(".block:last-child .block-body") as HTMLElement;
-    if (!activeBlock.el) {
-      activeBlock.el = container.querySelector(".block-reasoning-details:last-child .block-body") as HTMLElement;
-    }
-  }
+  const old = assistant.el.querySelector(".msg-blocks") as HTMLElement;
+  if (old) old.replaceWith(renderAssistantBlocks(assistant));
+  void activeBlock; // 块渲染时 block.el 已指向新 DOM,无需二次查找
   scrollToBottom();
 }
 
@@ -1555,8 +1672,17 @@ function findToolNode(callId: string): NodeState | undefined {
 
 function updateToolSummary(node: NodeState) {
   if (!node.el) return;
-  const span = node.el.querySelector(".tool-name");
-  if (span) span.textContent = (node.done ? "🔧" : "🔧⏳") + " " + (node.name ?? "tool");
+  // 名称/图标
+  const icon = node.el.querySelector(".tool-icon");
+  if (icon) icon.textContent = toolIcon(node.name);
+  const name = node.el.querySelector(".tool-name-text");
+  if (name) name.textContent = node.name ?? "tool";
+  // 状态
+  const status = node.el.querySelector(".tool-status");
+  if (status) {
+    status.textContent = node.done ? (node.failed ? "✗" : "✓") : "⏳";
+    status.className = "tool-status" + (node.done ? (node.failed ? " tool-status-failed" : " tool-status-done") : " tool-status-running");
+  }
 }
 
 // ---------- 消息操作条(复制 / ↪分支回退 / 点赞 / 点踩 / 产物) ----------
@@ -1730,7 +1856,7 @@ function handleEvent(wire: WireEvent) {
       const chunk = data?.chunk ?? {};
       switch (chunk.type) {
         case "block-start":
-          beginAssistantBlock(data?.turn ?? 0, data?.step ?? 0, chunk.index ?? 0, chunk.blockType ?? "text");
+          beginAssistantBlock(data?.turn ?? 0, data?.step ?? 0, chunk.index ?? 0, chunk.blockType ?? "text", ev.time);
           // 输入框上方活动指示:推理 → 深度思考中…,文本 → 生成回答…
           if (state.running && turnStatus.hidden) startTurnStatus(ev.time);
           setTurnStatusActivity(chunk.blockType === "reasoning" || chunk.blockType === "text" ? chunk.blockType : "reasoning");
@@ -1781,7 +1907,7 @@ function handleEvent(wire: WireEvent) {
       refreshAssistantNode(assistant, undefined, true); // 重放/实时均在此一次性渲染最终内容
       // 回合级元信息与操作条(最终一步的数据生效)
       assistant.seq = ev.seq;
-      assistant.deliverables = [...currentTurnDeliverables];
+      assistant.deliverables = [...turnProduced];
       const modelName = state.models?.current?.model ?? "DeepSeek";
       const stepStart = state.stepStarts.get(`${turn}:${step}`);
       const usage = data?.usage;
@@ -1813,6 +1939,8 @@ function handleEvent(wire: WireEvent) {
       setTurnStatusActivity("tool");
       const callId: string = data?.callId ?? "";
       if (!callId) break;
+      // 记录调用视图(主机已计算):tool/result 成功时据此把跟随 locations 计入本轮产物
+      if (wire.view?.for === "call") turnCallViews.set(String(callId), wire.view.view);
       const existing = findToolNode(callId);
       if (existing) {
         existing.name = data?.name ?? existing.name;
@@ -1820,28 +1948,36 @@ function handleEvent(wire: WireEvent) {
         if (existing.el) {
           const pre = existing.el.querySelectorAll(".tool-pre")[0];
           if (pre) pre.textContent = existing.args ?? "";
+          const preview = existing.el.querySelector(".tool-args-preview");
+          if (preview) preview.textContent = String(existing.args ?? "").replace(/\s+/g, " ").slice(0, 90);
           updateToolSummary(existing);
         }
         break;
       }
-      // 网页版布局:本回合的工具卡片直接进入"过程"折叠组,不再逐条占屏
-      let group = state.turnToolGroup;
-      if (!group) {
-        group = el("details", "tool-group");
-        const summary = el("summary", "tool-group-summary");
-        summary.append(lineIcon(ICONS.box, 12), el("span", "tool-group-summary-text", t("🔧 过程")));
-        group.append(summary);
-        group.append(el("div", "tool-group-body"));
-        const turnAssistant = [...state.nodes].reverse().find((n) => n.kind === "assistant" && n.turn === state.currentStreamTurn);
-        if (turnAssistant?.el) turnAssistant.el.before(group);
-        else messages.appendChild(group);
-        state.turnToolGroup = group;
+      // 网页端工作流:工具行内联插入到所属思考块之后(Think → 工具 → Think → 答案),不再使用独立工具合集
+      let assistant = findAssistantTail();
+      const callTurn = typeof data?.turn === "number" ? data.turn : state.currentStreamTurn;
+      if (!assistant || (callTurn !== undefined && assistant.turn !== callTurn)) {
+        assistant = { kind: "assistant", key: `a:${callTurn ?? state.nodes.length}:${state.nodes.length}`, el: null, blocks: [], turn: callTurn ?? 0, tools: [] };
+        appendNode(assistant);
       }
-      const node: NodeState = { kind: "tool", key: `t:${callId}`, el: null, callId, name: data?.name, args: data?.arguments ?? "", done: false };
+      assistant.tools ??= [];
+      const node: NodeState = {
+        kind: "tool",
+        key: `t:${callId}`,
+        el: null,
+        callId,
+        name: data?.name,
+        args: data?.arguments ?? "",
+        done: false,
+        // 插入位置:当前最后一个块(通常为刚结束的思考块)之后
+        afterBlock: (assistant.blocks?.length ?? 0) - 1,
+      };
       node.el = renderNode(node);
-      group.querySelector(".tool-group-body")!.append(node.el!);
+      assistant.tools.push(node);
       state.nodes.push(node);
-      state.currentTurnTools.push(node);
+      // 重放时跳过中间重绘,assistant/message 最终一次性渲染内联工具行
+      if (!state.replaying) refreshAssistantNode(assistant, undefined, true);
       scrollToBottom();
       break;
     }
@@ -1852,7 +1988,12 @@ function handleEvent(wire: WireEvent) {
       const existing = findToolNode(callId);
       if (existing) {
         existing.result = truncateResult(text);
+        // 与网页端一致:content[0].isError 才是失败标志(顶层 isError 仅兜底)
+        const isError = data?.message?.isError === true || data?.isError === true || data?.message?.content?.[0]?.isError === true;
+        existing.failed = isError;
         existing.done = true;
+        existing.el?.classList.remove("tool-running");
+        existing.el?.classList.add(existing.failed ? "tool-failed" : "tool-done");
         if (existing.el) {
           const pres = existing.el.querySelectorAll(".tool-pre");
           if (pres.length === 1) {
@@ -1860,6 +2001,15 @@ function handleEvent(wire: WireEvent) {
             body?.append(el("div", "tool-label", t("结果")), el("pre", "tool-pre", existing.result ?? ""));
           }
           updateToolSummary(existing);
+        }
+        // 网页端 ProducedFiles 同款推导:成功 mutation 的跟随 locations 计入本轮产物(首见顺序去重)
+        if (!isError) {
+          const callView = turnCallViews.get(String(callId));
+          for (const path of producedPathsFromCallView(callView)) {
+            if (turnProducedSet.has(path)) continue;
+            turnProducedSet.add(path);
+            turnProduced.push(path);
+          }
         }
       }
       break;
@@ -1869,9 +2019,10 @@ function handleEvent(wire: WireEvent) {
       state.currentTurnTools = [];
       state.turnToolGroup = null;
       state.turnStarts.push(ev.seq);
-      const deliverables = data?.deliverables;
-      currentTurnDeliverables =
-        deliverables && typeof deliverables === "object" && !Array.isArray(deliverables) ? Object.keys(deliverables) : [];
+      // 每回合重置产物累积器(不再读取 data.deliverables —— 本部署该字段为空)
+      turnProduced = [];
+      turnProducedSet.clear();
+      turnCallViews.clear();
       startTurnStatus(ev.time);
       updateRunning();
       break;
@@ -1888,16 +2039,28 @@ function handleEvent(wire: WireEvent) {
       stopTurnStatus();
       const finishedTurn = state.currentStreamTurn;
       state.currentStreamTurn = undefined;
-      collapseToolGroup();
       // 回合结束后才渲染操作条(复制/分支/点赞)
       if (finishedTurn !== undefined) {
         const node = [...state.nodes].reverse().find((n) => n.kind === "assistant" && n.turn === finishedTurn);
         if (node) renderActions(node);
       }
-      // 本轮产物:对话末尾显示文件列表框(Codex 风格)
-      if (currentTurnDeliverables.length > 0) {
-        appendNode({ kind: "files", key: `files:${ev.seq}`, el: null, files: [...currentTurnDeliverables] });
-        currentTurnDeliverables = [];
+      // 本轮产物:渲染进收尾助手消息的产物容器(复制/分支/点赞操作条之前),与网页端回合尾链一致
+      const produced = [...turnProduced];
+      if (produced.length > 0) {
+        const closing =
+          finishedTurn !== undefined
+            ? [...state.nodes].reverse().find((n) => n.kind === "assistant" && n.turn === finishedTurn)
+            : undefined;
+        if (closing) {
+          closing.deliverables = produced;
+          renderNodeFiles(closing);
+        } else {
+          // 罕见兜底:找不到收尾助手消息时,退回独立产物卡
+          appendNode({ kind: "files", key: `files:${ev.seq}`, el: null, files: produced });
+        }
+        turnProduced = [];
+        turnProducedSet.clear();
+        turnCallViews.clear();
       }
       updateRunning();
       break;
@@ -1911,28 +2074,6 @@ function removeNode(node: NodeState) {
   node.el?.remove();
   const idx = state.nodes.indexOf(node);
   if (idx >= 0) state.nodes.splice(idx, 1);
-}
-
-/** 回合结束时确定"过程"组的摘要文案(工具卡片一直位于折叠组内)。 */
-function collapseToolGroup() {
-  const nodes = state.currentTurnTools.filter((n) => n.el);
-  state.currentTurnTools = [];
-  const group = state.turnToolGroup;
-  state.turnToolGroup = null;
-  if (!group) return;
-  if (nodes.length === 0) {
-    group.remove();
-    return;
-  }
-  const names = nodes
-    .map((n) => n.name ?? "tool")
-    .filter((v, i, arr) => arr.indexOf(v) === i)
-    .slice(0, 4)
-    .join(" · ");
-  const textEl = group.querySelector(".tool-group-summary-text");
-  if (textEl) {
-    textEl.textContent = t("本轮调用 {n} 个工具", { n: String(nodes.length) }) + (names ? ` · ${names}` : "");
-  }
 }
 
 function extractText(content: any): string {
@@ -2247,7 +2388,7 @@ function sessionLabel(s: StoredSession): string {
   const id = s.sessionId.slice(0, 12);
   const cwd = s.cwd ? basename(s.cwd) : "";
   const branch = s.parentSessionId ? "↪ " : "";
-  return `${branch}${s.blank ? "🆕" : "💬"} ${id}${cwd ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${s.agentPreset}` : ""}`;
+  return `${branch}${s.blank ? "🆕" : "💬"} ${id}${cwd ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${presetName(s.agentPreset)}` : ""}`;
 }
 
 function basename(p: string): string {
@@ -2260,6 +2401,23 @@ function parentDir(p: string): string {
   const parts = p.split(/[\\/]/).filter(Boolean);
   if (parts.length <= 1) return "";
   return parts.slice(0, -1).join(p.includes("/") && !p.includes("\\") ? "/" : "\\");
+}
+
+/** 工具图标映射(网页端工具视图同款分类:shell / edit / read / search / web / 其他)。 */
+function toolIcon(name?: string): string {
+  const n = (name ?? "").toLowerCase();
+  if (n.includes("bash") || n.includes("pwsh") || n.includes("shell") || n === "terminal" || n.includes("code_runtime")) return "💻";
+  if (n.includes("edit") || n.includes("write") || n.includes("str_replace")) return "✏️";
+  if (n.includes("read")) return "📖";
+  if (n.includes("grep") || n.includes("glob") || n.includes("search")) return "🔍";
+  if (n.includes("web")) return "🌐";
+  if (n.includes("todo")) return "☑️";
+  if (n.includes("skill")) return "🧩";
+  if (n.includes("goal")) return "🎯";
+  if (n.includes("subagent")) return "🤖";
+  if (n.includes("workflow")) return "🔀";
+  if (n.includes("ask_user") || n.includes("question")) return "❓";
+  return "🔧";
 }
 
 function renderThinkingSelect() {
@@ -2347,7 +2505,7 @@ function renderPresetSelect() {
 }
 
 function presetLabel(id: string): string {
-  return state.presets?.find((p) => p.id === id)?.name ?? id;
+  return presetName(id);
 }
 
 function renderPermissionsSelect() {
@@ -2980,7 +3138,9 @@ function applyLanguage() {
   state.stepStarts = new Map();
   state.currentStreamTurn = undefined;
   state.streamedBlockKeys = new Set();
-  currentTurnDeliverables = [];
+  turnProduced = [];
+  turnProducedSet.clear();
+  turnCallViews.clear();
   messages.innerHTML = "";
   state.replaying = true;
   for (const wire of events) handleEvent(wire);
@@ -3031,9 +3191,15 @@ function handleMessage(msg: any) {
       state.todos = msg.todos;
       state.lang = msg.lang ?? "zh-cn";
       state.languagePref = msg.languagePref ?? "auto";
+      // 骨架期创建的静态控件文案(输入框 placeholder、按钮 title、工具标签等)在
+      // 构建时用的是默认 zh-cn,init 拿到真实语言后必须就地刷新,否则首次打开显示中文
+      applyStaticLabels();
       state.agentDirs = msg.agentDirs ?? { claude: true, codex: true, githubCopilot: true };
       state.models = null;
       state.presets = null;
+      // 切换会话时清空技能与子代理,避免旧会话数据残留导致 / 菜单显示空标题
+      state.skills = null;
+      state.subagents = null;
       state.workspaces = msg.workspaces ?? [];
       state.workspaceOrder = msg.workspaceOrder ?? [];
       state.archivedSessionIds = msg.archivedSessionIds ?? [];
@@ -3227,8 +3393,11 @@ function handleMessage(msg: any) {
       const events = msg.events ?? [];
       state.seqs = new Set();
       state.rawEvents = [];
-      messages.innerHTML = "";
       state.nodes = [];
+      turnProduced = [];
+      turnProducedSet.clear();
+      turnCallViews.clear();
+      messages.innerHTML = "";
       state.replaying = true;
       for (const wire of events) handleEvent(wire);
       state.replaying = false;
