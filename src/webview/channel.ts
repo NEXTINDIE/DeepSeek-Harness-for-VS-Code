@@ -267,7 +267,7 @@ export class ChatChannel {
         if (current && typeof msg.text === "string" && msg.text.trim()) {
           try {
             const text = await this.composeWithAttachments(msg.text, msg.attachments);
-            await this.hub.send(current, text);
+            await this.hub.send(current, text, msg.mode === "steer" ? "steer" : "queue");
             // 发送后立即刷新投影,统计行不会被回合开始时的空帧清空
             void this.hub.refreshSessions();
           } catch {

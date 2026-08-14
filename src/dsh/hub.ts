@@ -296,9 +296,9 @@ export class DshHub {
     return sessionId;
   }
 
-  async send(sessionId: string, text: string) {
+  async send(sessionId: string, text: string, mode: "queue" | "steer" = "queue") {
     try {
-      await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text }] });
+      await this.client.sendPrompt({ sessionId, mode, content: [{ type: "text", text }] });
     } catch (error) {
       const message = error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
       this.deps.onNotice?.(this.deps.t?.("hub.sendFailed", { message }) ?? `Send failed: ${message}`, "error");
