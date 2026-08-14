@@ -11,15 +11,15 @@
 - **独立聊天窗口**:编辑器区 WebviewPanel,命令 `DSH: 打开独立聊天窗口`。
 - **现代聊天界面**:大号圆角输入框、胶囊工具栏(思考深度 / 模型 / 预设 / 权限)、会话统计行(轮数 · 步骤 · LLM/工具耗时 · 首 token · tok/s · 缓存命中 · 输入/输出 token)、上下文用量进度条。
 - **消息操作条**(每条回答下方,简约线条图标):复制(双层矩形图标)/ 分支(分叉线条图标,点击展开菜单:逆时针箭头"回退到此处" · 分叉图标"从此处新建分支" · 左上折线"分支并回退到更早位置" · 左上箭头"回到主线")/ 点赞、点踩(拇指线条图标,官方 `/feedback` 记录)/ 消息头显示模型名 · 思考耗时 · 本步 token 消耗。
-- **思考过程折叠**:💭 思考过程默认收起,点击展开;工具调用每轮折叠为一行摘要"本轮调用 N 个工具"。
+- **思考过程折叠**:思考过程默认收起,点击展开;工具调用每轮折叠为一行摘要"本轮调用 N 个工具"。
 - **产物文件框**:每轮结束在对话末尾显示生成的文件列表,点击在编辑器中打开。
 - **会话管理**:会话下拉旁的 ⋯ 菜单支持 分叉 / 重命名(预填当前标题)/ 归档(仍保留在服务器)。
-- **目标(goal)**:goal 进度卡(目标 · 阶段 · 轮次 · 进度条)+ 🎯 目标模式芯片,点击可 修改 / 完成 / 清除目标。
-- **计划模式**:/ 命令菜单选"计划模式"后出现 📝 芯片,点击退出;`plan/mode` 状态实时同步。
-- **附件**:自动附加当前激活文件(跟随编辑器切换,蓝色芯片)+ 手动添加文件/文件夹(二选一菜单);发送时上下文注入模型,界面默认折叠为"📎 附件上下文"卡片,不展开文件内容。
+- **目标(goal)**:goal 进度卡(目标 · 阶段 · 轮次 · 进度条)+ 目标模式芯片,点击可 修改 / 完成 / 清除目标。
+- **计划模式**:/ 命令菜单选"计划模式"后出现 计划 芯片,点击退出;`plan/mode` 状态实时同步。
+- **附件**:自动附加当前激活文件(跟随编辑器切换,蓝色芯片)+ 手动添加文件/文件夹(二选一菜单);发送时上下文注入模型,界面默认折叠为"附件上下文"卡片,不展开文件内容。
 - **子代理**:对话底部显示子代理芯片(运行状态),点击查看最近回复。
 - **技能**:/ 菜单列出会话可用技能(官方 skill.list),点击插入提示词。
-- **.claude / .codex / GitHub Copilot 目录**:CLAUDE.md / AGENTS.md 由 DSH 核心自动读取(菜单显示 ✅);.claude/commands 与 .claude/skills、.codex/skills(SKILL.md)、.github/copilot-instructions.md、.github/instructions、.github/agents、.github/prompts 均可在 / 菜单中查看并插入使用。
+- **.claude / .codex / GitHub Copilot 目录**:CLAUDE.md / AGENTS.md 由 DSH 核心自动读取(菜单显示已读取状态);.claude/commands 与 .claude/skills、.codex/skills(SKILL.md)、.github/copilot-instructions.md、.github/instructions、.github/agents、.github/prompts 均可在 / 菜单中查看并插入使用。
 - **读写权限**:权限胶囊切换只读 / 工作区可写 / 完全访问(危险),官方 `/permission` 命令。
 - **跨项目会话**:每项目(工作区文件夹)独立 @dsh 会话;多根工作区跟随活动编辑器;`/session <ID>` 显式切换;`dsh.participantSessionMode: global` 可全局共用。
 - **多语言**:扩展与聊天界面跟随 VS Code 显示语言(简体中文 / English)。
@@ -64,7 +64,7 @@ npm run watch
 - 左上角 `+` 按钮:添加文件 / 添加文件夹(二选一);附件行蓝色芯片为自动附加的激活文件(× 移除)。
 - 消息操作条:点击分叉线条图标打开分支/回退菜单 —— 逆时针箭头"回退到此处"(去掉本条及之后)、分叉图标"从此处新建分支"(保留到此)、左上折线"分支并回退到更早位置";分叉会话另有左上箭头"回到主线"。
 - 会话 ⋯ 菜单:分叉 / 重命名 / 归档;右上角"预设"胶囊(仅新会话显示);右下角"思考 / 模型"胶囊。
-- 模式芯片:📝 计划模式(点击退出)、🎯 目标模式(点击管理目标)。
+- 模式芯片:计划模式(点击退出)、目标模式(点击管理目标)。
 - 右键菜单:编辑器选中代码 → `DSH: 发送选中代码到 @dsh`;文件右键 → `DSH: 向 @dsh 询问此文件`。
 
 ## 配置
@@ -122,8 +122,8 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Collapsible reasoning** (hidden by default) and per-turn tool summary ("Called N tools this turn").
 - **Deliverables box**: files produced each turn listed at the end of the conversation, click to open.
 - **Session management**: ⋯ menu with fork / rename (pre-filled title) / archive.
-- **Goals**: progress card + 🎯 chip with edit / complete / clear.
-- **Plan mode**: 📝 chip appears after `/plan`, click to exit.
+- **Goals**: progress card + goal chip with edit / complete / clear.
+- **Plan mode**: plan chip appears after `/plan`, click to exit.
 - **Attachments**: auto-attach the active editor file (follows editor switches) + add file/folder (separate pickers); context is injected into the model but displayed collapsed.
 - **Subagents**: status chips with recent-reply preview.
 - **Skills**: available skills listed in the `/` menu (official skill.list).
