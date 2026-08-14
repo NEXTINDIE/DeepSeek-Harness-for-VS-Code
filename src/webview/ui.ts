@@ -697,7 +697,8 @@ input.addEventListener("input", () => {
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
-    sendCurrent(e.ctrlKey ? "steer" : "queue");
+    // Windows/Linux: Ctrl+Enter 插话;macOS: Cmd+Enter(metaKey)
+    sendCurrent(e.ctrlKey || e.metaKey ? "steer" : "queue");
   }
 });
 btnSendStop.addEventListener("click", () => {
