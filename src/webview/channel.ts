@@ -215,8 +215,6 @@ export class ChatChannel {
       void this.hub.updateCurrentModel(current);
       // 回填历史(幂等):锁定标签页打开旧会话时本地可能为空,否则界面空白且无加载入口
       await this.hub.ensureHistory(current);
-      // 历史会话补挂工作区(幂等):cwd 匹配的工作区未包含该会话时挂入,Web 端工作区可见
-      void this.hub.attachSessionToWorkspace(current);
     }
     if (this.mode === "list") await this.pushWorkspaces();
     // 推送前强制刷新一次投影,保证统计/上下文等数据最新

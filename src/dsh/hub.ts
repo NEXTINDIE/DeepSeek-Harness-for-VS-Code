@@ -314,28 +314,14 @@ export class DshHub {
     }
   }
 
-  /** 历史会话补挂工作区:会话首次打开时,若 cwd 匹配某工作区且未挂入,则补挂(Web 端工作区可见)。 */
-  private readonly workspaceAttached = new Set<string>();
-  async attachSessionToWorkspace(sessionId: string) {
-    if (this.workspaceAttached.has(sessionId)) return;
-    this.workspaceAttached.add(sessionId);
-    try {
-      const stored = this.store.sessions.get(sessionId);
-      const cwd = stored?.cwd;
-      if (!cwd) return;
-      const { items } = await this.client.listWorkspaces();
-      const ws = items.find((w) => {
-        const a = w.path.replace(/\\/g, "/").toLowerCase();
-        const b = cwd.replace(/\\/g, "/").toLowerCase();
-        return a === b;
-      });
-      if (ws && !ws.sessionIds.includes(sessionId)) {
-        await this.client.insertSessionBefore(ws.workspaceId, sessionId);
-        this.deps.onLog?.(`[workspace] 会话 ${sessionId.slice(0, 8)} 补挂到工作区 ${ws.title}`);
-      }
-    } catch {
-      // 补挂失败不阻塞(仅日志)
-    }
+  /**
+   * 历史会话无法补挂工作区:服务端只在 session.create/fork 带 workspaceId 时 attach 会话,
+   * 没有公开的补挂 RPC(workspace.insertSessionBefore 要求会话已 account,对旧会话报
+   * workspace-move-invalid)。旧会话在 Web 端左侧显示于「未分组」——这是官方设计限制。
+   * 新会话由 createSessionForFolder 用 workspaceId 创建,自动挂入工作区。
+   */
+  async attachSessionToWorkspace(_sessionId: string) {
+    // 保留空实现:调用方(打开会话时)语义为「确认归属」,实际挂入仅发生在创建时
   }
 
   async send(sessionId: string, text: string, mode: "queue" | "steer" = "queue") {

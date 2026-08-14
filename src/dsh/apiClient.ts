@@ -156,11 +156,14 @@ export class DshApiClient {
     return this.post<{ archivedSessionIds: string[] }>("workspace.archiveSession", { sessionId });
   }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
   /** 把会话挂入工作区(anchor 省略 = 追加到末尾)。 */
   insertSessionBefore(workspaceId: string, sessionId: string) {
     return this.post<{ ok: true }>("workspace.insertSessionBefore", { workspaceId, sessionId });
   }
+=======
+>>>>>>> Stashed changes
   /** 采纳一个已有目录为 DSH 工作区(幂等:已存在时返回现有 workspace 且 created=false)。 */
   adoptWorkspace(path: string) {
     return this.post<{ workspace: { workspaceId: string; path: string; title: string; createdAt: string }; created: boolean }>(
