@@ -107,6 +107,19 @@ export class DshApiClient {
     }
   }
 
+  // 工作区域
+  listWorkspaces() {
+    return this.post<{ items: { workspaceId: string; path: string; title: string; sessionIds: string[]; createdAt: string; updatedAt: string }[]; archivedSessionIds: string[] }>("workspace.list", {});
+  }
+
+  /** 采纳一个已有目录为 DSH 工作区(幂等)。 */
+  adoptWorkspace(path: string) {
+    return this.post<{ workspace: { workspaceId: string; path: string; title: string; createdAt: string }; created: boolean }>(
+      "workspace.create",
+      { path },
+    );
+  }
+
   // 会话域
   listSessions() {
     return this.post<SessionListValue>("session.list", {});

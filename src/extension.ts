@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { DshHub, type HubStatus } from "./dsh/hub";
 import { createTranslator } from "./dsh/i18n";
 import { registerChatParticipant } from "./dsh/chatParticipant";
-import { folderCwd, setParticipantSession } from "./dsh/participantSessions";
+import { folderCwd } from "./dsh/participantSessions";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
 
@@ -51,8 +51,10 @@ export function activate(ctx: vscode.ExtensionContext) {
   // ---------- 界面:视图 provider 优先注册 ----------
   // 必须在视图被解析之前完成注册;视图条目在 package.json 中声明 "type": "webview",
   // 否则 VS Code 会按默认 tree 视图处理,去找不存在的树数据提供者并显示占位文案。
+  // 聊天主体位于编辑器区标签页(ChatWindowProvider,每会话一个标签);侧边栏为会话列表。
+  const chatWindow = new ChatWindowProvider(hub, ctx);
   const registerViewProviders = () => {
-    const provider = new ChatPanelProvider(hub, ctx);
+    const provider = new ChatPanelProvider(hub, ctx, chatWindow);
     ctx.subscriptions.push(
       vscode.window.registerWebviewViewProvider(ChatPanelProvider.viewType, provider, {
         webviewOptions: { retainContextWhenHidden: true },
@@ -64,7 +66,6 @@ export function activate(ctx: vscode.ExtensionContext) {
     output.appendLine("[activate] 视图 provider 已注册(dsh.chatView / dsh.chatViewSecondary)");
   };
   registerViewProviders();
-  const chatWindow = new ChatWindowProvider(hub, ctx);
 
   // ---------- 状态栏 ----------
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -99,11 +100,6 @@ export function activate(ctx: vscode.ExtensionContext) {
   }
 
   // ---------- 命令 ----------
-  /** 打开内置聊天窗口并预选 @dsh 参与者(与 ChatGPT 等参与者同框)。 */
-  async function openBuiltInChat() {
-    await openChatQuery("@dsh ", true);
-  }
-
   /** 打开内置 Chat 并写入查询(partial=true 只填入不提交)。 */
   async function openChatQuery(query: string, partial: boolean) {
     try {
@@ -114,11 +110,14 @@ export function activate(ctx: vscode.ExtensionContext) {
   }
 
   ctx.subscriptions.push(
+    // 打开对话:在编辑器区以标签页打开(当前会话;无则新建),与代码文件共享顶部标签栏
     vscode.commands.registerCommand("dsh.openChat", async () => {
-      await openBuiltInChat();
+      const panel = await chatWindow.open();
+      if (panel) panel.reveal(vscode.ViewColumn.Beside, true);
     }),
-    vscode.commands.registerCommand("dsh.openChatWindow", () => {
-      chatWindow.open();
+    vscode.commands.registerCommand("dsh.openChatWindow", async () => {
+      const panel = await chatWindow.open();
+      if (panel) panel.reveal(vscode.ViewColumn.Beside, true);
     }),
     vscode.commands.registerCommand("dsh.openSidebar", async () => {
       if (supportsSecondarySidebar) {
@@ -169,16 +168,9 @@ export function activate(ctx: vscode.ExtensionContext) {
       );
     }),
     vscode.commands.registerCommand("dsh.newChat", async () => {
-      const ready = await hub.ensureReady();
-      if (!ready.ok) return;
-      try {
-        const sessionId = await hub.createSession(folderCwd());
-        await setParticipantSession(ctx, sessionId);
-        void vscode.window.showInformationMessage(t("msg.newSession", { id: sessionId.slice(0, 20) }));
-      } catch (error) {
-        void vscode.window.showErrorMessage(t("msg.newSessionFailed", { error: String(error) }));
-      }
-      await openBuiltInChat();
+      const panel = await chatWindow.openNew();
+      if (!panel) return;
+      void vscode.window.showInformationMessage(t("msg.newSession", { id: panel.title.slice(0, 20) }));
     }),
     vscode.commands.registerCommand("dsh.selectSession", async () => {
       const ready = await hub.ensureReady();

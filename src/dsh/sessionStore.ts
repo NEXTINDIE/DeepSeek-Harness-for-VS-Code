@@ -113,6 +113,11 @@ export class SessionStore {
   }
 
   /** 通知会话列表已变化(供外部刷新调用)。 */
+  /** session.list 刷新写入统计后通知订阅者(触发 webview 实时渲染)。 */
+  emitStats(sessionId: string, value: unknown) {
+    this.emit("stats", sessionId, value);
+  }
+
   notifySessionsChanged() {
     this.emit("sessionsChanged", this.listSessions());
   }
@@ -287,10 +292,13 @@ export class SessionStore {
       return;
     }
     if (key === "sessionStats" || key === "tokenUsage") {
+      // 空投影(null/undefined)不覆盖已有统计(回合开始时的重置帧不应清空界面)
+      if (value == null) return;
       const current = this.stats.get(sessionId) ?? {};
       current[key === "sessionStats" ? "sessionStats" : "tokenUsage"] = value;
       this.stats.set(sessionId, current);
-      this.emit("stats", sessionId, value);
+      // 发送合并后的完整统计,避免 webview 用部分值互相覆盖
+      this.emit("stats", sessionId, current);
       return;
     }
     if (key === "todos") {

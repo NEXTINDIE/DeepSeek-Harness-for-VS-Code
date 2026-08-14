@@ -25,13 +25,215 @@ body {
   font-size: var(--vscode-font-size, 13px);
 }
 
-#app,
+/* 对话区整体通栏;消息展示区宽列、输入区窄列,各自独立限宽居中 */
+#app {
+  height: 100%;
+}
+
 .app-root {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  width: 100%;
 }
+
+/* 消息展示区(DS 输出):宽列 */
+.messages,
+.goal-area,
+.conversation-bottom {
+  width: min(100% - 32px, 1200px);
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
+}
+
+/* 输入区:保持 760px 阅读宽度 */
+.composer {
+  width: min(100% - 16px, 760px);
+  margin: 4px auto 8px;
+  align-self: center;
+}
+
+/* ---------- 侧边栏会话列表 ---------- */
+.list-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--dsh-border);
+  flex: none;
+}
+
+.list-title {
+  font-weight: 600;
+  color: var(--dsh-fg);
+}
+
+.btn-list-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--dsh-border);
+  border-radius: 6px;
+  background: var(--dsh-btn-bg);
+  color: var(--dsh-btn-fg);
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.btn-list-new:hover {
+  opacity: 0.9;
+}
+
+.list-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.list-empty {
+  padding: 16px 12px;
+  color: var(--dsh-muted);
+  text-align: center;
+}
+
+.list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.list-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.06));
+}
+
+.list-item.active {
+  background: var(--vscode-list-activeSelectionBackground, var(--dsh-accent));
+  color: var(--vscode-list-activeSelectionForeground, var(--dsh-fg));
+}
+
+.list-item-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-item-sub {
+  font-size: 11px;
+  color: var(--dsh-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-item.active .list-item-sub {
+  color: var(--vscode-list-activeSelectionForeground, var(--dsh-muted));
+  opacity: 0.85;
+}
+/* ---------- 侧边栏会话列表:搜索框与细节美化 ---------- */
+.list-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin: 8px 10px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--dsh-border);
+  border-radius: 8px;
+  background: var(--dsh-input-bg);
+  color: var(--dsh-muted);
+}
+
+.list-search-wrap:focus-within {
+  border-color: var(--dsh-accent);
+}
+
+.list-search {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--dsh-fg);
+  font-size: 12.5px;
+  font-family: inherit;
+}
+
+.list-search::placeholder {
+  color: var(--dsh-muted);
+  opacity: 0.7;
+}
+
+.list-item {
+  transition: background 0.12s ease;
+}
+
+.list-item-running {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dsh-accent);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+
+/* ---------- 工作区分组 ---------- */
+.list-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 4px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--dsh-muted);
+}
+
+.list-group-head:hover {
+  color: var(--dsh-fg);
+}
+
+.list-group-head svg {
+  transition: transform 0.12s ease;
+}
+
+.list-group-head svg.collapsed {
+  transform: rotate(-90deg);
+}
+
+.list-group-title {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-group-body {
+  padding-bottom: 4px;
+}
+
+.list-item.active .list-item-running {
+  background: var(--vscode-list-activeSelectionForeground, var(--dsh-fg));
+}
+
 
 /* ---------- 头部 ---------- */
 .header {
@@ -40,7 +242,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px 6px;
+  padding: 6px 10px 4px;
   flex-shrink: 0;
 }
 
@@ -308,11 +510,13 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 12px 4px;
+  padding: 6px 12px 2px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
+
+
 
 .btn-load-more {
   align-self: center;
@@ -323,8 +527,8 @@ body {
 }
 
 .msg {
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: 8px;
+  padding: 6px 10px;
   max-width: 100%;
   min-width: 0;
   overflow-wrap: break-word;
@@ -344,13 +548,55 @@ body {
   padding-left: 4px;
 }
 
-.msg-note,
-.msg-queued {
+.msg-note {
   align-self: center;
   color: var(--dsh-muted);
   font-size: 11px;
   border: 1px dashed var(--dsh-border);
   background: transparent;
+}
+
+/* 排队消息:靠右的消息块 + 插话发送按钮(对应 Web 端排队 dock) */
+.msg-queued {
+  align-self: flex-end;
+  color: var(--dsh-muted);
+  font-size: 12px;
+  border: 1px solid var(--dsh-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  max-width: 92%;
+}
+
+.msg-queued-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px 7px;
+  border-top: 1px dashed var(--dsh-border);
+}
+
+.btn-queued-steer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-radius: 11px;
+  border: 1px solid var(--dsh-border);
+  background: transparent;
+  color: var(--dsh-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.btn-queued-steer:hover:not(:disabled) {
+  border-color: var(--dsh-accent);
+  color: var(--dsh-accent);
+}
+
+.btn-queued-steer:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .msg-role {
@@ -656,8 +902,8 @@ body {
 }
 
 .attach-add-btn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 1px dashed var(--dsh-muted);
   background: transparent;
@@ -1018,14 +1264,14 @@ body {
 /* ---------- 输入区(Codex 风格大输入框) ---------- */
 .composer {
   flex-shrink: 0;
-  margin: 4px 10px 10px;
+  margin: 4px 10px 8px;
   border: 1px solid var(--dsh-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--dsh-input-bg);
-  padding: 10px 12px 8px;
+  padding: 8px 10px 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .composer:focus-within {
@@ -1035,18 +1281,23 @@ body {
 .composer-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tool-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  min-height: 24px;
   border: 1px solid var(--dsh-border);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   background: var(--dsh-bg);
   cursor: pointer;
+}
+
+.tool-item:hover {
+  border-color: var(--dsh-accent);
 }
 
 .tool-item[hidden] {
@@ -1054,7 +1305,7 @@ body {
 }
 
 .tool-label {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--dsh-muted);
   white-space: nowrap;
 }
@@ -1065,7 +1316,9 @@ body {
   border: none;
   outline: none;
   font-size: 12px;
-  max-width: 150px;
+  max-width: 170px;
+  padding: 0;
+  height: auto;
   cursor: pointer;
 }
 
@@ -1088,12 +1341,12 @@ body {
   border: none;
   resize: none;
   font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.45;
   outline: none;
-  min-height: 72px;
-  max-height: 320px;
-  padding: 4px 0;
+  min-height: 44px;
+  max-height: 180px;
+  padding: 2px 0;
 }
 
 .input::placeholder {
@@ -1109,12 +1362,12 @@ body {
 }
 
 .btn-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1183,13 +1436,13 @@ body {
 }
 
 .plus-btn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1px dashed var(--dsh-muted);
   background: transparent;
   color: var(--dsh-muted);
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
 }

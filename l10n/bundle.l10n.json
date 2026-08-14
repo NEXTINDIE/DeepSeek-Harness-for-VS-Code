@@ -19,6 +19,7 @@
   "msg.noActiveEditor": "DSH: no active editor",
   "msg.noFile": "DSH: no file specified",
   "notice.attachmentsFailed": "Failed to pick files: {error}",
+  "notice.queueActionFailed": "Queue action failed: {error}",
   "notice.newSessionFailed": "Failed to create session: {error}",
   "notice.renameFailed": "Rename failed: {error}",
   "notice.archiveFailed": "Archive failed: {error}",

@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as os from "node:os";
+import { dirname } from "node:path";
 
 /**
  * 参与者会话与工作区项目的映射。
@@ -21,9 +23,20 @@ export function activeFolder(): vscode.WorkspaceFolder | undefined {
   return folders[0];
 }
 
-/** 当前项目的工作目录(多根工作区 = 活动编辑器所在文件夹,否则第一个文件夹)。 */
+/**
+ * 当前项目的工作目录,按优先级回退:
+ * 1. VS Code 工作区文件夹(多根 = 活动编辑器所在文件夹);
+ * 2. 打开的文件的所在目录(未打开文件夹时);
+ * 3. 用户主目录(什么都没打开时,避免服务器回退到"上次会话目录")。
+ */
 export function folderCwd(): string | undefined {
-  return activeFolder()?.uri.fsPath;
+  const folder = activeFolder();
+  if (folder) return folder.uri.fsPath;
+  const editor = vscode.window.activeTextEditor;
+  if (editor && editor.document.uri.scheme === "file") {
+    return dirname(editor.document.uri.fsPath);
+  }
+  return os.homedir();
 }
 
 /** 当前项目的会话映射键。 */

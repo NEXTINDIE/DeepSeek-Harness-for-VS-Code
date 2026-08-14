@@ -112,6 +112,8 @@ interface NodeState {
   attachContext?: string;
   /** note 节点是否为命令行(斜杠命令执行记录) */
   cmd?: boolean;
+  /** 排队消息节点对应的队列项 id(插话/移除等操作需要) */
+  queueItemId?: string;
 }
 
 // ---------- 状态 ----------
@@ -119,6 +121,11 @@ interface NodeState {
 const state = {
   sessions: [] as StoredSession[],
   current: null as string | null,
+  mode: "chat" as "chat" | "list",
+  locked: false,
+  search: "",
+  workspaces: [] as { workspaceId: string; path: string; title: string; sessionIds: string[] }[],
+  collapsed: new Set<string>(),
   running: false,
   status: { serverUp: false, serverStartedByUs: false, serverStarting: false, muxConnected: false, hostConnected: false } as HubStatus,
   nodes: [] as NodeState[],
@@ -232,6 +239,10 @@ const ICONS = {
   globe: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z|M2 12h20|M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
   send: "M22 2 11 13|M22 2 15 22l-4-9-9-4z",
   stop: "M6 6h12v12H6z",
+  // 搜索(放大镜)
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z|M21 21l-4.35-4.35",
+  // 分组折叠箭头
+  chevron: "M6 9l6 6 6-6",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -368,6 +379,7 @@ const EN_TEXT: Record<string, string> = {
   "请使用技能「{name}」处理:": "Use the skill \"{name}\" for:",
   "子代理 {label}({state}) · 点击查看最近回复": "Subagent {label} ({state}) · click to view recent reply",
   "运行中": "running",
+  "暂无统计": "No stats yet",
   "已结束": "finished",
   "ℹ️ 系统提示词": "ℹ️ System note",
   "插入 .codex 技能说明(SKILL.md)": "Insert .codex skill description (SKILL.md)",
@@ -405,6 +417,15 @@ const EN_TEXT: Record<string, string> = {
   "✅ 批准计划并开始执行": "✅ Approve plan and start",
   "✏️ 继续修改计划": "✏️ Keep editing the plan",
   "⚠️ 还有问题未回答,请作答或点击跳过本题": "⚠️ Some questions are unanswered; answer or skip them",
+  "运行中 · Enter 排队 / Ctrl+Enter 插话": "Running · Enter to queue / Ctrl+Enter to steer",
+  "对话列表": "Conversations",
+  "新建对话": "New conversation",
+  "暂无会话,点击新建对话": "No conversations yet, start a new one",
+  "搜索会话": "Search conversations",
+  "无匹配会话": "No matching conversations",
+  "未分组会话": "Ungrouped",
+  "插话发送": "Send as steer",
+  "仅运行中可插话发送": "Steer is only available while running",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -564,7 +585,7 @@ const modeChips = el("div", "mode-chips");
 const todoPanel = el("details", "todo-panel");
 todoPanel.hidden = true;
 const statsLine = el("div", "stats-line");
-statsLine.hidden = true;
+statsLine.hidden = false;
 const contextBar = el("div", "context-bar");
 contextBar.hidden = true;
 conversationBottom.append(btnBackToMain, modeChips, todoPanel, statsLine, contextBar);
@@ -580,10 +601,9 @@ btnAddAttach.append(lineIcon(ICONS.plus, 12));
 const permissionTool = toolSelect(t("权限"), t("读写权限(沙箱模式 + 审批策略)"));
 const permissionSelect = permissionTool.select;
 const hint = el("div", "hint", t("Enter 发送 · Shift+Enter 换行"));
-composerBottom.append(btnPlus, permissionTool.wrap, composerRight, hint);
+composerBottom.append(btnPlus, btnAddAttach, permissionTool.wrap, composerRight, hint);
 // 对话框顶部行:左上角 ＋ 添加文件 + 芯片;右上角 预设胶囊(仅新会话显示)
 const composerTop = el("div", "composer-top");
-attachmentsRow.append(btnAddAttach);
 composerTop.append(attachmentsRow, presetTool.wrap);
 composer.append(composerTop, inputWrap, composerBottom);
 
@@ -610,7 +630,7 @@ input.addEventListener("input", () => {
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
-    sendCurrent();
+    sendCurrent(e.ctrlKey ? "steer" : "queue");
   }
 });
 btnSendStop.addEventListener("click", () => {
@@ -619,7 +639,7 @@ btnSendStop.addEventListener("click", () => {
     vscode.postMessage({ kind: "stop" });
     return;
   }
-  sendCurrent();
+  sendCurrent("queue");
 });
 btnAddAttach.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -886,6 +906,20 @@ function renderNode(node: NodeState): HTMLElement {
       const body = el("div", "msg-body");
       setHtml(body, node.text ?? "");
       wrap.append(body);
+      // 插话发送按钮(对应 Web 端排队消息操作:打断当前回合,立即发送这条排队消息)
+      if (node.queueItemId) {
+        const actions = el("div", "msg-queued-actions");
+        const btn = el("button", "btn btn-queued-steer");
+        btn.type = "button";
+        btn.disabled = !state.running;
+        btn.title = state.running ? t("插话发送") : t("仅运行中可插话发送");
+        btn.append(lineIcon(ICONS.send, 12), el("span", undefined, t("插话发送")));
+        btn.addEventListener("click", () => {
+          vscode.postMessage({ kind: "queueAction", itemId: node.queueItemId, action: { kind: "steer" } });
+        });
+        actions.append(btn);
+        wrap.append(actions);
+      }
       return wrap;
     }
     case "assistant": {
@@ -1846,8 +1880,8 @@ function renderStatsLine() {
       parts.push(`输入 ${fmtTokens(input)} tok · 输出 ${fmtTokens(tu.outputTokens ?? 0)} tok`);
     }
   }
-  statsLine.textContent = parts.join(" | ");
-  statsLine.hidden = parts.length === 0;
+  statsLine.textContent = parts.length > 0 ? parts.join(" | ") : t("暂无统计");
+  statsLine.hidden = false;
 }
 
 // ---------- 附件行 ----------
@@ -1967,6 +2001,12 @@ function stopTurnStatus() {
 
 function updateRunning() {
   updateSendButton();
+  // 排队消息的插话按钮:仅运行中可用(与 Web 端一致)
+  const canSteer = state.running;
+  document.querySelectorAll<HTMLButtonElement>(".btn-queued-steer").forEach((b) => {
+    b.disabled = !canSteer;
+    b.title = canSteer ? t("插话发送") : t("仅运行中可插话发送");
+  });
 }
 
 /** 发送/停止合一按钮 + 提示语状态。 */
@@ -1982,7 +2022,7 @@ function updateSendButton() {
     btnSendStop.append(lineIcon(ICONS.send, 16));
     btnSendStop.className = "btn-icon-btn send-btn";
     btnSendStop.title = state.running ? t("发送(运行中,消息将排队)") : t("发送(Enter)");
-    hint.textContent = state.running ? "运行中 · 消息将排队发送" : t("Enter 发送 · Shift+Enter 换行");
+    hint.textContent = state.running ? t("运行中 · Enter 排队 / Ctrl+Enter 插话") : t("Enter 发送 · Shift+Enter 换行");
   }
   btnSendStop.disabled = !state.current;
 }
@@ -2196,6 +2236,10 @@ function handleMessage(msg: any) {
       stopTurnStatus();
       state.sessions = msg.sessions ?? [];
       state.current = msg.current ?? null;
+      state.mode = msg.mode === "list" ? "list" : "chat";
+      state.locked = !!msg.locked;
+      applyLayout();
+      refreshList();
       state.running = msg.running ?? false;
       state.status = msg.status ?? state.status;
       state.nodes = [];
@@ -2306,10 +2350,16 @@ function handleMessage(msg: any) {
       for (const wire of msg.events ?? []) handleEvent(wire);
       break;
     }
+    case "workspaces": {
+      state.workspaces = msg.workspaces ?? [];
+      refreshList();
+      break;
+    }
     case "sessions": {
       state.sessions = msg.sessions ?? [];
       renderSessions();
       renderPresetSelect();
+      refreshList();
       break;
     }
     case "running": {
@@ -2345,13 +2395,16 @@ function handleMessage(msg: any) {
     }
     case "context": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
-      state.context = msg.value;
+      if (msg.value) state.context = msg.value;
       renderContextBar();
       break;
     }
     case "stats": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
-      state.stats = msg.value;
+      // 合并部分更新(null 保留旧值),避免部分投影帧互相覆盖导致统计消失
+      if (msg.value && typeof msg.value === "object") {
+        state.stats = { ...(state.stats ?? {}), ...msg.value };
+      }
       renderStatsLine();
       break;
     }
@@ -2388,7 +2441,16 @@ function handleMessage(msg: any) {
       break;
     }
     case "queue": {
-      for (const item of msg.items ?? []) {
+      const items = msg.items ?? [];
+      // 差集清理:已从队列移除的项(如插话后转正、被移除)删除对应节点
+      const alive = new Set(items.map((i: any) => i.id));
+      for (const [id, node] of state.queuedIds) {
+        if (!alive.has(id)) {
+          state.queuedIds.delete(id);
+          removeNode(node);
+        }
+      }
+      for (const item of items) {
         if (item.placement !== "queued") continue;
         const id: string = item.id;
         if (state.queuedIds.has(id)) continue;
@@ -2401,6 +2463,7 @@ function handleMessage(msg: any) {
           kind: "queued",
           key: `q:${id}`,
           el: null,
+          queueItemId: id,
           text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
         };
         state.queuedIds.set(id, node);
@@ -2441,7 +2504,7 @@ function handleMessage(msg: any) {
   }
 }
 
-function sendCurrent() {
+function sendCurrent(mode: "queue" | "steer" = "queue") {
   const text = input.value.trim();
   if (!text) return;
   if (!state.current) {
@@ -2450,6 +2513,7 @@ function sendCurrent() {
   }
   vscode.postMessage({
     kind: "send",
+    mode,
     text,
     attachments: state.attachments.map(({ kind, path }) => ({ kind, path })),
   });
@@ -2462,5 +2526,112 @@ window.addEventListener("message", (event) => {
   const msg = event.data;
   if (msg && typeof msg === "object") handleMessage(msg);
 });
+
+// ---------- 布局模式(侧边栏会话列表 / 编辑器标签页聊天) ----------
+
+let listRoot: HTMLDivElement | undefined;
+
+/** 按 state.mode 切换整体布局:列表模式渲染会话列表,聊天模式渲染完整聊天 UI。 */
+function applyLayout() {
+  if (state.mode === "list") {
+    if (!listRoot) listRoot = buildListApp();
+    app.replaceChildren(listRoot);
+  } else {
+    app.replaceChildren(root);
+    // 编辑器标签页模式:标签即会话,隐藏会话切换下拉与新建按钮
+    sessionSelectWrap.style.display = state.locked ? "none" : "";
+    btnNew.style.display = state.locked ? "none" : "";
+  }
+}
+
+function buildListApp(): HTMLDivElement {
+  const wrap = el("div", "list-view");
+  const head = el("div", "list-header");
+  head.append(el("span", "list-title", t("对话列表")));
+  const btnNewChat = el("button", "btn btn-list-new");
+  btnNewChat.append(lineIcon(ICONS.plus, 14), el("span", undefined, t("新建对话")));
+  btnNewChat.addEventListener("click", () => vscode.postMessage({ kind: "newTab" }));
+  head.append(btnNewChat);
+  const search = el("input", "list-search");
+  const searchWrap = el("div", "list-search-wrap");
+  searchWrap.append(lineIcon(ICONS.search, 13), search);
+  search.placeholder = t("搜索会话");
+  search.value = state.search;
+  search.addEventListener("input", () => {
+    state.search = search.value;
+    updateListRows(rows);
+  });
+  const rows = el("div", "list-rows");
+  wrap.append(head, searchWrap, rows);
+  updateListRows(rows);
+  return wrap;
+}
+
+function refreshList() {
+  if (state.mode !== "list" || !listRoot) return;
+  const rows = listRoot.querySelector(".list-rows");
+  if (rows) updateListRows(rows as HTMLElement);
+}
+
+function updateListRows(rows: HTMLElement) {
+  rows.replaceChildren();
+  const sessions = state.sessions;
+  const q = state.search.trim().toLowerCase();
+  const filtered = (sessions ?? []).filter((s) => {
+    if (!q) return true;
+    return (
+      (s.title ?? "").toLowerCase().includes(q) ||
+      s.sessionId.toLowerCase().includes(q) ||
+      (s.cwd ?? "").toLowerCase().includes(q)
+    );
+  });
+  if (filtered.length === 0) {
+    rows.append(el("div", "list-empty", q ? t("无匹配会话") : t("暂无会话,点击新建对话")));
+    return;
+  }
+  // 按工作区分组(会话归属以 workspace.sessionIds 为准,cwd 兜底)
+  const groups: { id: string; title: string; path?: string; items: typeof filtered }[] = [];
+  const used = new Set<string>();
+  for (const w of state.workspaces) {
+    const items = filtered.filter(
+      (s) =>
+        w.sessionIds.includes(s.sessionId) ||
+        (!!s.cwd && !!w.path && s.cwd.toLowerCase() === w.path.toLowerCase()),
+    );
+    if (items.length === 0) continue;
+    const title = w.title || (w.path ? w.path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? w.path : w.path);
+    groups.push({ id: w.workspaceId, title, path: w.path, items });
+    for (const s of items) used.add(s.sessionId);
+  }
+  const ungrouped = filtered.filter((s) => !used.has(s.sessionId));
+  if (ungrouped.length > 0) groups.push({ id: "", title: t("未分组会话"), items: ungrouped });
+  for (const g of groups) {
+    const collapsed = state.collapsed.has(g.id);
+    const head = el("div", "list-group-head");
+    const chev = lineIcon(ICONS.chevron, 12);
+    if (collapsed) chev.classList.add("collapsed");
+    const headTitle = el("span", "list-group-title", g.title + " (" + g.items.length + ")");
+    head.append(chev, headTitle);
+    head.addEventListener("click", () => {
+      if (collapsed) state.collapsed.delete(g.id);
+      else state.collapsed.add(g.id);
+      updateListRows(rows);
+    });
+    rows.append(head);
+    if (!collapsed) {
+      const body = el("div", "list-group-body");
+      for (const s of g.items) {
+        const item = el("div", "list-item" + (s.sessionId === state.current ? " active" : ""));
+        const titleRow = el("div", "list-item-title");
+        if (s.running) titleRow.append(el("span", "list-item-running"));
+        titleRow.append(document.createTextNode(s.title || s.sessionId.slice(0, 16)));
+        item.append(titleRow, el("div", "list-item-sub", s.cwd ?? ""));
+        item.addEventListener("click", () => vscode.postMessage({ kind: "openTab", sessionId: s.sessionId }));
+        body.append(item);
+      }
+      rows.append(body);
+    }
+  }
+}
 
 vscode.postMessage({ kind: "ready" });

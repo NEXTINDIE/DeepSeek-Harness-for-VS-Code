@@ -1,8 +1,8 @@
 {
   "displayName": "DeepSeek Harness for VS Code",
   "description": "在 VS Code 中直接使用 DeepSeek Harness:辅助侧栏聊天面板 + 内置聊天参与者 @dsh + 模型/预设/权限/思考深度切换 + 附件/目标/子代理。",
-  "cmd.openChat.title": "DSH: 打开内置聊天 (@dsh)",
-  "cmd.openChatWindow.title": "DSH: 打开独立聊天窗口",
+  "cmd.openChat.title": "DSH: 打开对话(编辑器标签页)",
+  "cmd.openChatWindow.title": "DSH: 在编辑器标签页打开对话",
   "cmd.openSidebar.title": "DSH: 聚焦侧边栏聊天视图",
   "cmd.newChat.title": "DSH: 新建会话",
   "cmd.selectSession.title": "DSH: 切换会话",

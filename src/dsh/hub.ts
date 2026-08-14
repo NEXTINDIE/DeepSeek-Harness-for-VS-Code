@@ -202,6 +202,7 @@ export class DshHub {
           if (sessionStats !== undefined) current.sessionStats = sessionStats;
           if (tokenUsage !== undefined) current.tokenUsage = tokenUsage;
           this.store.stats.set(item.sessionId, current);
+          this.store.emitStats(item.sessionId, current);
         }
       }
       if (changed) {
@@ -217,6 +218,20 @@ export class DshHub {
 
   private notifySessionsChanged() {
     this.store.notifySessionsChanged();
+  }
+
+  /** 把目录采纳为 DSH 工作区(先确保服务器就绪;幂等)。 */
+  async adoptWorkspace(path: string): Promise<boolean> {
+    if (!path) return false;
+    const ready = await this.ensureReady();
+    if (!ready.ok) return false;
+    try {
+      await this.client.adoptWorkspace(path);
+      return true;
+    } catch (error) {
+      this.deps.onLog?.(`[workspace] 采纳工作区失败 ${path}: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 
   /** 打开会话并回填历史。 */
@@ -259,6 +274,21 @@ export class DshHub {
     }
   }
 
+  /** 工作区列表(侧边栏按工作区分组会话)。 */
+  listWorkspaces() {
+    return this.client.listWorkspaces();
+  }
+
+  /**
+   * 在当前 VS Code 文件夹下创建会话:先采纳该目录为工作区(幂等,
+   * 以前打开过则进入已有分组,从未打开过则自动建立新分组),再创建会话。
+   * 避免服务器回退到"上次会话目录"导致新对话进错工作区。
+   */
+  async createSessionForFolder(cwd?: string, agentPreset?: string): Promise<string> {
+    if (cwd) await this.adoptWorkspace(cwd);
+    return this.createSession(cwd, agentPreset);
+  }
+
   async createSession(cwd?: string, agentPreset?: string): Promise<string> {
     const { sessionId } = await this.client.createSession({ ...(cwd ? { cwd } : {}), ...(agentPreset ? { agentPreset } : {}) });
     await this.refreshSessions();
@@ -266,9 +296,9 @@ export class DshHub {
     return sessionId;
   }
 
-  async send(sessionId: string, text: string) {
+  async send(sessionId: string, text: string, mode: "queue" | "steer" = "queue") {
     try {
-      await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text }] });
+      await this.client.sendPrompt({ sessionId, mode, content: [{ type: "text", text }] });
     } catch (error) {
       const message = error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
       this.deps.onNotice?.(this.deps.t?.("hub.sendFailed", { message }) ?? `Send failed: ${message}`, "error");
