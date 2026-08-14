@@ -65,6 +65,7 @@ export interface PanelsContext {
       namespaces: PanelNamespace[];
     } | null;
     lang: string;
+    languagePref: string;
   };
   post: (msg: Record<string, unknown>) => void;
   el: (tag: string, cls?: string, text?: string) => HTMLElement;
@@ -696,6 +697,28 @@ export function createPanels(ctx: PanelsContext) {
   }
 
   function renderGeneralTab(body: HTMLElement) {
+    // 语言切换(便于快速验证多语言;写入 dsh.language 设置)
+    const langSection = ctx.el("div", "settings-section");
+    langSection.append(ctx.el("div", "settings-section-title", t("🌐 语言 / Language")));
+    const langRow = ctx.el("div", "settings-language-row");
+    const options: { id: string; label: string }[] = [
+      { id: "auto", label: t("跟随 VS Code") },
+      { id: "zh-cn", label: "简体中文" },
+      { id: "en", label: "English" },
+    ];
+    for (const opt of options) {
+      const b = ctx.el("button", "settings-tab" + (state.languagePref === opt.id ? " active" : ""), opt.label) as HTMLButtonElement;
+      b.title = opt.id === "auto" ? t("跟随 VS Code 显示语言") : opt.label;
+      b.addEventListener("click", () => {
+        if (state.languagePref === opt.id) return;
+        post({ kind: "setLanguage", language: opt.id });
+      });
+      langRow.append(b);
+    }
+    langSection.append(langRow);
+    langSection.append(ctx.el("div", "ws-note", t("切换后界面就地重渲染;默认跟随 VS Code 显示语言。")));
+    body.append(langSection);
+
     const desc = state.settingsDescribe;
     if (!desc) {
       body.append(ctx.el("div", "ws-note", t("加载设置中…")));

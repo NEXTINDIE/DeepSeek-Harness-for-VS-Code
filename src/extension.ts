@@ -3,6 +3,7 @@ import { DshHub, type HubStatus } from "./dsh/hub";
 import { createTranslator } from "./dsh/i18n";
 import { registerChatParticipant } from "./dsh/chatParticipant";
 import { folderCwd, setParticipantSession } from "./dsh/participantSessions";
+import { registerCommitMessageCommand } from "./dsh/commitMessage";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
 
@@ -201,7 +202,7 @@ export function activate(ctx: vscode.ExtensionContext) {
           description: `${s.sessionId}${s.agentPreset ? ` · ${s.agentPreset}` : ""}`,
           sessionId: s.sessionId,
         })),
-        { placeHolder: "选择 DSH 会话" },
+        { placeHolder: t("msg.selectSessionPlaceholder") },
       );
       if (picked) await hub.openSession(picked.sessionId);
     }),
@@ -237,25 +238,25 @@ export function activate(ctx: vscode.ExtensionContext) {
       const chat = vscode.chat as unknown as { createChatParticipant?: unknown } | undefined;
       const chatApi = typeof chat?.createChatParticipant === "function";
       const info = [
-        `VS Code 版本:${vscode.version}`,
-        `扩展已激活:是`,
-        `内置聊天参与者 API:${chatApi ? "可用(@dsh 已注册,在 Chat 输入框输入 @ 选择 dsh)" : "不可用(需要 VS Code ≥ 1.95)"}`,
-        `服务器:${dshUrl()} — ${hub.status.serverUp ? "在线" : "离线(首次使用时自动启动)"}`,
-        `事件流:${hub.status.muxConnected ? "已连接" : "未连接"}`,
-        `模型:${hub.status.model ?? "-"}`,
-        `会话数:${hub.store.listSessions().length}`,
-        `当前项目:${folderCwd() ?? "(无工作区文件夹)"}`,
-        `辅助侧栏 tab:${supportsSecondarySidebar ? "支持(已注册到辅助侧栏)" : "不支持(VS Code < 1.106,图标回退到活动栏;升级 VS Code 后自动出现)"}`,
+        `${t("info.vscodeVersion")}: ${vscode.version}`,
+        `${t("info.activated")}: ${t("info.yes")}`,
+        `${t("info.chatApi")}: ${chatApi ? t("info.chatApiYes") : t("info.chatApiNo")}`,
+        `${t("info.server")}: ${dshUrl()} — ${hub.status.serverUp ? t("info.online") : t("info.offline")}`,
+        `${t("info.stream")}: ${hub.status.muxConnected ? t("info.connected") : t("info.disconnected")}`,
+        `${t("info.model")}: ${hub.status.model ?? "-"}`,
+        `${t("info.sessions")}: ${hub.store.listSessions().length}`,
+        `${t("info.cwd")}: ${folderCwd() ?? t("info.noFolder")}`,
+        `${t("info.secondarySidebar")}: ${supportsSecondarySidebar ? t("info.secondaryYes") : t("info.secondaryNo")}`,
         "",
-        "若聊天视图报 \"Could not register service worker\" 错误:",
-        "1. 这是 VS Code 平台缺陷(1.100.x 常见),与扩展代码无关;",
-        "2. 先试:命令面板 → Developer: Reload Window;",
-        "3. 再试:帮助 → 检查更新,升级到最新版 VS Code;",
-        "4. 仍失败:完全退出 VS Code,删除 %APPDATA%\\Code\\Service Worker\\CacheStorage 与 %APPDATA%\\Code\\Cache\\Cache_Data 后重启;",
-        "5. 最后手段:从 code.visualstudio.com 重装 VS Code(95% 成功率,扩展会自动同步回来)。",
+        t("info.swHint1"),
+        t("info.swHint2"),
+        t("info.swHint3"),
+        t("info.swHint4"),
+        t("info.swHint5"),
       ].join("\n");
-      void vscode.window.showInformationMessage(info, { modal: true }, "打开内置聊天").then((pick) => {
-        if (pick === "打开内置聊天") void vscode.commands.executeCommand("dsh.openChat");
+      const openLabel = t("info.openBuiltInChat");
+      void vscode.window.showInformationMessage(info, { modal: true }, openLabel).then((pick) => {
+        if (pick === openLabel) void vscode.commands.executeCommand("dsh.openChat");
       });
     }),
     // 参与者按钮与面板共用:审批应答
@@ -271,6 +272,8 @@ export function activate(ctx: vscode.ExtensionContext) {
         await hub.respondQuestion(args.sessionId, args.frameRpcId, args.answers);
       },
     ),
+    // 源代码管理:自动生成提交信息
+    registerCommitMessageCommand(hub, ctx),
   );
 
   // ---------- 配置变更 ----------

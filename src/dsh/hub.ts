@@ -266,10 +266,36 @@ export class DshHub {
   }
 
   async createSession(cwd?: string, agentPreset?: string): Promise<string> {
-    const { sessionId } = await this.client.createSession({ ...(cwd ? { cwd } : {}), ...(agentPreset ? { agentPreset } : {}) });
+    // 服务器行为:仅当 session.create 携带 workspaceId 时,会话才会挂入对应工作区;
+    // 只传 cwd 的话目录正确但会话落入"未分组"。因此先按 cwd 反查已注册工作区。
+    const workspaceId = cwd ? await this.resolveWorkspaceId(cwd) : undefined;
+    const { sessionId } = await this.client.createSession({
+      ...(workspaceId ? { workspaceId } : cwd ? { cwd } : {}),
+      ...(agentPreset ? { agentPreset } : {}),
+    });
     await this.refreshSessions();
     this.store.selectSession(sessionId);
     return sessionId;
+  }
+
+  /** 按 cwd 路径解析已注册工作区;未注册时返回 undefined(回退按 cwd 创建)。 */
+  async resolveWorkspaceId(cwd: string): Promise<string | undefined> {
+    const norm = (p: string) => p.replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
+    const target = norm(cwd);
+    const local = this.store.listWorkspaces().find((w) => norm(w.path) === target);
+    if (local) return local.workspaceId;
+    // 本地工作区列表可能尚未加载:直接询问服务器
+    try {
+      const list = await this.client.listWorkspaces();
+      const match = list.items.find((w) => norm(w.path) === target);
+      if (match) {
+        this.store.upsertWorkspace(match);
+        return match.workspaceId;
+      }
+    } catch {
+      // 忽略:按 cwd 创建,会话保持未分组(与网页端无对应工作区时一致)
+    }
+    return undefined;
   }
 
   async send(sessionId: string, text: string) {

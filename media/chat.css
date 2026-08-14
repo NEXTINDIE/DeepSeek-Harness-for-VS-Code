@@ -1983,6 +1983,16 @@ body {
   justify-content: flex-end;
 }
 
+.settings-language-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-language-row .settings-tab {
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.3));
+}
+
 .settings-tab {
   font-size: 11px;
   padding: 3px 8px;

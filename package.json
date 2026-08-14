@@ -2,7 +2,7 @@
   "name": "dsh-vscode",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -80,6 +80,11 @@
         "title": "%cmd.askFile.title%"
       },
       {
+        "command": "dsh.generateCommitMessage",
+        "title": "%cmd.generateCommitMessage.title%",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "dsh.showInfo",
         "title": "%cmd.showInfo.title%"
       },
@@ -139,6 +144,13 @@
           "command": "dsh.openInBrowser",
           "when": "view == dsh.chatView || view == dsh.chatViewSecondary",
           "group": "navigation@2"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "dsh.generateCommitMessage",
+          "when": "scmProvider == git",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [
@@ -203,6 +215,16 @@
           "type": "string",
           "default": "",
           "description": "%config.defaultReasoningEffort%"
+        },
+        "dsh.commitModel": {
+          "type": "string",
+          "default": "deepseek-v4-flash",
+          "description": "%config.commitModel%"
+        },
+        "dsh.commitReasoningEffort": {
+          "type": "string",
+          "default": "low",
+          "description": "%config.commitReasoningEffort%"
         },
         "dsh.language": {
           "type": "string",

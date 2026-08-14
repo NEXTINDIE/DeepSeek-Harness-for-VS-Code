@@ -51,7 +51,7 @@ export class ChatChannel {
     const activeEditorSub = vscode.window.onDidChangeActiveTextEditor(() => this.postActiveFile());
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("dsh.language")) {
-        this.post({ kind: "lang", lang: effectiveLanguage() });
+        this.post({ kind: "lang", lang: effectiveLanguage(), languagePref: this.languagePref() });
       }
     });
     this.disposables.push(
@@ -177,6 +177,7 @@ export class ChatChannel {
     this.post({
       kind: "init",
       lang: effectiveLanguage(),
+      languagePref: this.languagePref(),
       status: this.hub.status,
       sessions: this.serializeSessions(),
       ...this.serializeWorkspaces(),
@@ -234,8 +235,8 @@ export class ChatChannel {
             canSelectFiles: true,
             canSelectFolders: false,
             canSelectMany: true,
-            openLabel: "添加图片",
-            filters: { 图片: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] },
+            openLabel: t("dlg.addImage"),
+            filters: { [t("dlg.imageFilter")]: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] },
             defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
           });
           if (!picked || picked.length === 0) break;
@@ -243,7 +244,7 @@ export class ChatChannel {
           for (const uri of picked.slice(0, 8)) {
             const raw = await vscode.workspace.fs.readFile(uri);
             if (raw.byteLength > 6 * 1024 * 1024) {
-              this.post({ kind: "notice", message: `${uri.fsPath} 超过 6MB,已跳过`, level: "warning" });
+              this.post({ kind: "notice", message: t("notice.imageTooLarge", { name: uri.fsPath }), level: "warning" });
               continue;
             }
             const name = uri.fsPath.replace(/\\/g, "/").split("/").pop() ?? "image";
@@ -286,7 +287,7 @@ export class ChatChannel {
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: "添加工作区",
+            openLabel: t("dlg.addWorkspace"),
             defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
           });
           const path = picked?.[0]?.fsPath;
@@ -365,7 +366,7 @@ export class ChatChannel {
             canSelectFiles: mode !== "folder",
             canSelectFolders: mode !== "file",
             canSelectMany: true,
-            openLabel: mode === "folder" ? "添加文件夹" : mode === "file" ? "添加文件" : "添加到对话",
+            openLabel: mode === "folder" ? t("dlg.addFolder") : mode === "file" ? t("dlg.addFile") : t("dlg.addToChat"),
             defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
           });
           if (!picked || picked.length === 0) break;
@@ -872,6 +873,19 @@ export class ChatChannel {
         }
         break;
       }
+      case "setLanguage": {
+        // 从设置面板切换界面语言(写入 dsh.language,全局)
+        if (typeof msg.language === "string" && ["auto", "zh-cn", "en"].includes(msg.language)) {
+          try {
+            await vscode.workspace.getConfiguration("dsh").update("language", msg.language, vscode.ConfigurationTarget.Global);
+            this.post({ kind: "lang", lang: effectiveLanguage(), languagePref: msg.language });
+            this.post({ kind: "notice", message: t("notice.languageSet", { lang: msg.language }), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.languageSetFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
       case "credentialSet": {
         if (typeof msg.ref === "string" && typeof msg.value === "string") {
           try {
@@ -945,7 +959,7 @@ export class ChatChannel {
         this.post({ kind: "status", status: { ...this.hub.status, serverStarting: true } });
         const result = await this.hub.ensureReady();
         if (!result.ok) {
-          this.post({ kind: "notice", message: result.message ?? "启动失败", level: "error" });
+          this.post({ kind: "notice", message: result.message ?? t("notice.serverStartFailed"), level: "error" });
         }
         await this.pushFullState();
         break;
@@ -959,6 +973,11 @@ export class ChatChannel {
 
   private dshUrl(): string {
     return vscode.workspace.getConfiguration("dsh").get<string>("url", "http://127.0.0.1:3080");
+  }
+
+  /** 用户配置的语言偏好(auto / zh-cn / en)。 */
+  private languagePref(): string {
+    return vscode.workspace.getConfiguration("dsh").get<string>("language", "auto");
   }
 
   /** 把附件(文件内容 / 文件夹清单)拼进消息上下文。 */
