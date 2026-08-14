@@ -308,5 +308,18 @@
   "极简模式": "Minimal mod",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Kalıcı bash ve str_replace_editor içeren iki araçlı kodlama ajanı.",
   "创造模式": "Yaratıcı modu",
-  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Özel ajan preset'leri oluşturmak için tasarlandı; standart modun tüm yeteneklerine ek olarak çalışma zamanı incelemesi, eklenti denemeleri ve preset yazım rehberi sunar."
+  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Özel ajan preset'leri oluşturmak için tasarlandı; standart modun tüm yeteneklerine ek olarak çalışma zamanı incelemesi, eklenti denemeleri ve preset yazım rehberi sunar.",
+  "提问": "Soru",
+  "放弃整组问题": "Tüm soruları bırak",
+  "第 {i} 题 / 共 {n} 题": "Soru {i} / {n}",
+  "下一题": "Sonraki",
+  "上一题": "Önceki",
+  "输入你的答案(填写即视为自定义回答)": "Yanıtınızı yazın (yazmak özel yanıt sayılır)",
+  "⚠️ 请选择一个选项或填写自定义回答": "⚠️ Bir seçenek belirleyin veya özel yanıt yazın",
+  "会话": "Oturumlar",
+  "暂无会话": "Oturum yok",
+  "去聊天里说": "Sohbette konuş",
+  "拒绝": "Reddet",
+  "确认执行": "Onayla",
+  "输入修改意见,回车发送": "Geri bildirimi yazın, göndermek için Enter"
 }

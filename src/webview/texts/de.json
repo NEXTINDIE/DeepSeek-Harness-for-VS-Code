@@ -308,5 +308,18 @@
   "极简模式": "Minimalmodus",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Coding-Agent mit nur zwei Tools: persistentem bash und str_replace_editor.",
   "创造模式": "Creator-Modus",
-  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Zum Erstellen benutzerdefinierter Agent-Presets: alle Fähigkeiten des Standardmodus plus Laufzeitprüfung, Plugin-Experimente und Anleitung zum Preset-Authoring."
+  "用于创建自定义 Agent preset:具备标准模式的全部能力,并提供运行时检查、插件实验和 preset 创作指导。": "Zum Erstellen benutzerdefinierter Agent-Presets: alle Fähigkeiten des Standardmodus plus Laufzeitprüfung, Plugin-Experimente und Anleitung zum Preset-Authoring.",
+  "提问": "Frage",
+  "放弃整组问题": "Alle Fragen verwerfen",
+  "第 {i} 题 / 共 {n} 题": "Frage {i} von {n}",
+  "下一题": "Weiter",
+  "上一题": "Zurück",
+  "输入你的答案(填写即视为自定义回答)": "Antwort eingeben (die Eingabe zählt als eigene Antwort)",
+  "⚠️ 请选择一个选项或填写自定义回答": "⚠️ Wählen Sie eine Option oder geben Sie eine eigene Antwort ein",
+  "会话": "Sitzungen",
+  "暂无会话": "Keine Sitzungen",
+  "去聊天里说": "Im Chat besprechen",
+  "拒绝": "Ablehnen",
+  "确认执行": "Bestätigen",
+  "输入修改意见,回车发送": "Feedback eingeben, mit Enter senden"
 }

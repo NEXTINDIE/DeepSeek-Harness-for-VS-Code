@@ -20,6 +20,7 @@ export interface PanelSession {
   origin?: string;
   updatedAt: number;
   pending?: { kind: "approval" | "question" | "plan-review" };
+  unread?: boolean;
 }
 
 export interface PanelWorkspace {
@@ -208,7 +209,8 @@ function sessionRowTitle(ctx: PanelsContext, s: PanelSession): string {
   const id = s.sessionId.slice(0, 12);
   const cwd = s.cwd ? ctx.basename(s.cwd) : "";
   const branch = s.parentSessionId ? "↪ " : "";
-  return `${branch}${s.title || (s.blank ? "🆕 新会话" : `💬 ${id}`)}${cwd && !s.title ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${ctx.presetName(s.agentPreset)}` : ""}`;
+  const unread = s.unread ? "🟢 " : "";
+  return `${unread}${branch}${s.title || (s.blank ? "🆕 新会话" : `💬 ${id}`)}${cwd && !s.title ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${ctx.presetName(s.agentPreset)}` : ""}`;
 }
 
 function statusIconFor(s: PanelSession, ctx: PanelsContext): { icon: string; cls: string; title: string } {

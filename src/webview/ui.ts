@@ -32,6 +32,8 @@ interface StoredSession {
   updatedAt: number;
   /** 等待的用户交互(approval / question / plan-review),由宿主补充 */
   pending?: { kind: "approval" | "question" | "plan-review" };
+  /** 有未查看完成的回合(会话列表显示绿点,点击会话后消除) */
+  unread?: boolean;
 }
 
 interface WorkspaceItem {
@@ -341,6 +343,10 @@ const ICONS = {
   folder: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
   back: "M19 12H5|M12 19l-7-7 7-7",
   image: "M3 5h18v14H3z|M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z|M21 15l-5-5L5 21",
+  // 提问(帮助圆圈)
+  help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3|M12 17h.01",
+  // 勾选(多选复选框选中态)
+  check: "M20 6 9 17l-5-5",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -557,8 +563,18 @@ const EN_TEXT: Record<string, string> = {
   "插入 Copilot 指令文件": "Insert Copilot instruction file",
   "插入 Copilot 智能体定义": "Insert Copilot agent definition",
   "插入 Copilot 提示词": "Insert Copilot prompt",
-  "✍️ 自定义回答(其他)": "✍️ Custom answer (other)",
-  "输入自定义回答…": "Type a custom answer…",
+  "提问": "Question",
+  "放弃整组问题": "Dismiss all questions",
+  "第 {i} 题 / 共 {n} 题": "Question {i} of {n}",
+  "下一题": "Next",
+  "上一题": "Previous question",
+  "输入你的答案(填写即视为自定义回答)": "Type your answer (typing counts as a custom answer)",
+  "去聊天里说": "Chat about it",
+  "输入修改意见,回车发送": "Type feedback, press Enter to send",
+  "拒绝": "Refuse",
+  "确认执行": "Approve",
+  "会话": "Sessions",
+  "暂无会话": "No sessions",
   "提交回答": "Submit answer",
   "🔧 过程": "🔧 Process",
   "🎯 目标": "🎯 Goal",
@@ -586,7 +602,7 @@ const EN_TEXT: Record<string, string> = {
   "📋 计划审批": "📋 Plan review",
   "✅ 批准计划并开始执行": "✅ Approve plan and start",
   "✏️ 继续修改计划": "✏️ Keep editing the plan",
-  "⚠️ 还有问题未回答,请作答或点击跳过本题": "⚠️ Some questions are unanswered; answer or skip them",
+  "⚠️ 请选择一个选项或填写自定义回答": "⚠️ Select an option or type a custom answer",
   // ---- 头部按钮与图片附件 ----
   "工作区(分组 / 搜索 / 归档)": "Workspaces (groups / search / archive)",
   "后台任务": "Background jobs",
@@ -880,7 +896,17 @@ const header = el("div", "header");
 const headerSessionRow = el("div", "header-row header-session-row");
 const headerToolRow = el("div", "header-row header-tool-row");
 const sessionSelectWrap = el("div", "session-select-wrap");
-const sessionSelect = el("select", "session-select");
+// 自定义会话下拉:按钮 = 当前会话 + 徽标(待审批/等待回答/运行中)+ 通知点;弹层 = 富文本会话列表
+const sessionBtn = el("button", "session-dropdown-btn");
+const sessionBtnLabel = el("span", "session-dropdown-label", t("— 选择会话 —"));
+const sessionBtnBadges = el("span", "session-dropdown-badges");
+const sessionBtnDot = el("span", "session-btn-dot");
+sessionBtnDot.hidden = true;
+const sessionBtnChevron = el("span", "session-dropdown-chevron", "▾");
+sessionBtn.append(sessionBtnLabel, sessionBtnBadges, sessionBtnDot, sessionBtnChevron);
+const sessionList = el("div", "session-dropdown-menu");
+sessionList.hidden = true;
+sessionSelectWrap.append(sessionBtn, sessionList);
 const btnNew = el("button", "btn btn-icon");
 btnNew.title = t("新建会话");
 btnNew.append(lineIcon(ICONS.plus));
@@ -904,7 +930,6 @@ btnBrowser.title = t("在浏览器中打开");
 btnBrowser.append(lineIcon(ICONS.globe));
 const statusDot = el("span", "status-dot");
 const statusText = el("span", "status-text", "未连接");
-sessionSelectWrap.append(sessionSelect);
 
 // 会话操作菜单(挂在 ⋯ 按钮的锚点上,随按钮位置展开)
 const sessionMenu = el("div", "session-menu");
@@ -1059,7 +1084,11 @@ const statsLine = el("div", "stats-line");
 statsLine.hidden = true;
 const contextBar = el("div", "context-bar");
 contextBar.hidden = true;
-conversationBottom.append(btnBackToMain, modeChips, todoPanel, contextBar);
+conversationBottom.append(btnBackToMain, todoPanel, contextBar);
+
+// 状态行:回合活动指示(深度思考中… 3秒)与 计划模式/目标 芯片同行(位于输入框上方)
+const statusRow = el("div", "status-row");
+statusRow.append(turnStatus, modeChips);
 
 // 输入框底部行:左下角 / 命令菜单、权限选择;右下角 模型
 const composerBottom = el("div", "composer-bottom");
@@ -1071,16 +1100,17 @@ btnAddAttach.title = t("添加文件或文件夹到对话");
 btnAddAttach.append(lineIcon(ICONS.plus, 12));
 const permissionTool = toolSelect(t("权限"), t("读写权限(沙箱模式 + 审批策略)"));
 const permissionSelect = permissionTool.select;
+// 底部行:左下角 / 命令菜单、权限选择;右下角 模型
 composerBottom.append(btnPlus, permissionTool.wrap, composerRight);
 // 发送提示:独占一行,位于输入框左下角
 const hint = el("div", "hint", t("Enter 发送 · Shift+Enter 换行"));
 const hintRow = el("div", "hint-row");
 hintRow.append(hint);
-// 对话框顶部行:左上角 ＋ 添加文件 + 芯片;右上角 预设胶囊(仅新会话) + 思考
+// 对话框顶部行:左上角 ＋ 添加文件 + 附件芯片;右上角 预设胶囊(仅新会话) + 思考
 const composerTop = el("div", "composer-top");
 attachmentsRow.append(btnAddAttach);
 composerTop.append(attachmentsRow, presetTool.wrap, thinkingTool.wrap);
-composer.append(imagesRow, composerTop, inputWrap, composerBottom, hintRow, statsLine);
+composer.append(imagesRow, composerTop, inputWrap, composerBottom, hintRow);
 
 // 添加文件/文件夹选择菜单(挂在 composer 内)
 const attachMenu = el("div", "plus-menu attach-menu");
@@ -1092,7 +1122,7 @@ const plusMenu = el("div", "plus-menu");
 plusMenu.hidden = true;
 composer.append(plusMenu);
 
-root.append(header, goalArea, messages, conversationBottom, pendingArea, turnStatus, composer);
+root.append(header, goalArea, messages, conversationBottom, pendingArea, statusRow, composer, statsLine);
 app.append(root);
 
 // ---------- 事件 ----------
@@ -1145,9 +1175,15 @@ btnSubagents.addEventListener("click", (e) => {
   e.stopPropagation();
   openSubagentCatalog();
 });
-sessionSelect.addEventListener("change", () => {
-  const id = sessionSelect.value;
-  if (id) vscode.postMessage({ kind: "select", sessionId: id });
+sessionBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  // 每次展开时重建列表(拿到最新的审批/等待回答/未读状态)
+  renderSessions();
+  sessionList.hidden = !sessionList.hidden;
+});
+// 点击弹层外部关闭(与其余锚定弹层行为一致)
+document.addEventListener("click", (e) => {
+  if (!sessionList.hidden && !sessionSelectWrap.contains(e.target as Node)) sessionList.hidden = true;
 });
 thinkingSelect.addEventListener("change", () => {
   const m = state.models?.current;
@@ -2062,6 +2098,8 @@ function handleEvent(wire: WireEvent) {
         turnProducedSet.clear();
         turnCallViews.clear();
       }
+      // 回合结束即刷新底部统计栏(投影缺失时由本地事件推导,保证始终显示)
+      if (!state.replaying) renderStatsLine();
       updateRunning();
       break;
     }
@@ -2354,31 +2392,61 @@ function renderGoal() {
 
 // ---------- 会话 / 状态 / 工具行 ----------
 
+/** 会话状态徽标(待审批 / 计划待审 / 等待回答 / 运行中)。 */
+function pendingBadge(pending: { kind: "approval" | "question" | "plan-review" }): HTMLElement {
+  if (pending.kind === "approval") return el("span", "session-badge badge-approval", `🛡️ ${t("等待审批")}`);
+  if (pending.kind === "plan-review") return el("span", "session-badge badge-plan", `📋 ${t("计划待审")}`);
+  return el("span", "session-badge badge-question", `❓ ${t("等待回答")}`);
+}
+
 function renderSessions() {
   const current = state.current;
   const archived = new Set(state.archivedSessionIds);
-  sessionSelect.innerHTML = "";
-  const empty = el("option", undefined, t("— 选择会话 —"));
-  empty.value = "";
-  sessionSelect.append(empty);
   // 与网页端一致:归档会话与子代理会话从常规列表隐藏(归档可到工作区面板"已归档"区查看)
   const visible = state.sessions.filter(
     (s) => s.sessionId === current || (!archived.has(s.sessionId) && s.origin !== "subagent"),
   );
+
+  // ---- 触发按钮:当前会话 + 状态徽标 + 通知点(有未读/待处理会话时) ----
+  const cur = state.sessions.find((s) => s.sessionId === current);
+  sessionBtnLabel.textContent = cur ? (cur.title || sessionLabel(cur)) : t("— 选择会话 —");
+  sessionBtnLabel.title = cur ? (cur.title || sessionLabel(cur)) : "";
+  sessionBtnBadges.innerHTML = "";
+  if (cur?.pending) sessionBtnBadges.append(pendingBadge(cur.pending));
+  else if (cur?.running) sessionBtnBadges.append(el("span", "session-badge badge-running", "⏳"));
+  const anyPending = visible.some((s) => s.pending);
+  const anyUnread = visible.some((s) => s.unread);
+  sessionBtnDot.hidden = !anyPending && !anyUnread;
+  sessionBtnDot.className = "session-btn-dot" + (anyPending ? " dot-warn" : " dot-unread");
+
+  // ---- 会话列表弹层 ----
+  sessionList.innerHTML = "";
+  sessionList.append(el("div", "session-dropdown-head", t("会话")));
   for (const s of visible) {
-    const pendingMark = s.pending
-      ? s.pending.kind === "approval"
-        ? "🛡️ "
-        : s.pending.kind === "plan-review"
-          ? "📋 "
-          : "❓ "
-      : "";
-    const runningMark = !s.pending && s.running ? "⏳ " : "";
-    const option = el("option", undefined, `${pendingMark}${runningMark}${s.title || sessionLabel(s)}`);
-    option.value = s.sessionId;
-    if (s.sessionId === current) option.selected = true;
-    sessionSelect.append(option);
+    const row = el("button", "session-row" + (s.sessionId === current ? " active" : ""));
+    // 未查看完成回合 → 绿色圆点(点击选中该会话后由宿主清除)
+    if (s.unread) row.append(el("span", "unread-dot"));
+    const main = el("span", "session-row-main");
+    const branch = s.parentSessionId ? "↪ " : "";
+    const title = `${branch}${s.blank ? "🆕" : "💬"} ${s.sessionId.slice(0, 12)}`;
+    main.append(el("span", "session-row-title", s.title || title));
+    const subBits: string[] = [];
+    if (s.cwd) subBits.push(basename(s.cwd));
+    if (s.agentPreset) subBits.push(presetName(s.agentPreset));
+    if (subBits.length) main.append(el("span", "session-row-sub", subBits.join(" · ")));
+    row.append(main);
+    if (s.pending) row.append(pendingBadge(s.pending));
+    else if (s.running) row.append(el("span", "session-badge badge-running", "⏳"));
+    row.addEventListener("click", () => {
+      sessionList.hidden = true;
+      if (s.sessionId !== current) vscode.postMessage({ kind: "select", sessionId: s.sessionId });
+    });
+    sessionList.append(row);
   }
+  if (visible.length === 0) {
+    sessionList.append(el("div", "session-dropdown-empty", t("暂无会话")));
+  }
+
   // 回到主线按钮:仅当前会话是分叉分支时显示
   const currentSession = state.sessions.find((s) => s.sessionId === current);
   btnBackToMain.hidden = !currentSession?.parentSessionId;
@@ -2599,14 +2667,92 @@ function fmtTokens(n: number): string {
   return String(Math.round(n));
 }
 
+/**
+ * 无投影时的兜底统计(网页端 deriveStats 同款思路:从已折叠事件推导)。
+ * 覆盖"统计栏时有时无"的问题 —— sessionStats 投影帧并非总会到达,本地事件永远在。
+ */
+function deriveStatsFromEvents(events: WireEvent[]) {
+  const turns = new Set<number>();
+  const stepStart = new Map<string, number>();
+  const firstDelta = new Map<string, number>();
+  const lastDelta = new Map<string, number>();
+  const callTime = new Map<string, number>();
+  const llmByStep = new Map<string, number>();
+  let toolMs = 0;
+  let decodeTokens = 0;
+  for (const wire of events) {
+    const ev = wire.event;
+    const data: any = ev.data ?? {};
+    const turn = typeof data.turn === "number" ? data.turn : undefined;
+    const step = typeof data.step === "number" ? data.step : undefined;
+    const key = turn !== undefined && step !== undefined ? `${turn}:${step}` : undefined;
+    switch (ev.type) {
+      case "turn/start":
+        if (turn !== undefined) turns.add(turn);
+        break;
+      case "step/start":
+        if (key) stepStart.set(key, ev.time);
+        break;
+      case "tool/call":
+        if (typeof data.callId === "string") callTime.set(data.callId, ev.time);
+        break;
+      case "tool/result": {
+        const callId = data?.message?.source?.callId;
+        const t0 = typeof callId === "string" ? callTime.get(callId) : undefined;
+        if (t0 !== undefined) {
+          toolMs += Math.max(0, ev.time - t0);
+          callTime.delete(callId);
+        }
+        break;
+      }
+      case "assistant/chunk":
+        if (key && data?.chunk?.type === "text-delta") {
+          if (!firstDelta.has(key)) firstDelta.set(key, ev.time);
+          lastDelta.set(key, ev.time);
+        }
+        break;
+      case "assistant/message":
+        if (key) {
+          const t0 = stepStart.get(key);
+          if (t0 !== undefined) llmByStep.set(key, Math.max(0, ev.time - t0));
+          const out = data?.usage?.outputTokens;
+          if (typeof out === "number") decodeTokens += out;
+        }
+        break;
+    }
+  }
+  let llmMs = 0;
+  for (const v of llmByStep.values()) llmMs += v;
+  let ttftMs = 0;
+  let ttftSteps = 0;
+  let decodeMs = 0;
+  for (const [key, t0] of stepStart) {
+    const first = firstDelta.get(key);
+    if (first !== undefined) {
+      ttftMs += Math.max(0, first - t0);
+      ttftSteps += 1;
+      decodeMs += Math.max(0, (lastDelta.get(key) ?? first) - first);
+    }
+  }
+  return { turns: turns.size, steps: stepStart.size, llmMs, toolMs, ttftMs, ttftSteps, decodeMs, decodeTokens };
+}
+
 function renderStatsLine() {
-  const st = state.stats?.sessionStats;
+  const projected = state.stats?.sessionStats as {
+    steps?: number; turns?: number; llmMs?: number; toolMs?: number;
+    ttftMs?: number; ttftSteps?: number; decodeMs?: number; decodeTokens?: number;
+  } | undefined;
   const tu = state.stats?.tokenUsage;
+  // 与网页端一致:优先投影;投影缺失时从事件推导 —— 保证统计栏始终显示(有回合时)
+  const st = (projected?.steps ?? 0) > 0 ? projected : (() => {
+    const derived = deriveStatsFromEvents(state.rawEvents);
+    return derived.steps > 0 ? derived : undefined;
+  })();
   const parts: string[] = [];
   if (st) {
     if (typeof st.turns === "number") parts.push(t("{n} 轮 · {m} 步", { n: String(st.turns), m: String(st.steps ?? 0) }));
     if (typeof st.llmMs === "number") parts.push(t("LLM {d} · 工具 {t}", { d: fmtDuration(st.llmMs), t: fmtDuration(st.toolMs ?? 0) }));
-    if (typeof st.ttftMs === "number" && st.ttftSteps > 0) parts.push(t("首 token 平均 {s}s", { s: (st.ttftMs / st.ttftSteps / 1000).toFixed(1) }));
+    if (typeof st.ttftMs === "number" && (st.ttftSteps ?? 0) > 0) parts.push(t("首 token 平均 {s}s", { s: (st.ttftMs / st.ttftSteps! / 1000).toFixed(1) }));
     if (typeof st.decodeMs === "number" && st.decodeMs > 0 && typeof st.decodeTokens === "number") {
       parts.push(`${Math.round(st.decodeTokens / (st.decodeMs / 1000))} tok/s`);
     }
@@ -2889,138 +3035,262 @@ function renderPending() {
     pendingArea.append(card);
   }
   for (const question of state.questions.values()) {
-    // 网页版布局:一个提问集合一张卡片;每个问题可单独跳过;提交时提交全部
-    const card = el("div", "pending-card pending-question");
-    const sections: {
-      item: { id: string; question: string; detail?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean; intent?: unknown };
-      picks: { input: HTMLInputElement; label: string }[];
-      customInput: HTMLInputElement;
-      customRadio: HTMLInputElement;
-      skipped: boolean;
-    }[] = [];
+    const items = question.questions;
+    const planItems = items.filter((i) => (i as { intent?: { kind?: string } }).intent?.kind === "plan-review" && i.detail);
+    const normalItems = items.filter((i) => !planItems.includes(i));
 
-    const submitQuestion = (frameRpcId: string, answers: { id: string; selected: string[]; custom?: string }[], removeEntry: boolean) => {
-      vscode.postMessage({ kind: "answer", frameRpcId, answers });
-      if (removeEntry) {
-        state.questions.delete(frameRpcId);
+    // ---------- 计划审批卡片(与网页端 PlanReviewPanel 一致:去聊天里说 / 拒绝 / 确认执行) ----------
+    for (const item of planItems) {
+      const card = el("div", "pending-card pending-question plan-card");
+      const head = el("div", "question-head");
+      head.append(el("span", "question-head-title", "📋 " + t("计划待审")));
+      card.append(head);
+      const planBox = el("div", "plan-detail-box");
+      setHtml(planBox, item.detail ?? "");
+      card.append(planBox);
+      const intent = (item as { intent?: { kind?: string; approve?: string } }).intent;
+      const approveOption = item.options?.find((o) => o.label === intent?.approve);
+      const declineOption = item.options?.find((o) => o.label !== intent?.approve);
+      // 与 Claude Code 一致:直接在审批内输入修改意见,回车发送自定义回答(不批准也不拒绝)
+      const customRow = el("div", "custom-row plan-custom-row");
+      customRow.append(lineIcon(ICONS.edit, 13));
+      const customInput = el("input", "custom-answer-input");
+      customInput.type = "text";
+      customInput.placeholder = t("输入修改意见,回车发送");
+      const sendCustom = () => {
+        const text = customInput.value.trim();
+        if (!text) return;
+        vscode.postMessage({
+          kind: "answer",
+          frameRpcId: question.frameRpcId,
+          answers: [{ id: item.id, selected: [], custom: text }],
+        });
+        state.questions.delete(question.frameRpcId);
         renderPending();
+      };
+      customInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendCustom();
+        }
+      });
+      customRow.append(customInput);
+      card.append(customRow);
+      const actions = el("div", "question-footer-actions");
+      // 拒绝:提交非批准选项(无该选项时不显示,与网页端一致)
+      if (declineOption) {
+        const declineBtn = el("button", "btn btn-reject", t("拒绝"));
+        declineBtn.title = declineOption.description ?? "";
+        declineBtn.addEventListener("click", () => {
+          vscode.postMessage({
+            kind: "answer",
+            frameRpcId: question.frameRpcId,
+            answers: [{ id: item.id, selected: [declineOption.label] }],
+          });
+          state.questions.delete(question.frameRpcId);
+          renderPending();
+        });
+        actions.append(declineBtn);
+      }
+      // 确认执行:提交批准选项
+      const approveBtn = el("button", "btn btn-allow", `✅ ${t("确认执行")}`);
+      approveBtn.title = approveOption?.description ?? "";
+      approveBtn.addEventListener("click", () => {
+        vscode.postMessage({
+          kind: "answer",
+          frameRpcId: question.frameRpcId,
+          answers: [{ id: item.id, selected: approveOption ? [approveOption.label] : [] }],
+        });
+        state.questions.delete(question.frameRpcId);
+        renderPending();
+      });
+      actions.append(approveBtn);
+      card.append(actions);
+      pendingArea.append(card);
+    }
+    if (normalItems.length === 0) continue;
+
+    // ---------- 普通提问:网页端分页流(一次一题,跳过/提交同排) ----------
+    const drafts = normalItems.map(() => ({ selected: [] as string[], custom: "", skipped: false }));
+    let index = 0;
+
+    const card = el("div", "pending-card pending-question question-card");
+    const head = el("div", "question-head");
+    head.append(lineIcon(ICONS.help, 14), el("span", "question-head-title", t("提问")));
+    const count = el("span", "question-count");
+    const closeBtn = el("button", "question-close", "✕");
+    closeBtn.title = t("放弃整组问题");
+    closeBtn.addEventListener("click", () => {
+      // 放弃整组问题:取消提问(网页端 pending.cancel 同款),不提交任何答案
+      vscode.postMessage({ kind: "answerCancel", frameRpcId: question.frameRpcId });
+      state.questions.delete(question.frameRpcId);
+      renderPending();
+    });
+    head.append(count, closeBtn);
+    card.append(head);
+
+    const body = el("div", "question-body");
+    card.append(body);
+
+    const footer = el("div", "question-footer");
+    const pager = el("div", "question-pager");
+    const prevBtn = el("button", "question-nav", "◀");
+    prevBtn.title = t("上一题");
+    const nextBtn = el("button", "question-nav", "▶");
+    nextBtn.title = t("下一题");
+    const progress = el("span", "question-progress");
+    pager.append(prevBtn, progress, nextBtn);
+    const feedback = el("div", "question-feedback");
+    const actions = el("div", "question-footer-actions");
+    const skipBtn = el("button", "btn skip-btn", t("跳过本题"));
+    const primaryBtn = el("button", "btn btn-allow", "");
+    actions.append(skipBtn, primaryBtn);
+    footer.append(pager, feedback, actions);
+    card.append(footer);
+    pendingArea.append(card);
+
+    /** 全部问题的作答(跳过 → 空选择;自定义优先,与网页端提交语义一致)。 */
+    function buildAnswers() {
+      return normalItems.map((item, i) => {
+        const d = drafts[i];
+        const custom = d.custom.trim();
+        if (d.skipped) return { id: item.id, selected: [] as string[] };
+        return {
+          id: item.id,
+          selected: custom === "" || item.multiSelect === true ? d.selected : [],
+          ...(custom === "" ? {} : { custom }),
+        };
+      });
+    }
+
+    const submitAll = () => {
+      vscode.postMessage({ kind: "answer", frameRpcId: question.frameRpcId, answers: buildAnswers() });
+      state.questions.delete(question.frameRpcId);
+      renderPending();
+    };
+
+    const answered = () => drafts[index].skipped || drafts[index].selected.length > 0 || drafts[index].custom.trim() !== "";
+
+    const continueFlow = () => {
+      if (!answered()) {
+        feedback.textContent = t("⚠️ 请选择一个选项或填写自定义回答");
+        return;
+      }
+      if (index < normalItems.length - 1) {
+        index += 1;
+        renderPage();
+      } else {
+        submitAll();
       }
     };
 
-    for (const item of question.questions) {
-      // 计划审批(plan-review):网页版样式,批准 / 继续修改两个主按钮
-      const intent = (item as { intent?: { kind?: string; approve?: string } }).intent;
-      if (intent?.kind === "plan-review" && item.detail) {
-        const section = el("div", "question-section plan-review-section");
-        section.append(el("div", "pending-title", t("📋 计划审批")));
-        const planBox = el("div", "plan-detail-box");
-        setHtml(planBox, item.detail);
-        section.append(planBox);
-        const approveOption = item.options?.find((o) => o.label === intent.approve);
-        const declineOption = item.options?.find((o) => o.label !== intent.approve);
-        const actions = el("div", "pending-actions");
-        const approveBtn = el("button", "btn btn-allow", t("✅ 批准计划并开始执行"));
-        approveBtn.title = approveOption?.description ?? "";
-        approveBtn.addEventListener("click", () => {
-          submitQuestion(question.frameRpcId, [{ id: item.id, selected: approveOption ? [approveOption.label] : [] }], true);
-        });
-        const declineBtn = el("button", "btn btn-reject", t("✏️ 继续修改计划"));
-        declineBtn.title = declineOption?.description ?? "";
-        declineBtn.addEventListener("click", () => {
-          submitQuestion(question.frameRpcId, [{ id: item.id, selected: declineOption ? [declineOption.label] : [] }], true);
-        });
-        actions.append(approveBtn, declineBtn);
-        section.append(actions);
-        card.append(section);
-        continue;
+    const skipQuestion = () => {
+      drafts[index].skipped = true;
+      drafts[index].selected = [];
+      drafts[index].custom = "";
+      feedback.textContent = "";
+      if (index < normalItems.length - 1) {
+        index += 1;
+        renderPage();
+      } else {
+        submitAll();
       }
+    };
 
-      // 普通问题
+    prevBtn.addEventListener("click", () => {
+      if (index > 0) {
+        index -= 1;
+        renderPage();
+      }
+    });
+    nextBtn.addEventListener("click", () => {
+      if (index < normalItems.length - 1) {
+        index += 1;
+        renderPage();
+      }
+    });
+    skipBtn.addEventListener("click", skipQuestion);
+    primaryBtn.addEventListener("click", continueFlow);
+
+    /** 渲染当前题:选项 + 自定义输入(输入即视为自定义回答,不再有单独单选)。 */
+    function renderPage() {
+      count.textContent = normalItems.length > 1 ? t("第 {i} 题 / 共 {n} 题", { i: String(index + 1), n: String(normalItems.length) }) : "";
+      progress.textContent = `${index + 1} / ${normalItems.length}`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === normalItems.length - 1;
+      primaryBtn.textContent = index === normalItems.length - 1 ? t("提交回答") : t("下一题");
+      feedback.textContent = "";
+      body.innerHTML = "";
+
+      const item = normalItems[index];
+      const draft = drafts[index];
       const section = el("div", "question-section");
-      const title = el("div", "pending-title");
-      title.append(lineIcon(ICONS.up, 13), el("span", "pending-title-text", " " + item.question));
+      const title = el("div", "question-title");
+      title.append(lineIcon(ICONS.help, 13), el("span", undefined, " " + item.question));
       section.append(title);
-      if (item.detail) section.append(el("div", "pending-detail", item.detail));
+      if (item.detail) section.append(el("div", "question-detail", item.detail));
       const form = el("div", "pending-form");
-      const picks: { input: HTMLInputElement; label: string }[] = [];
+
       for (const option of item.options ?? []) {
         const parsed = parseRecommendedLabel(option.label);
         const row = el("label", "option-row");
         const inputEl = document.createElement("input");
         inputEl.type = item.multiSelect ? "checkbox" : "radio";
-        inputEl.name = `q-${question.frameRpcId}-${item.id}`;
-        const textSpan = el("span", "option-label", parsed.base);
-        row.append(inputEl, textSpan);
+        inputEl.name = `q-${question.frameRpcId}-${index}`;
+        inputEl.checked = draft.selected.includes(option.label);
+        inputEl.addEventListener("change", () => {
+          if (item.multiSelect) {
+            if (inputEl.checked) draft.selected.push(option.label);
+            else draft.selected = draft.selected.filter((l) => l !== option.label);
+          } else {
+            draft.selected = [option.label];
+            draft.custom = "";
+          }
+          draft.skipped = false;
+          feedback.textContent = "";
+        });
+        // 视觉标识(网页端同款):单选 = 序号圆点;多选(multiSelect)= 复选框方块
+        const mark = el("span", "option-mark" + (item.multiSelect ? " mark-check" : " mark-radio"));
+        if (item.multiSelect) mark.append(lineIcon(ICONS.check, 11));
+        else mark.textContent = String((item.options ?? []).indexOf(option) + 1);
+        const copy = el("span", "option-copy");
+        const line = el("span", "option-line", parsed.base);
         if (parsed.recommended) {
           const badge = el("span", "rec-badge", t("推荐"));
           badge.title = option.description ?? "";
-          row.append(badge);
+          line.append(badge);
         }
+        copy.append(line);
+        if (option.description) copy.append(el("span", "option-desc-text", option.description));
+        row.append(inputEl, mark, copy);
         form.append(row);
-        picks.push({ input: inputEl, label: option.label });
       }
-      // 自定义回答(玩家输入)
-      const customRow = el("label", "option-row custom-row");
-      const customRadio = document.createElement("input");
-      customRadio.type = "radio";
-      customRadio.name = `q-${question.frameRpcId}-${item.id}`;
-      customRow.append(customRadio, el("span", "option-label", t("✍️ 自定义回答(其他)")));
-      form.append(customRow);
-      const customInput = el("input", "custom-answer-input");
-      customInput.placeholder = t("输入自定义回答…");
-      customInput.addEventListener("input", () => {
-        if (customInput.value.trim()) customRadio.checked = true;
-      });
-      form.append(customInput);
-      // 跳过本题(网页版:直接提交空选择)
-      const actions = el("div", "pending-actions");
-      const skip = el("button", "btn skip-btn", t("跳过本题"));
-      const sectionEntry: { skipped: boolean } = { skipped: false };
-      skip.addEventListener("click", () => {
-        sectionEntry.skipped = true;
-        submitQuestion(question.frameRpcId, [{ id: item.id, selected: [] }], false);
-        section.remove();
-        if (card.querySelectorAll(".question-section").length === 0) {
-          card.remove();
-          state.questions.delete(question.frameRpcId);
-        }
-      });
-      actions.append(skip);
-      section.append(form, actions);
-      card.append(section);
-      sections.push({ item, picks, customInput, customRadio, skipped: false });
-    }
 
-    // 卡片级提交:提交全部剩余问题
-    const submitAll = el("button", "btn btn-allow", t("提交回答"));
-    submitAll.addEventListener("click", () => {
-      const answers: { id: string; selected: string[]; custom?: string }[] = [];
-      let missing = false;
-      for (const s of sections) {
-        if (s.skipped) continue;
-        const selected = s.picks.filter((p) => p.input.checked).map((p) => p.label);
-        const custom = s.customInput.value.trim();
-        const useCustom = s.customRadio.checked && custom;
-        if (selected.length === 0 && !useCustom) {
-          missing = true;
-          continue;
+      // 自定义回答:输入即视为自定义(与网页端一致 —— 无独立"其他"单选)
+      const customRow = el("div", "custom-row");
+      customRow.append(lineIcon(ICONS.edit, 13));
+      const customInput = el("input", "custom-answer-input");
+      customInput.type = "text";
+      customInput.placeholder = t("输入你的答案(填写即视为自定义回答)");
+      customInput.value = draft.custom;
+      customInput.addEventListener("input", () => {
+        draft.custom = customInput.value;
+        if (customInput.value.trim() && !item.multiSelect) draft.selected = [];
+        draft.skipped = false;
+        feedback.textContent = "";
+      });
+      customInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          continueFlow();
         }
-        answers.push({
-          id: s.item.id,
-          selected: useCustom ? [] : selected,
-          ...(useCustom ? { custom } : {}),
-        });
-      }
-      if (missing) {
-        appendNode({ kind: "note", key: `qn:${Date.now()}`, el: null, text: t("⚠️ 还有问题未回答,请作答或点击跳过本题") });
-        return;
-      }
-      if (answers.length > 0) submitQuestion(question.frameRpcId, answers, true);
-    });
-    const submitRow = el("div", "pending-actions submit-row");
-    submitRow.append(submitAll);
-    card.append(submitRow);
-    pendingArea.append(card);
+      });
+      customRow.append(customInput);
+      form.append(customRow);
+      section.append(form);
+      body.append(section);
+    }
+    renderPage();
   }
 }
 
@@ -3220,6 +3490,16 @@ function handleMessage(msg: any) {
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
+      // 持久化的计划文本文件:重启后重放时并入最后一个回合的产物卡,便于重新打开继续修改
+      if (typeof msg.planFile === "string" && msg.planFile) {
+        const lastAssistant = [...state.nodes].reverse().find((n) => n.kind === "assistant");
+        if (lastAssistant) {
+          const files = [...(lastAssistant.deliverables ?? [])];
+          if (!files.includes(msg.planFile)) files.push(msg.planFile);
+          lastAssistant.deliverables = files;
+          renderNodeFiles(lastAssistant);
+        }
+      }
       renderSessions();
       renderPending();
       renderGoal();
@@ -3350,6 +3630,16 @@ function handleMessage(msg: any) {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       state.stats = msg.value;
       renderStatsLine();
+      break;
+    }
+    case "planFile": {
+      // 计划审批文本文件:计入本轮产物(📦 产物卡,可点击打开)
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      const path: string | undefined = typeof msg.path === "string" ? msg.path : undefined;
+      if (path && !turnProducedSet.has(path)) {
+        turnProducedSet.add(path);
+        turnProduced.push(path);
+      }
       break;
     }
     case "todos": {

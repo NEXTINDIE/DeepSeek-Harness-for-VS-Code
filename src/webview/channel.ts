@@ -10,6 +10,9 @@ import type { PromptContentPart } from "../dsh/types";
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
 
+/** 计划文件路径持久化键(globalState)。 */
+const PLAN_FILES_KEY = "dsh.planFiles";
+
 /**
  * 聊天面板宿主抽象:同一个 ChatChannel 可挂在侧边栏 WebviewView 或编辑器区 WebviewPanel 上。
  */
@@ -25,12 +28,19 @@ export interface ChatSink {
  */
 export class ChatChannel {
   private disposables: vscode.Disposable[] = [];
+  /** 会话 → 计划文本文件路径(写入工作区 .dsh/plans 或全局存储;随 globalState 持久化) */
+  private planFiles = new Map<string, string>();
 
   constructor(
     private readonly hub: DshHub,
     private readonly ctx: vscode.ExtensionContext,
     private readonly sink: ChatSink,
   ) {
+    // 恢复上次会话的计划文件路径(重启 VS Code 后仍可重新打开)
+    try {
+      const saved = this.ctx.globalState.get<Record<string, string>>(PLAN_FILES_KEY);
+      if (saved) for (const [sid, path] of Object.entries(saved)) this.planFiles.set(sid, path);
+    } catch { /* 忽略损坏的持久化数据 */ }
     sink.webview.options = {
       ...sink.webview.options,
       enableScripts: true,
@@ -96,6 +106,18 @@ export class ChatChannel {
           if (question.sessionId === store.currentSessionId) this.post({ kind: "question", ...question });
         }),
       },
+      {
+        dispose: store.on("question", (question: PendingQuestion) => {
+          // 计划审批:在 VS Code 编辑器区打开计划文本窗口;后续计划更新原地替换内容
+          for (const item of question.questions) {
+            const intent = (item as { intent?: { kind?: string } }).intent;
+            if (intent?.kind === "plan-review" && item.detail) {
+              void this.updatePlanDocument(question.sessionId, item.detail);
+              break;
+            }
+          }
+        }),
+      },
       { dispose: store.on("questionResolved", (frameRpcId: string) => this.post({ kind: "questionResolved", frameRpcId })) },
       {
         dispose: store.on("goal", (sid: string, value: unknown) => {
@@ -157,10 +179,60 @@ export class ChatChannel {
     await this.pushFullState();
   }
 
+  /**
+   * 计划审批:把计划文本写入持久文件(Claude Code 计划窗口同款,纯文本等宽字体),
+   * 并在编辑器区打开;同一会话的后续计划更新原地覆盖同一文件,已打开编辑器自动刷新。
+   */
+  private async updatePlanDocument(sessionId: string, plan: string) {
+    const content = `${t("plan.reviewHeader")}\n\n${plan}`;
+    try {
+      const uri = await this.planUriFor(sessionId);
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf8"));
+      this.planFiles.set(sessionId, uri.fsPath);
+      void this.ctx.globalState.update(PLAN_FILES_KEY, Object.fromEntries(this.planFiles));
+      // 通知前端把计划文件计入本轮产物(📦 产物卡)
+      this.post({ kind: "planFile", sessionId, path: uri.fsPath });
+      // 已在编辑器打开则磁盘写入会自动刷新;否则打开(Claude Code 同款旁侧预览)
+      const open = vscode.window.visibleTextEditors.some((e) => e.document.uri.toString() === uri.toString());
+      if (!open) {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        // 预览模式打开(与 Claude Code 计划窗口一致:只读预览体验,不抢聊天焦点)
+        await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+      }
+    } catch (error) {
+      console.error("[dsh] plan document write/open failed:", error);
+    }
+  }
+
+  /** 计划文件位置:工作区 .dsh/plans(便于在产物/资源管理器中查看),无工作区时回退全局存储。 */
+  private async planUriFor(sessionId: string): Promise<vscode.Uri> {
+    const cwd = this.hub.store.sessions.get(sessionId)?.cwd ?? folderCwd();
+    if (cwd) {
+      const dir = vscode.Uri.joinPath(vscode.Uri.file(cwd), ".dsh", "plans");
+      await vscode.workspace.fs.createDirectory(dir);
+      return vscode.Uri.joinPath(dir, `plan-review-${sessionId}.txt`);
+    }
+    const dir = vscode.Uri.joinPath(this.ctx.globalStorageUri, "dsh-plans");
+    await vscode.workspace.fs.createDirectory(dir);
+    return vscode.Uri.joinPath(dir, `plan-review-${sessionId}.txt`);
+  }
+
+  /** 重新打开某会话的计划文本(重启 VS Code 后选择该会话时调用),预览模式。 */
+  private async openPlanFile(path: string) {
+    try {
+      const uri = vscode.Uri.file(path);
+      await vscode.workspace.fs.stat(uri);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+    } catch {
+      // 文件缺失/不可读时静默,不打断会话切换
+    }
+  }
+
   private serializeSessions(): StoredSession[] {
     return this.hub.store.listSessions().map((s) => {
       const pending = this.hub.store.pendingFor(s.sessionId);
-      return { ...s, ...(pending ? { pending } : {}) };
+      return { ...s, unread: this.hub.store.unreadSessionIds.has(s.sessionId), ...(pending ? { pending } : {}) };
     });
   }
 
@@ -236,6 +308,7 @@ export class ChatChannel {
       stats: current ? store.stats.get(current) : undefined,
       todos: current ? store.todos.get(current) : undefined,
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
+      planFile: current ? this.planFiles.get(current) : undefined,
     });
   }
 
@@ -505,6 +578,9 @@ export class ChatChannel {
           await this.hub.openSession(msg.sessionId);
           void this.hub.updateCurrentModel(msg.sessionId);
           await this.pushFullState();
+          // 重新打开该会话的计划文本(上次会话的计划可继续查看/修改)
+          const planPath = this.planFiles.get(msg.sessionId);
+          if (planPath) void this.openPlanFile(planPath);
         }
         break;
       case "new": {
@@ -742,7 +818,8 @@ export class ChatChannel {
           }
           try {
             const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
-            await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: false });
+            // 预览模式打开,保持聊天面板焦点(计划待审等文件不进入编辑模式)
+            await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });
           } catch {
             try {
               await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(target));
@@ -772,6 +849,11 @@ export class ChatChannel {
       case "answer":
         if (current && typeof msg.frameRpcId === "string" && Array.isArray(msg.answers)) {
           await this.hub.respondQuestion(current, msg.frameRpcId, msg.answers);
+        }
+        break;
+      case "answerCancel":
+        if (current && typeof msg.frameRpcId === "string") {
+          await this.hub.cancelQuestion(current, msg.frameRpcId);
         }
         break;
       case "goalCreate": {

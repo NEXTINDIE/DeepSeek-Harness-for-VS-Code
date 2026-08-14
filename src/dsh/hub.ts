@@ -415,6 +415,16 @@ export class DshHub {
     }
   }
 
+  /** 取消提问/计划审批(网页端 pending.cancel:错误信封 code=cancelled)。 */
+  async cancelQuestion(_sessionId: string, frameRpcId: string) {
+    try {
+      await this.client.cancelQuestion(frameRpcId);
+      this.store.pendingQuestions.delete(frameRpcId);
+    } catch (error) {
+      this.deps.onNotice?.(this.deps.t?.("hub.questionFailed", { error: String(error) }) ?? `Cancel question failed: ${String(error)}`, "error");
+    }
+  }
+
   // ---------- 模型 / 预设 / 思考深度 ----------
 
   getSessionModels(sessionId: string) {

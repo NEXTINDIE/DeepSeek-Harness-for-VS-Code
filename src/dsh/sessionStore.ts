@@ -20,6 +20,8 @@ export interface StoredSession {
   parentSessionId?: string;
   origin?: "subagent";
   updatedAt: number;
+  /** 有未查看完成的回合(会话列表显示绿点,点击会话后清除) */
+  unread?: boolean;
 }
 
 export interface PendingApproval {
@@ -78,6 +80,8 @@ export class SessionStore {
   /** 最近活跃会话(用于面板默认选择) */
   currentSessionId: string | undefined;
   lastTurnBySession = new Map<string, number>();
+  /** 有未查看完成的回合的会话(绿点,与网页端一致:回合结束时非当前会话标记,点击后清除) */
+  readonly unreadSessionIds = new Set<string>();
 
   private listeners = new Map<string, Set<Listener>>();
   private historyLoading = new Set<string>();
@@ -285,6 +289,11 @@ export class SessionStore {
         }
         this.lastTurnBySession.set(sessionId, event.data?.turn ?? 0);
         this.emit("turnEnd", sessionId, event.data?.turn ?? 0);
+        // 回合完成时若用户未在查看该会话,标记未读(绿点);查看(选中)时清除
+        if (sessionId !== this.currentSessionId) {
+          this.unreadSessionIds.add(sessionId);
+          this.emit("sessionsChanged", this.listSessions());
+        }
         break;
       case "user/message":
         if (!s?.blank && !this.currentSessionId) this.currentSessionId = sessionId;
@@ -437,6 +446,10 @@ export class SessionStore {
 
   selectSession(sessionId: string | undefined) {
     this.currentSessionId = sessionId;
+    // 查看会话 = 消除未读绿点
+    if (sessionId !== undefined && this.unreadSessionIds.delete(sessionId)) {
+      this.emit("sessionsChanged", this.listSessions());
+    }
     this.emit("currentChanged", sessionId);
   }
 
@@ -457,6 +470,7 @@ export class SessionStore {
     this.stats.clear();
     this.todos.clear();
     this.historyHasMore.clear();
+    this.unreadSessionIds.clear();
     this.currentSessionId = undefined;
   }
 }

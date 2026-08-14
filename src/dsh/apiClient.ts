@@ -406,6 +406,24 @@ export class DshApiClient {
     return this.respond({ sessionId, answer }, frameRpcId);
   }
 
+  /** 取消提问/计划审批(网页端 pending.cancel 同款:错误信封 code=cancelled)。 */
+  async cancelQuestion(frameRpcId: string): Promise<{ accepted: boolean }> {
+    const res = await fetch(`${this.baseUrl}/api/respond`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "client-response",
+        rpcId: frameRpcId,
+        result: { ok: false, error: { code: "cancelled", message: "user cancelled the question" } },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`DSH transport failure for /api/respond: HTTP ${res.status}`);
+    const receipt = (await res.json()) as { accepted: boolean; reason?: string };
+    if (!receipt.accepted) throw new Error(`DSH respond rejected: ${receipt.reason ?? "unknown"}`);
+    return receipt;
+  }
+
   // ---------- WebSocket 事件流 ----------
 
   private wsUrl(path: string): string {

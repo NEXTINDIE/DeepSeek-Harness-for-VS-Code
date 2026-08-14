@@ -143,5 +143,6 @@
   "notice.commandExecuted": "Command executed: {line}",
   "notice.commandUnmatched": "The host offers no such command: {line}",
   "notice.commandUnavailable": "No in-session command channel is available in this deployment; the command was not executed: {line}",
-  "notice.agentDirsSetFailed": "Failed to update agent config directory switches: {error}"
+  "notice.agentDirsSetFailed": "Failed to update agent config directory switches: {error}",
+  "plan.reviewHeader": "Ready for review\nSelect text to add comments on the plan. Submit feedback in the DSH plan review card (type and press Enter)."
 }
