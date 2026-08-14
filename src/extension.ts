@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { DshHub, type HubStatus } from "./dsh/hub";
 import { createTranslator } from "./dsh/i18n";
 import { registerChatParticipant } from "./dsh/chatParticipant";
+import { registerCommitMessageCommand } from "./dsh/commitMessage";
 import { folderCwd } from "./dsh/participantSessions";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
@@ -256,6 +257,8 @@ export function activate(ctx: vscode.ExtensionContext) {
         await hub.respondQuestion(args.sessionId, args.frameRpcId, args.answers);
       },
     ),
+    // 源代码管理:自动生成提交信息(移植自上游)
+    registerCommitMessageCommand(hub, ctx),
   );
 
   // ---------- 配置变更 ----------
