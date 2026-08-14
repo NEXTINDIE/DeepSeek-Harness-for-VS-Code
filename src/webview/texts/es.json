@@ -336,5 +336,7 @@
   "智能体": "Agentes",
   "系统提示词": "Indicación del sistema",
   "已注入模型 · 点击展开": "Inyectado en el modelo · clic para expandir",
-  "Git 回退到本回合之前": "Git: restaurar el estado anterior a este turno"
+  "Git 回退到本回合之前": "Git: restaurar el estado anterior a este turno",
+  "撤销本回合文件改动": "Deshacer los cambios de archivos de este turno",
+  "查看检查点": "Ver puntos de control"
 }

@@ -4,7 +4,9 @@ import type {
   AgentPresetListValue,
   AgentPresetOpenDocumentValue,
   AgentPresetReadValue,
+  ApprovalAnswer,
   ClientRequest,
+  CommandExecutionView,
   ConfigurableProviderView,
   CredentialView,
   DiscoveredModelView,
@@ -12,6 +14,7 @@ import type {
   HostDescribeValue,
   MuxFrame,
   PromptContentPart,
+  QuestionAnswer,
   SessionAttachmentValue,
   SessionCreateRequest,
   SessionCreateValue,
@@ -29,8 +32,6 @@ import type {
   SubagentPromptReceipt,
   WorkspaceItem,
   WorkspaceListValue,
-  ApprovalAnswer,
-  QuestionAnswer,
 } from "./types";
 
 export class DshApiError extends Error {
@@ -150,8 +151,13 @@ export class DshApiClient {
    * 信封 {type:"client-request", rpcId, method:"commands/execute",
    * payload:{args:{agentId, line}}},响应为标准 server-response 信封;
    * result.value === undefined 表示未匹配任何命令。
+   * result.value 是 CommandExecution { commandId, result: {kind, text?} } ——
+   * 命令的结果文本(如 /rollback 的回退摘要)随返回值透传给界面展示。
    */
-  async executeCommand(sessionId: string, line: string): Promise<{ matched: boolean }> {
+  async executeCommand(
+    sessionId: string,
+    line: string,
+  ): Promise<{ matched: boolean; execution?: CommandExecutionView }> {
     const endpoint = "commands/execute";
     const message: ClientRequest = {
       type: "client-request",
@@ -177,7 +183,21 @@ export class DshApiClient {
     if (!full.result.ok) {
       throw new DshApiError(full.result.error?.code ?? "command-error", full.result.error?.message ?? "commands/execute failed");
     }
-    return { matched: full.result.value !== undefined };
+    const value = full.result.value as
+      | { commandId?: string; result?: { kind?: string; text?: string } }
+      | undefined;
+    const matched = value !== undefined;
+    if (!matched || !value.result || typeof value.result.kind !== "string") return { matched };
+    return {
+      matched,
+      execution: {
+        commandId: typeof value.commandId === "string" ? value.commandId : undefined,
+        result: {
+          kind: value.result.kind === "error" ? "error" : "success",
+          ...(typeof value.result.text === "string" ? { text: value.result.text } : {}),
+        },
+      },
+    };
   }
 
   /**

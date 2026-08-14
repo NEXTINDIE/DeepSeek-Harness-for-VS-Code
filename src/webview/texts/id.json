@@ -336,5 +336,7 @@
   "智能体": "Agen",
   "系统提示词": "Prompt sistem",
   "已注入模型 · 点击展开": "Disuntikkan ke model · klik untuk meluaskan",
-  "Git 回退到本回合之前": "Git: kembalikan ke sebelum giliran ini"
+  "Git 回退到本回合之前": "Git: kembalikan ke sebelum giliran ini",
+  "撤销本回合文件改动": "Batalkan perubahan file giliran ini",
+  "查看检查点": "Lihat titik pemeriksaan"
 }

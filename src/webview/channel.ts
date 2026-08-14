@@ -4,9 +4,9 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import { loadRollbackRecord, restoreToTurn } from "../dsh/rollback";
+import { loadRollbackRecord } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
-import type { PromptContentPart } from "../dsh/types";
+import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
@@ -433,7 +433,7 @@ export class ChatChannel {
       return;
     }
     const record = await loadRollbackRecord(cwd, sessionId);
-    if (!record || record.turns.length === 0) {
+    if (!record || record.checkpoints.length === 0) {
       this.post({ kind: "rollback", sessionId, available: false, checkpoints: [] });
       return;
     }
@@ -441,7 +441,7 @@ export class ChatChannel {
       kind: "rollback",
       sessionId,
       available: true,
-      checkpoints: record.turns.map((t) => ({ turn: t.turn, time: t.time })),
+      checkpoints: record.checkpoints.map((t) => ({ turn: t.turn, time: t.time })),
     });
   }
 
@@ -870,8 +870,8 @@ export class ChatChannel {
       }
       case "permission": {
         if (current && typeof msg.preset === "string") {
-          const outcome = await this.runCommandAndNotify(current, `/permission ${msg.preset}`);
-          if (outcome !== "executed") {
+          const result = await this.runCommandAndNotify(current, `/permission ${msg.preset}`);
+          if (result.outcome !== "executed") {
             // 回退乐观更新:把存储中的真实权限投影重新推给界面
             this.post({ kind: "permissions", sessionId: current, value: store.permissions.get(current) });
           }
@@ -967,43 +967,11 @@ export class ChatChannel {
         break;
       }
       case "rollbackApply": {
+        // 回合级回退:统一走服务端插件命令通道(命令结果摘要经 runCommandAndNotify 透传)
         const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
         const turn = typeof msg.turn === "number" ? msg.turn : NaN;
         if (!sid || !Number.isFinite(turn)) break;
-        const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
-        if (!cwd) {
-          this.post({ kind: "notice", message: t("rollback.noRecord"), level: "warning" });
-          break;
-        }
-        const record = await loadRollbackRecord(cwd, sid);
-        if (!record || record.turns.length === 0) {
-          this.post({ kind: "notice", message: t("rollback.noRecord"), level: "warning" });
-          break;
-        }
-        if (!record.turns.some((x) => x.turn === turn)) {
-          this.post({ kind: "notice", message: t("rollback.noCheckpoint", { turn }), level: "warning" });
-          break;
-        }
-        const answer = await vscode.window.showWarningMessage(
-          t("rollback.confirmMessage", { turn }),
-          { modal: true },
-          t("rollback.confirmYes"),
-        );
-        if (answer !== t("rollback.confirmYes")) break;
-        const result = await restoreToTurn(cwd, record, turn);
-        if (result.ok) {
-          this.post({ kind: "notice", message: t("rollback.done", { turn }), level: "info" });
-        } else if (result.code === "no-checkpoint") {
-          this.post({ kind: "notice", message: t("rollback.noCheckpoint", { turn }), level: "warning" });
-        } else if (result.code === "not-git") {
-          this.post({ kind: "notice", message: t("rollback.noGit", { cwd: result.detail ?? cwd }), level: "error" });
-        } else if (result.code === "snapshot-failed") {
-          this.post({ kind: "notice", message: t("rollback.snapshotFailed", { error: result.detail ?? "" }), level: "error" });
-        } else {
-          this.post({ kind: "notice", message: t("rollback.restoreFailed", { error: result.detail ?? "" }), level: "error" });
-        }
-        void this.refreshRollback(sid);
+        await this.runCommandAndNotify(sid, `/rollback ${turn}`);
         break;
       }
       case "loadMore":
@@ -1315,15 +1283,18 @@ export class ChatChannel {
     return vscode.workspace.getConfiguration("dsh").get<string>("url", "http://127.0.0.1:3080");
   }
 
-  /** 执行一条斜杠命令并给出结果提示;返回执行结果。 */
-  private async runCommandAndNotify(sessionId: string, line: string): Promise<"executed" | "unmatched" | "unavailable"> {
-    const outcome = await this.hub.runCommandLine(sessionId, line);
+  /** 执行一条斜杠命令并给出结果提示;命令自身的结果文本(如 /rollback 回退摘要)透传到 notice。 */
+  private async runCommandAndNotify(sessionId: string, line: string): Promise<{ outcome: "executed" | "unmatched" | "unavailable"; execution?: CommandExecutionView }> {
+    const result = await this.hub.runCommandLine(sessionId, line);
+    const outcome = result.outcome;
     const name = line.trim().split(/\s+/)[0] ?? line;
     if (outcome === "executed") {
       if (name === "/permission") {
         this.post({ kind: "notice", message: t("notice.permissionSet", { preset: line.trim().split(/\s+/)[1] ?? "" }), level: "info" });
       } else {
-        this.post({ kind: "notice", message: t("notice.commandExecuted", { line }), level: "info" });
+        const commandText = result.execution?.result?.text;
+        const message = commandText ? `${t("notice.commandExecuted", { line })}\n${commandText}` : t("notice.commandExecuted", { line });
+        this.post({ kind: "notice", message, level: result.execution?.result.kind === "error" ? "error" : "info" });
       }
     } else if (outcome === "unmatched") {
       this.post({ kind: "notice", message: t("notice.commandUnmatched", { line }), level: "error" });
@@ -1335,7 +1306,7 @@ export class ChatChannel {
         this.post({ kind: "notice", message: t("notice.commandUnavailable", { line }), level: "error" });
       }
     }
-    return outcome;
+    return result;
   }
 
   /** 用户配置的语言偏好(auto / zh-cn / en …)。 */

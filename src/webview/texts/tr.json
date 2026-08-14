@@ -336,5 +336,7 @@
   "智能体": "Ajanlar",
   "系统提示词": "Sistem istemi",
   "已注入模型 · 点击展开": "Modele enjekte edildi · genişletmek için tıkla",
-  "Git 回退到本回合之前": "Git: bu turdan önceki duruma geri dön"
+  "Git 回退到本回合之前": "Git: bu turdan önceki duruma geri dön",
+  "撤销本回合文件改动": "Bu turdaki dosya değişikliklerini geri al",
+  "查看检查点": "Kontrol noktalarını görüntüle"
 }

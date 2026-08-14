@@ -495,6 +495,8 @@ const EN_TEXT: Record<string, string> = {
   "差的回答(记录反馈)": "Bad answer (record feedback)",
   "分支 / 回退": "Branch / rewind",
   "回退到此处": "Rewind to here",
+  "撤销本回合文件改动": "Undo this turn's file changes",
+  "查看检查点": "View checkpoints",
   "Git 回退到本回合之前": "Git rollback to before this turn",
   "从此处新建分支": "Branch from here",
   "分支并回退到更早位置": "Branch and rewind to an earlier point",
@@ -1938,6 +1940,13 @@ function renderActions(node: NodeState) {
         });
         menu.append(row);
       };
+      // 工作区回退(服务端 dsh-git-rollback 插件命令):真正恢复文件,与对话级 fork 并存
+      add(ICONS.rewind, t("撤销本回合文件改动"), () => {
+        vscode.postMessage({ kind: "command", line: "/rollback" });
+      });
+      add(ICONS.ledger, t("查看检查点"), () => {
+        vscode.postMessage({ kind: "command", line: "/checkpoints" });
+      });
       // 方法 1:回退到此处(去掉这条及之后)
       add(ICONS.rewind, t("回退到此处"), () => {
         vscode.postMessage({ kind: "forkAt", seq: lastTurnStartAtOrBefore(node.seq!) });

@@ -157,6 +157,12 @@ export interface SessionPromptValue {
   command?: { kind: "success"; text?: string };
 }
 
+/** commands/execute 网关返回的 CommandExecution 视图(命令结果文本透传界面)。 */
+export interface CommandExecutionView {
+  commandId?: string;
+  result: { kind: "success" | "error"; text?: string };
+}
+
 export interface SessionListValue {
   items: SessionSummary[];
 }

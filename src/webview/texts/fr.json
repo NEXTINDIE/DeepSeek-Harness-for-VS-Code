@@ -336,5 +336,7 @@
   "智能体": "Agents",
   "系统提示词": "Invite système",
   "已注入模型 · 点击展开": "Injecté dans le modèle · cliquer pour déplier",
-  "Git 回退到本回合之前": "Git : restaurer l'état avant ce tour"
+  "Git 回退到本回合之前": "Git : restaurer l'état avant ce tour",
+  "撤销本回合文件改动": "Annuler les modifications de fichiers de ce tour",
+  "查看检查点": "Voir les points de contrôle"
 }

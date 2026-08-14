@@ -336,5 +336,7 @@
   "智能体": "Agenten",
   "系统提示词": "System-Prompt",
   "已注入模型 · 点击展开": "Ins Modell eingespielt · zum Aufklappen klicken",
-  "Git 回退到本回合之前": "Git: Zustand vor dieser Runde wiederherstellen"
+  "Git 回退到本回合之前": "Git: Zustand vor dieser Runde wiederherstellen",
+  "撤销本回合文件改动": "Dateiänderungen dieser Runde rückgängig machen",
+  "查看检查点": "Checkpoints anzeigen"
 }

@@ -1,0 +1,34 @@
+{
+  "name": "dsh-git-rollback",
+  "version": "0.1.0",
+  "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints commands, per-turn checkpoints in hidden refs, non-destructive workspace restore.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": "./lib/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "lib",
+    "src"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "git",
+    "rollback",
+    "checkpoint"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-commands": "^0.1.0-rc.6"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/"
+  }
+}

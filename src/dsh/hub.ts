@@ -1,7 +1,7 @@
 import { DshApiClient, DshApiError, type FrameEnvelope } from "./apiClient";
 import { ServerManager } from "./serverManager";
 import { SessionStore, type StoredSession } from "./sessionStore";
-import type { HostFrame, MuxFrame, PromptContentPart } from "./types";
+import type { CommandExecutionView, HostFrame, MuxFrame, PromptContentPart } from "./types";
 
 export interface HubStatus {
   serverUp: boolean;
@@ -320,12 +320,16 @@ export class DshHub {
    * 1. 优先 commands.execute 网关通道(纯命令执行,不产生模型回合);
    * 2. 网关不可用时回退 session.prompt 命令路径,并检查响应中的 command 槽确认宿主拦截;
    * 3. 若两者都未被宿主拦截(命令会进入模型),在会话空闲时立即取消该轮,避免模型收到命令文本。
-   * 返回 "executed"(已由宿主执行)/ "unmatched"(无此命令)/ "unavailable"(通道不可用且已取消)。
+   * 返回 outcome("executed" / "unmatched" / "unavailable")+ 命令结果视图
+   * (execution.result.text 为命令自身的输出文本,如 /rollback 的回退摘要)。
    */
-  async runCommandLine(sessionId: string, line: string): Promise<"executed" | "unmatched" | "unavailable"> {
+  async runCommandLine(
+    sessionId: string,
+    line: string,
+  ): Promise<{ outcome: "executed" | "unmatched" | "unavailable"; execution?: CommandExecutionView }> {
     try {
       const result = await this.client.executeCommand(sessionId, line);
-      return result.matched ? "executed" : "unmatched";
+      return { outcome: result.matched ? "executed" : "unmatched", ...(result.execution ? { execution: result.execution } : {}) };
     } catch (error) {
       // 网关通道不可用(部署未组合 api-gateway / commands 远程):回退官方命令消息路径
       console.error("[dsh] commands.execute unavailable, falling back to session.prompt:", error);
@@ -333,12 +337,12 @@ export class DshHub {
     const wasRunning = this.store.sessions.get(sessionId)?.running === true;
     try {
       const res = await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text: line }] });
-      if (res.command !== undefined) return "executed";
+      if (res.command !== undefined) return { outcome: "executed" };
       // 宿主未拦截:命令文本会进入模型。会话原本空闲时立即取消该轮,避免产生可见回复
       if (!wasRunning) await this.client.cancelSession(sessionId);
-      return "unavailable";
+      return { outcome: "unavailable" };
     } catch {
-      return "unavailable";
+      return { outcome: "unavailable" };
     }
   }
 

@@ -195,3 +195,42 @@ for (const [lang, value] of Object.entries(webviewTexts)) {
   const added = addKeys(file, { [webviewKey]: value });
   console.log(`texts ${lang}.json: +${added} keys`);
 }
+
+// ---------- 第二批:菜单项(撤销本回合文件改动 / 查看检查点) ----------
+
+const menuTexts = {
+  "撤销本回合文件改动": {
+    "zh-tw": "復原本回合檔案變更",
+    ja: "このターンのファイル変更を元に戻す",
+    ko: "이 턴의 파일 변경 되돌리기",
+    de: "Dateiänderungen dieser Runde rückgängig machen",
+    fr: "Annuler les modifications de fichiers de ce tour",
+    es: "Deshacer los cambios de archivos de este turno",
+    pt: "Desfazer as alterações de arquivo deste turno",
+    th: "ยกเลิกการเปลี่ยนแปลงไฟล์ของเทิร์นนี้",
+    id: "Batalkan perubahan file giliran ini",
+    tr: "Bu turdaki dosya değişikliklerini geri al",
+    ar: "التراجع عن تغييرات ملفات هذه الجولة",
+  },
+  "查看检查点": {
+    "zh-tw": "查看檢查點",
+    ja: "チェックポイントを表示",
+    ko: "체크포인트 보기",
+    de: "Checkpoints anzeigen",
+    fr: "Voir les points de contrôle",
+    es: "Ver puntos de control",
+    pt: "Ver pontos de verificação",
+    th: "ดูจุดตรวจสอบ",
+    id: "Lihat titik pemeriksaan",
+    tr: "Kontrol noktalarını görüntüle",
+    ar: "عرض نقاط التحقق",
+  },
+};
+
+for (const [key, dict] of Object.entries(menuTexts)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = `${root}src/webview/texts/${lang}.json`;
+    const added = addKeys(file, { [key]: value });
+    console.log(`texts ${lang}.json "${key}": +${added} keys`);
+  }
+}
