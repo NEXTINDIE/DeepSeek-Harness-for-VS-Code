@@ -2,7 +2,7 @@
   "name": "dsh-vscode",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -231,12 +231,22 @@
           "enum": [
             "auto",
             "zh-cn",
-            "en"
+            "en",
+            "ja",
+            "ko",
+            "de",
+            "fr",
+            "es"
           ],
           "enumDescriptions": [
             "%config.language.auto%",
             "%config.language.zh%",
-            "%config.language.en%"
+            "%config.language.en%",
+            "%config.language.ja%",
+            "%config.language.ko%",
+            "%config.language.de%",
+            "%config.language.fr%",
+            "%config.language.es%"
           ],
           "default": "auto",
           "description": "%config.language%"

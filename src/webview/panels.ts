@@ -705,6 +705,11 @@ export function createPanels(ctx: PanelsContext) {
       { id: "auto", label: t("跟随 VS Code") },
       { id: "zh-cn", label: "简体中文" },
       { id: "en", label: "English" },
+      { id: "ja", label: "日本語" },
+      { id: "ko", label: "한국어" },
+      { id: "de", label: "Deutsch" },
+      { id: "fr", label: "Français" },
+      { id: "es", label: "Español" },
     ];
     for (const opt of options) {
       const b = ctx.el("button", "settings-tab" + (state.languagePref === opt.id ? " active" : ""), opt.label) as HTMLButtonElement;

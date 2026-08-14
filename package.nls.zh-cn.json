@@ -33,5 +33,10 @@
   "config.language": "扩展界面语言(聊天面板、通知、@dsh 回复)。",
   "config.language.auto": "跟随 VS Code 显示语言(默认)",
   "config.language.zh": "简体中文",
-  "config.language.en": "English"
+  "config.language.en": "English",
+  "config.language.ja": "日语 (日本語)",
+  "config.language.ko": "韩语 (한국어)",
+  "config.language.de": "德语 (Deutsch)",
+  "config.language.fr": "法语 (Français)",
+  "config.language.es": "西班牙语 (Español)"
 }

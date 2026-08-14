@@ -5,8 +5,8 @@ import { activeFolder } from "./participantSessions";
 
 /**
  * 源代码管理(SCM)视图的「生成提交信息」功能:
- * 取内置 git 扩展的 diff → 在专用 DSH 会话中选中轻量模型(默认 deepseek-v4-flash + low 不思考)
- * → 发送生成提示词 → 等待回合结束 → 提取最终文本写入 SCM 输入框。
+ * 取内置 git 扩展的 diff → 在一次性 DSH 会话(创建即归档,不占用会话列表)中选中轻量模型
+ * (默认 deepseek-v4-flash + low 不思考)→ 发送生成提示词 → 等待回合结束 → 提取最终文本写入 SCM 输入框。
  */
 
 const t = createTranslator();
@@ -89,19 +89,36 @@ async function collectDiff(repo: GitRepositoryLike): Promise<string | undefined>
   return diff;
 }
 
-// ---------- 专用会话(每个仓库一个,workspaceState 记忆,跨窗口复用) ----------
+// ---------- 一次性会话:创建后立即归档,全程不出现在会话列表 ----------
+// 归档只是从分组界面隐藏(不影响事件流与生成),生成结束后仍可在归档区查看/恢复。
 
 function commitSessionKey(root: vscode.Uri): string {
   return `dsh.commit.session:${root.toString()}`;
 }
 
-async function ensureCommitSession(hub: DshHub, ctx: vscode.ExtensionContext, root: vscode.Uri): Promise<string> {
-  const key = commitSessionKey(root);
-  const existing = ctx.workspaceState.get<string>(key);
-  if (existing && hub.store.sessions.has(existing)) return existing;
+/** 创建提交信息专用会话并立即归档(静默)。 */
+async function createCommitSession(hub: DshHub, root: vscode.Uri): Promise<string> {
   const sessionId = await hub.createSession(root.fsPath);
-  await ctx.workspaceState.update(key, sessionId);
+  try {
+    await hub.archiveSession(sessionId);
+  } catch (error) {
+    console.error("[dsh] archive commit session failed:", error);
+  }
   return sessionId;
+}
+
+/** 清理旧版本遗留的「每仓库常驻」提交会话:归档并移除映射。 */
+async function cleanupLegacyCommitSession(hub: DshHub, ctx: vscode.ExtensionContext, root: vscode.Uri): Promise<void> {
+  try {
+    const key = commitSessionKey(root);
+    const legacy = ctx.workspaceState.get<string>(key);
+    if (legacy && hub.store.sessions.has(legacy)) {
+      await hub.archiveSession(legacy);
+    }
+    await ctx.workspaceState.update(key, undefined);
+  } catch (error) {
+    console.error("[dsh] cleanup legacy commit session failed:", error);
+  }
 }
 
 // ---------- 模型选择(默认 deepseek-v4-flash + low:该档在 DeepSeek 模型上不开思考) ----------
@@ -242,9 +259,10 @@ export function registerCommitMessageCommand(hub: DshHub, ctx: vscode.ExtensionC
       void vscode.window.showErrorMessage(t("commit.serverUnavailable", { message: ready.message ?? "" }));
       return;
     }
+    await cleanupLegacyCommitSession(hub, ctx, repo.rootUri);
     let sessionId: string;
     try {
-      sessionId = await ensureCommitSession(hub, ctx, repo.rootUri);
+      sessionId = await createCommitSession(hub, repo.rootUri);
     } catch (error) {
       void vscode.window.showErrorMessage(t("commit.failed", { error: error instanceof Error ? error.message : String(error) }));
       return;

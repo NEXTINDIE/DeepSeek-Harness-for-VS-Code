@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { createTranslator, effectiveLanguage } from "../dsh/i18n";
+import { createTranslator, effectiveLanguage, SUPPORTED_LANGUAGES } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
@@ -875,7 +875,7 @@ export class ChatChannel {
       }
       case "setLanguage": {
         // 从设置面板切换界面语言(写入 dsh.language,全局)
-        if (typeof msg.language === "string" && ["auto", "zh-cn", "en"].includes(msg.language)) {
+        if (typeof msg.language === "string" && ["auto", ...SUPPORTED_LANGUAGES].includes(msg.language)) {
           try {
             await vscode.workspace.getConfiguration("dsh").update("language", msg.language, vscode.ConfigurationTarget.Global);
             this.post({ kind: "lang", lang: effectiveLanguage(), languagePref: msg.language });
@@ -1042,8 +1042,9 @@ export class ChatChannel {
       "worker-src ${webview.cspSource}",
       "font-src ${webview.cspSource}",
     ].join("; ");
+    const htmlLang = effectiveLanguage() === "zh-cn" ? "zh-CN" : effectiveLanguage();
     return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${htmlLang}">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="${csp}">

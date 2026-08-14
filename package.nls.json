@@ -33,5 +33,10 @@
   "config.language": "UI language of the extension (chat panel, notifications, @dsh replies).",
   "config.language.auto": "Follow the VS Code display language (default)",
   "config.language.zh": "Chinese (Simplified)",
-  "config.language.en": "English"
+  "config.language.en": "English",
+  "config.language.ja": "Japanese (日本語)",
+  "config.language.ko": "Korean (한국어)",
+  "config.language.de": "German (Deutsch)",
+  "config.language.fr": "French (Français)",
+  "config.language.es": "Spanish (Español)"
 }

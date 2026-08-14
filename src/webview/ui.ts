@@ -2,6 +2,11 @@ import "./safety";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { createPanels, type PanelsContext } from "./panels";
+import jaTexts from "./texts/ja.json";
+import koTexts from "./texts/ko.json";
+import deTexts from "./texts/de.json";
+import frTexts from "./texts/fr.json";
+import esTexts from "./texts/es.json";
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void; getState(): any; setState(state: any): void };
 
@@ -673,9 +678,20 @@ const EN_TEXT: Record<string, string> = {
   "(暂无)": "(none yet)",
 };
 
+/** 多语言词典:中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
+const UI_TEXTS: Record<string, Record<string, string>> = {
+  en: EN_TEXT,
+  ja: jaTexts as Record<string, string>,
+  ko: koTexts as Record<string, string>,
+  de: deTexts as Record<string, string>,
+  fr: frTexts as Record<string, string>,
+  es: esTexts as Record<string, string>,
+};
+
 function t(zh: string, params?: Record<string, string | number>): string {
   const lang = (state.lang ?? "zh-cn").toLowerCase();
-  let text = lang.startsWith("zh") ? zh : EN_TEXT[zh] ?? zh;
+  const dict = lang.startsWith("zh") ? undefined : UI_TEXTS[lang] ?? EN_TEXT;
+  let text = dict === undefined ? zh : dict[zh] ?? EN_TEXT[zh] ?? zh;
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       text = text.split(`{${k}}`).join(String(v));

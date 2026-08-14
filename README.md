@@ -1,8 +1,8 @@
 # DeepSeek Harness for VS Code (dsh-vscode)
 
-[English version](#english) | 发布者:Jager · 最新版本:0.10.1
+[English version](#english) | 发布者:Jager · 最新版本:0.11.0
 
-在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样出现在 VS Code 聊天体系中,支持**中英文双语界面**。
+在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板,以及**多语言界面**(简体中文 / English / 日本語 / 한국어 / Deutsch / Français / Español,跟随 VS Code 显示语言或手动切换)。
 
 ## 功能总览
 
@@ -30,7 +30,8 @@
 - **图片附件**:🖼️ 添加图片(官方 image 内容块通道),发送与历史回放均支持。
 - **排队消息操作**:排队消息条可 编辑 / 移除 / 插队(session.updateQueue 官方端点)。
 - **目标创建**:无目标时 🎯 芯片一键创建(goal.create,目标描述 + 最大轮数)。
-- **多语言**:扩展与聊天界面跟随 VS Code 显示语言(简体中文 / English)。
+- **一键生成提交信息**:源代码管理(SCM)视图标题栏 ✨ 按钮(`DSH: 生成提交信息`),读取 git 暂存/未暂存 diff,在一次性会话(创建即归档,不占用会话列表)中用轻量模型按 Conventional Commits 风格生成提交信息并写入 SCM 输入框;模型与思考深度可配置(`dsh.commitModel` / `dsh.commitReasoningEffort`),超时或模型请求额外交互时自动取消。
+- **多语言**:扩展与聊天界面支持简体中文 / English / 日本語 / 한국어 / Deutsch / Français / Español——跟随 VS Code 显示语言,或通过设置 `dsh.language` / 设置面板 🌐 就地切换。
 
 ## 安装
 
@@ -66,6 +67,7 @@ npm run watch
 | 内置 Chat `@dsh` | 输入 `@` 选 dsh;`DSH: 打开内置聊天 (@dsh)` 或状态栏 DSH 图标可自动填入 |
 | 辅助侧栏 tab | 视图 → 外观 → Secondary Side Bar(Ctrl+Alt+B) |
 | 独立窗口 | `DSH: 打开独立聊天窗口` |
+| SCM 提交按钮 | 源代码管理视图标题栏的 ✨ 按钮(`DSH: 生成提交信息`),多仓库时弹出选择 |
 
 - 输入框:`Enter` 发送,`Shift+Enter` 换行;运行中发送按钮(纸飞机线条图标)变为停止(方块线条图标),输入文字变回发送(消息排队)。
 - 左下角 `/` 按钮:命令菜单(计划模式 / 压缩上下文 / 设置目标 / 记录反馈 / 切换权限 / 技能 / .claude 命令与技能)—— 点击插入命令到输入框,回车执行。
@@ -86,6 +88,9 @@ npm run watch
 | `dsh.participantSessionMode` | `per-workspace` | @dsh 会话范围:每项目 / 全局 |
 | `dsh.openPanelOnStartup` | `false` | 启动时自动打开独立聊天窗口 |
 | `dsh.defaultReasoningEffort` | `""` | 新会话默认思考深度(off/high/max 等,取决于模型) |
+| `dsh.commitModel` | `deepseek-v4-flash` | 生成提交信息所用的模型(从 DSH 模型目录解析,找不到时回退当前模型) |
+| `dsh.commitReasoningEffort` | `low` | 生成提交信息时的思考深度(DeepSeek 模型上 low 表示不开思考,最快) |
+| `dsh.language` | `auto` | 界面语言:auto / zh-cn / en / ja / ko / de / fr / es |
 
 ## 故障排查
 
@@ -105,9 +110,9 @@ npm run build       # 构建
 npm run package     # 打包到 Releases/
 ```
 
-- 宿主代码:`src/extension.ts`、`src/dsh/*`(API 客户端 / 服务器管理 / 会话存储 / Chat Participant / 项目会话映射)。
+- 宿主代码:`src/extension.ts`、`src/dsh/*`(API 客户端 / 服务器管理 / 会话存储 / Chat Participant / 项目会话映射 / 提交信息生成)。
 - 界面:`src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`;图标 `media/icon.png`。
-- 本地化:`package.nls.json` / `package.nls.zh-cn.json`(贡献点)、`l10n/bundle.l10n.json` / `bundle.l10n.zh-cn.json`(宿主运行时)、`ui.ts` 的 EN_TEXT 词典(Webview)。
+- 本地化:`package.nls.json` + `package.nls.zh-cn/ja/ko/de/fr/es.json`(贡献点)、`l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/ja/ko/de/fr/es.json`(宿主运行时)、`ui.ts` 的 EN_TEXT 词典 + `src/webview/texts/*.json`(Webview)。
 - 集成测试:`tools/test-client.ts`(对运行中的服务器验证全链路)。
 
 ---
@@ -116,9 +121,9 @@ npm run package     # 打包到 Releases/
 
 # DeepSeek Harness for VS Code (dsh-vscode)
 
-[中文版](#) | Publisher: Jager · Latest: 0.10.1
+[中文版](#) | Publisher: Jager · Latest: 0.11.0
 
-Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot, with a **bilingual (Chinese / English) UI**.
+Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, and a **multi-language UI** (简体中文 / English / 日本語 / 한국어 / Deutsch / Français / Español — follows the VS Code display language or switch manually).
 
 ## Features
 
@@ -146,7 +151,8 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Image attachments**: 🖼️ add images (official image content-block channel), in both sending and history playback.
 - **Queued-message actions**: queued messages can be edited / removed / steered (official session.updateQueue).
 - **Goal creation**: the 🎯 chip creates a goal when none exists (goal.create with objective and round cap).
-- **i18n**: follows the VS Code display language (zh-cn / en).
+- **One-click commit messages**: the ✨ button in the Source Control title bar (`DSH: Generate Commit Message`) reads the staged/unstaged git diff and generates a Conventional Commits-style message in a disposable session (archived immediately, never shown in the session list) with a lightweight model (default `deepseek-v4-flash` + low effort; configurable via `dsh.commitModel` / `dsh.commitReasoningEffort`), writing the result into the SCM input box and auto-cancelling on timeout or when the model requests extra interaction.
+- **i18n**: Simplified Chinese / English / Japanese / Korean / German / French / Spanish — follows the VS Code display language, or switch in place via `dsh.language` / the 🌐 section of the settings panel.
 
 ## Install
 
@@ -167,6 +173,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 - `+` button next to it: add file / add folder; the blue chip is the auto-attached active file.
 - Message actions: click the forked-line icon to open the branch/rewind menu — counter-clockwise arrow "Rewind here", forked icon "Branch from here", up-left fold "Branch and rewind earlier"; branch sessions also show the up-left arrow "Back to main".
 - Session ⋯ menu: fork / rename / archive; preset pill at the top-right (new sessions only); thinking / model pills at the bottom-right.
+- Source Control title bar: the ✨ button generates a Conventional Commits message from the current diff and fills the SCM input box (a picker appears when several repositories are open).
 - Context menus: selection → `DSH: Send Selection to @dsh`; file → `DSH: Ask @dsh About This File`.
 
 ## Configuration
@@ -180,6 +187,9 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 | `dsh.participantSessionMode` | `per-workspace` | @dsh session scope: per-project / global |
 | `dsh.openPanelOnStartup` | `false` | Open the standalone window on startup |
 | `dsh.defaultReasoningEffort` | `""` | Default thinking depth for new sessions (off/high/max, model-dependent) |
+| `dsh.commitModel` | `deepseek-v4-flash` | Model used to generate commit messages (resolved from the DSH model catalog; falls back to the session's current model) |
+| `dsh.commitReasoningEffort` | `low` | Reasoning effort for commit messages (`low` = no thinking on DeepSeek models, fastest) |
+| `dsh.language` | `auto` | UI language: auto / zh-cn / en / ja / ko / de / fr / es |
 
 ## Troubleshooting
 
@@ -188,6 +198,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 - Service worker error in the webview → VS Code 1.100.x platform bug: update VS Code or clear `%APPDATA%\Code\Service Worker\CacheStorage`.
 - "agent preset is fixed" → started sessions cannot switch presets; the preset pill only shows for new sessions.
 - Not connected → run `DSH: Start Server`; check `dsh.url`.
+- Server does not auto-start → the extension retries every 15 s and connects as soon as the server is up; see the `[server]` log in the "DeepSeek Harness" output channel. If the error mentions `0xC0000142`/`EPERM`, VS Code was launched from a DSH session or a restricted terminal (child process creation blocked) — launch VS Code normally, or set that session's permission to `danger-full-access`.
 
 ## Development
 
@@ -198,7 +209,7 @@ npm run build
 npm run package     # → Releases/
 ```
 
-- Host: `src/extension.ts`, `src/dsh/*` (API client, server manager, session store, chat participant, project-session mapping).
+- Host: `src/extension.ts`, `src/dsh/*` (API client, server manager, session store, chat participant, project-session mapping, commit message generation).
 - UI: `src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`; icon `media/icon.png`.
-- i18n: `package.nls.json` / `package.nls.zh-cn.json`, `l10n/bundle.l10n.json` / `bundle.l10n.zh-cn.json`, and the `EN_TEXT` dictionary in `ui.ts`.
+- i18n: `package.nls.json` + `package.nls.zh-cn/ja/ko/de/fr/es.json`, `l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/ja/ko/de/fr/es.json`, the `EN_TEXT` dictionary in `ui.ts` + `src/webview/texts/*.json`.
 - Integration test: `tools/test-client.ts`.
