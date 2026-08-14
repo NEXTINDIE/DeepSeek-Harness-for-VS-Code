@@ -373,6 +373,7 @@ const EN_TEXT: Record<string, string> = {
   "请使用技能「{name}」处理:": "Use the skill \"{name}\" for:",
   "子代理 {label}({state}) · 点击查看最近回复": "Subagent {label} ({state}) · click to view recent reply",
   "运行中": "running",
+  "暂无统计": "No stats yet",
   "已结束": "finished",
   "ℹ️ 系统提示词": "ℹ️ System note",
   "插入 .codex 技能说明(SKILL.md)": "Insert .codex skill description (SKILL.md)",
@@ -574,7 +575,7 @@ const modeChips = el("div", "mode-chips");
 const todoPanel = el("details", "todo-panel");
 todoPanel.hidden = true;
 const statsLine = el("div", "stats-line");
-statsLine.hidden = true;
+statsLine.hidden = false;
 const contextBar = el("div", "context-bar");
 contextBar.hidden = true;
 conversationBottom.append(btnBackToMain, modeChips, todoPanel, statsLine, contextBar);
@@ -1855,8 +1856,8 @@ function renderStatsLine() {
       parts.push(`输入 ${fmtTokens(input)} tok · 输出 ${fmtTokens(tu.outputTokens ?? 0)} tok`);
     }
   }
-  statsLine.textContent = parts.join(" | ");
-  statsLine.hidden = parts.length === 0;
+  statsLine.textContent = parts.length > 0 ? parts.join(" | ") : t("暂无统计");
+  statsLine.hidden = false;
 }
 
 // ---------- 附件行 ----------

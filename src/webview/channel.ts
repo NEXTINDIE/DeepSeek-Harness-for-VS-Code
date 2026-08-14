@@ -3,10 +3,18 @@ import { createTranslator, effectiveLanguage } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
+import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession, SessionStore } from "../dsh/sessionStore";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
+
+/** 流式专用事件:只在实时流中有意义,历史回放时过滤(一个长会话可能有十余万条 chunk,渲染会卡死)。 */
+const STREAM_ONLY_EVENTS = new Set(["assistant/chunk", "llm/retry", "llm/retry-started"]);
+
+/** 历史回放用事件(剔除流式分片)。 */
+function historyEvents(store: SessionStore, sessionId: string): StoredEvent[] {
+  return store.eventsFor(sessionId).filter((e) => !STREAM_ONLY_EVENTS.has(e.event.type));
+}
 
 /**
  * 聊天面板宿主抽象:同一个 ChatChannel 可挂在侧边栏 WebviewView 或编辑器区 WebviewPanel 上。
@@ -188,7 +196,7 @@ export class ChatChannel {
       status: this.hub.status,
       sessions: this.serializeSessions(),
       current,
-      events: current ? store.eventsFor(current).map((e) => this.serializeEvent(e)) : [],
+      events: current ? historyEvents(store, current).map((e) => this.serializeEvent(e)) : [],
       approvals: current ? [...store.pendingApprovals.values()].filter((a) => a.sessionId === current) : [],
       questions: current ? [...store.pendingQuestions.values()].filter((q) => q.sessionId === current) : [],
       running: current ? (store.sessions.get(current)?.running ?? false) : false,
@@ -550,7 +558,7 @@ export class ChatChannel {
           this.post({
             kind: "historyMore",
             sessionId: current,
-            events: store.eventsFor(current).map((e) => this.serializeEvent(e)),
+            events: historyEvents(store, current).map((e) => this.serializeEvent(e)),
             hasMore,
           });
         }
