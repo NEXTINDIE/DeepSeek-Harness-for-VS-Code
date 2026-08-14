@@ -20,6 +20,8 @@ export interface HubDeps {
   command: string;
   autoStart: boolean;
   autoStartTimeoutSec: number;
+  /** 启动服务器时的工作目录(懒取值,通常返回 VS Code 当前打开的文件夹)。 */
+  cwd?: () => string | undefined;
   /** 新建会话时自动应用的推理强度(思考深度);留空使用模型默认。 */
   defaultReasoningEffort?: string;
   onStatus?: (status: HubStatus) => void;
@@ -53,7 +55,7 @@ export class DshHub {
   constructor(private readonly deps: HubDeps) {
     this.client = new DshApiClient(deps.url);
     this.server = new ServerManager(
-      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, t: deps.t, onLog: deps.onLog },
+      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, cwd: deps.cwd, t: deps.t, onLog: deps.onLog },
       (s) => {
         this.statusState.serverUp = s.up;
         this.statusState.serverStartedByUs = s.startedByUs;
@@ -264,6 +266,20 @@ export class DshHub {
     await this.refreshSessions();
     this.store.selectSession(sessionId);
     return sessionId;
+  }
+
+  /** 把目录采纳为 DSH 工作区(先确保服务器就绪;幂等,重复调用返回已存在的工作区)。 */
+  async adoptWorkspace(path: string): Promise<boolean> {
+    if (!path) return false;
+    const ready = await this.ensureReady();
+    if (!ready.ok) return false;
+    try {
+      await this.client.adoptWorkspace(path);
+      return true;
+    } catch (error) {
+      this.deps.onLog?.(`[workspace] 采纳工作区失败 ${path}: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 
   async send(sessionId: string, text: string) {
