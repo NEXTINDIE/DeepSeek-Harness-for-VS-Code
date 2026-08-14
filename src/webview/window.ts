@@ -33,7 +33,7 @@ export class ChatWindowProvider {
     }
     if (!sid) {
       try {
-        sid = await this.hub.createSession(folderCwd());
+        sid = await this.hub.createSessionForFolder(folderCwd());
       } catch {
         return undefined;
       }

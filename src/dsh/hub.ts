@@ -272,11 +272,24 @@ export class DshHub {
 
   /**
    * 在当前 VS Code 文件夹下创建会话:先采纳该目录为工作区(幂等,
-   * 以前打开过则进入已有分组,从未打开过则自动建立新分组),再创建会话。
-   * 避免服务器回退到"上次会话目录"导致新对话进错工作区。
+   * 以前打开过则进入已有分组,从未打开过则自动建立新分组),再以工作区创建会话。
+   * 用 workspaceId 创建(而非 cwd)会让会话自动挂入工作区并继承工作区路径,
+   * Web 端的工作区里即可看到该对话(双向同步)。
    */
   async createSessionForFolder(cwd?: string, agentPreset?: string): Promise<string> {
-    if (cwd) await this.adoptWorkspace(cwd);
+    if (cwd) {
+      const workspaceId = await this.adoptWorkspace(cwd);
+      if (workspaceId) {
+        try {
+          const { sessionId } = await this.client.createSession({ workspaceId, ...(agentPreset ? { agentPreset } : {}) });
+          await this.refreshSessions();
+          this.store.selectSession(sessionId);
+          return sessionId;
+        } catch {
+          // 工作区创建失败时回退到 cwd 方式
+        }
+      }
+    }
     return this.createSession(cwd, agentPreset);
   }
 
@@ -287,17 +300,41 @@ export class DshHub {
     return sessionId;
   }
 
-  /** 把目录采纳为 DSH 工作区(先确保服务器就绪;幂等,重复调用返回已存在的工作区)。 */
-  async adoptWorkspace(path: string): Promise<boolean> {
-    if (!path) return false;
+  /** 把目录采纳为 DSH 工作区(先确保服务器就绪;幂等,重复调用返回已存在的工作区)。返回 workspaceId。 */
+  async adoptWorkspace(path: string): Promise<string | undefined> {
+    if (!path) return undefined;
     const ready = await this.ensureReady();
-    if (!ready.ok) return false;
+    if (!ready.ok) return undefined;
     try {
-      await this.client.adoptWorkspace(path);
-      return true;
+      const { workspace } = await this.client.adoptWorkspace(path);
+      return workspace.workspaceId;
     } catch (error) {
       this.deps.onLog?.(`[workspace] 采纳工作区失败 ${path}: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+      return undefined;
+    }
+  }
+
+  /** 历史会话补挂工作区:会话首次打开时,若 cwd 匹配某工作区且未挂入,则补挂(Web 端工作区可见)。 */
+  private readonly workspaceAttached = new Set<string>();
+  async attachSessionToWorkspace(sessionId: string) {
+    if (this.workspaceAttached.has(sessionId)) return;
+    this.workspaceAttached.add(sessionId);
+    try {
+      const stored = this.store.sessions.get(sessionId);
+      const cwd = stored?.cwd;
+      if (!cwd) return;
+      const { items } = await this.client.listWorkspaces();
+      const ws = items.find((w) => {
+        const a = w.path.replace(/\\/g, "/").toLowerCase();
+        const b = cwd.replace(/\\/g, "/").toLowerCase();
+        return a === b;
+      });
+      if (ws && !ws.sessionIds.includes(sessionId)) {
+        await this.client.insertSessionBefore(ws.workspaceId, sessionId);
+        this.deps.onLog?.(`[workspace] 会话 ${sessionId.slice(0, 8)} 补挂到工作区 ${ws.title}`);
+      }
+    } catch {
+      // 补挂失败不阻塞(仅日志)
     }
   }
 
