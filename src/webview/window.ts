@@ -73,17 +73,62 @@ export class ChatWindowProvider {
     return panel;
   }
 
-  /** 新建会话并打开对应标签页。 */
+  /** 新建会话并打开对应标签页:先让用户选择默认当前工作区或指定工作区。 */
   async openNew(): Promise<vscode.WebviewPanel | undefined> {
     const ready = await this.hub.ensureReady();
     if (!ready.ok) return undefined;
+    const cwd = await this.pickNewConversationCwd();
+    if (cwd === undefined) return undefined; // 用户取消
     try {
-      const sessionId = await this.hub.createSessionForFolder(folderCwd());
+      const sessionId = await this.hub.createSessionForFolder(cwd);
       void this.hub.applyDefaultReasoningEffort(sessionId);
       return await this.open(sessionId);
     } catch {
       return undefined;
     }
+  }
+
+  /** 新建对话的工作目录选择:默认当前工作区 / 指定工作区(已有工作区列表或浏览目录)。 */
+  private async pickNewConversationCwd(): Promise<string | undefined> {
+    const defaultCwd = folderCwd();
+    const mode = await vscode.window.showQuickPick(
+      [
+        { label: "默认当前工作区", description: defaultCwd ?? "(无文件夹)", id: "default" },
+        { label: "指定工作区…", id: "pick" },
+      ],
+      { placeHolder: "新对话的工作目录" },
+    );
+    if (!mode) return undefined;
+    if (mode.id === "default") return defaultCwd;
+    let workspaces: { workspaceId: string; path: string; title: string }[] = [];
+    try {
+      const { items } = await this.hub.listWorkspaces();
+      workspaces = items;
+    } catch {
+      // 列表不可用时仍可浏览目录
+    }
+    const picked = await vscode.window.showQuickPick(
+      [
+        ...workspaces.map((w) => ({
+          label: w.title || w.path,
+          description: w.path,
+          id: "ws:" + w.workspaceId,
+        })),
+        { label: "浏览目录…", id: "browse" },
+      ],
+      { placeHolder: "选择工作区目录" },
+    );
+    if (!picked) return undefined;
+    if (picked.id === "browse") {
+      const uri = await vscode.window.showOpenDialog({
+        canSelectFolders: true,
+        canSelectFiles: false,
+        openLabel: "选择为工作区",
+      });
+      return uri?.[0]?.fsPath;
+    }
+    const ws = workspaces.find((w) => "ws:" + w.workspaceId === picked.id);
+    return ws?.path;
   }
 
   /** 当前打开的标签页数量。 */
