@@ -121,6 +121,7 @@ const state = {
   current: null as string | null,
   mode: "chat" as "chat" | "list",
   locked: false,
+  search: "",
   running: false,
   status: { serverUp: false, serverStartedByUs: false, serverStarting: false, muxConnected: false, hostConnected: false } as HubStatus,
   nodes: [] as NodeState[],
@@ -234,6 +235,8 @@ const ICONS = {
   globe: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z|M2 12h20|M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
   send: "M22 2 11 13|M22 2 15 22l-4-9-9-4z",
   stop: "M6 6h12v12H6z",
+  // 搜索(放大镜)
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z|M21 21l-4.35-4.35",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -410,6 +413,8 @@ const EN_TEXT: Record<string, string> = {
   "对话列表": "Conversations",
   "新建对话": "New conversation",
   "暂无会话,点击新建对话": "No conversations yet, start a new one",
+  "搜索会话": "Search conversations",
+  "无匹配会话": "No matching conversations",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -2498,8 +2503,17 @@ function buildListApp(): HTMLDivElement {
   btnNewChat.append(lineIcon(ICONS.plus, 14), el("span", undefined, t("新建对话")));
   btnNewChat.addEventListener("click", () => vscode.postMessage({ kind: "newTab" }));
   head.append(btnNewChat);
+  const search = el("input", "list-search");
+  const searchWrap = el("div", "list-search-wrap");
+  searchWrap.append(lineIcon(ICONS.search, 13), search);
+  search.placeholder = t("搜索会话");
+  search.value = state.search;
+  search.addEventListener("input", () => {
+    state.search = search.value;
+    updateListRows(rows);
+  });
   const rows = el("div", "list-rows");
-  wrap.append(head, rows);
+  wrap.append(head, searchWrap, rows);
   updateListRows(rows);
   return wrap;
 }
@@ -2513,15 +2527,27 @@ function refreshList() {
 function updateListRows(rows: HTMLElement) {
   rows.replaceChildren();
   const sessions = state.sessions;
-  if (!sessions || sessions.length === 0) {
-    rows.append(el("div", "list-empty", t("暂无会话,点击新建对话")));
+  const q = state.search.trim().toLowerCase();
+  const filtered = (sessions ?? []).filter((s) => {
+    if (!q) return true;
+    return (
+      (s.title ?? "").toLowerCase().includes(q) ||
+      s.sessionId.toLowerCase().includes(q) ||
+      (s.cwd ?? "").toLowerCase().includes(q)
+    );
+  });
+  if (filtered.length === 0) {
+    rows.append(el("div", "list-empty", q ? t("无匹配会话") : t("暂无会话,点击新建对话")));
     return;
   }
-  for (const s of sessions) {
+  for (const s of filtered) {
     const item = el("div", "list-item" + (s.sessionId === state.current ? " active" : ""));
+    const titleRow = el("div", "list-item-title");
+    if (s.running) titleRow.append(el("span", "list-item-running"));
+    titleRow.append(document.createTextNode(s.title || s.sessionId.slice(0, 16)));
     item.append(
-      el("div", "list-item-title", s.title || s.sessionId.slice(0, 16)),
-      el("div", "list-item-sub", [s.cwd, s.running ? t("运行中") : ""].filter(Boolean).join(" · ")),
+      titleRow,
+      el("div", "list-item-sub", s.cwd ?? ""),
     );
     item.addEventListener("click", () => vscode.postMessage({ kind: "openTab", sessionId: s.sessionId }));
     rows.append(item);
