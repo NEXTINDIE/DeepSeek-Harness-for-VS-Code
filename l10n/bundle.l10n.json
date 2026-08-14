@@ -139,5 +139,8 @@
   "info.swHint3": "2. First try: Command Palette → Developer: Reload Window;",
   "info.swHint4": "3. Then try: Help → Check for Updates and upgrade to the latest VS Code;",
   "info.swHint5": "4. Last resort: fully quit VS Code, delete %APPDATA%\\Code\\Service Worker\\CacheStorage and %APPDATA%\\Code\\Cache\\Cache_Data, then restart; if that fails, reinstall VS Code from code.visualstudio.com.",
-  "info.openBuiltInChat": "Open built-in chat"
+  "info.openBuiltInChat": "Open built-in chat",
+  "notice.commandExecuted": "Command executed: {line}",
+  "notice.commandUnmatched": "The host offers no such command: {line}",
+  "notice.commandUnavailable": "No in-session command channel is available in this deployment; the command was not executed: {line}"
 }

@@ -44,5 +44,9 @@
   "config.language.th": "泰语 (ไทย)",
   "config.language.id": "印尼语 (Bahasa Indonesia)",
   "config.language.tr": "土耳其语 (Türkçe)",
-  "config.language.ar": "阿拉伯语 (العربية)"
+  "config.language.ar": "阿拉伯语 (العربية)",
+  "config.agentDirs": "要在 / 菜单中扫描并列出的智能体配置目录(全部勾选则全部扫描)",
+  "config.agentDirs.claude": "扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md",
+  "config.agentDirs.codex": "扫描 .codex(config.toml、技能)",
+  "config.agentDirs.githubCopilot": "扫描 .github Copilot 文件(指令、智能体、提示词)"
 }

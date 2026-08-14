@@ -765,6 +765,117 @@ body {
   color: var(--dsh-fg);
 }
 
+/* ---------- 子代理目录(头部按钮 + 弹层目录) ---------- */
+.btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #fff);
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.header .btn-icon {
+  position: relative;
+}
+
+.btn-emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.btn-icon.subagents-running {
+  color: var(--vscode-charts-yellow, #e2b93d);
+}
+
+.btn-icon.subagents-running .btn-badge {
+  background: var(--vscode-charts-yellow, #e2b93d);
+  color: #1e1e1e;
+}
+
+.subagent-catalog {
+  min-width: 250px;
+  max-width: 320px;
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.subagent-catalog-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 6px 4px;
+}
+
+.subagent-catalog-head .plus-menu-label {
+  margin: 0;
+}
+
+.subagent-catalog-refresh {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.subagent-catalog-refresh:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+/* 列表区限高滚动:头部(含刷新按钮)固定,子代理再多也在弹层内滚动 */
+.subagent-catalog-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  max-height: min(340px, 48vh);
+}
+
+.subagent-catalog-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.subagent-catalog-list::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+  border-radius: 4px;
+}
+
+.subagent-catalog .plus-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.subagent-catalog-sub {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.subagent-catalog-empty {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  padding: 6px 10px;
+}
+
 /* ---------- 会话统计行(上下文条上方) ---------- */
 
 /* ---------- 待办事项面板(Codex 风格) ---------- */
@@ -836,7 +947,7 @@ body {
   margin-top: 2px;
 }
 
-/* ---------- 产物文件列表框(Codex 风格,对话末尾) ---------- */
+/* ---------- 产物文件列表框(网页端 ProducedFiles 同款,对话末尾) ---------- */
 .files-card {
   border: 1px solid var(--dsh-accent);
   background: rgba(0, 127, 212, 0.07);
@@ -851,20 +962,41 @@ body {
   gap: 6px;
   font-size: 11.5px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: #6cb8ff;
+}
+
+.files-card-reveal {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--dsh-border);
+  color: var(--dsh-fg);
+  border-radius: 5px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.files-card-reveal:hover {
+  border-color: var(--dsh-accent);
+  color: var(--dsh-accent);
+}
+
+.files-card-rows {
+  display: flex;
+  flex-direction: column;
 }
 
 .files-card-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
   background: transparent;
   color: var(--dsh-fg);
   border: none;
   border-radius: 6px;
-  padding: 4px 6px;
+  padding: 3px 6px;
   font-size: 12px;
   text-align: left;
   cursor: pointer;
@@ -874,10 +1006,62 @@ body {
   background: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 
+.files-card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .files-card-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.files-card-sub {
+  font-size: 10px;
+  color: var(--dsh-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-card-reveal-btn {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--dsh-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.files-card-row:hover .files-card-reveal-btn {
+  opacity: 1;
+}
+
+.files-card-reveal-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.files-card-more {
+  margin-top: 4px;
+  background: none;
+  border: none;
+  color: var(--dsh-accent);
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.files-card-more:hover {
+  background: rgba(0, 127, 212, 0.12);
 }
 
 /* ---------- 工具卡片 ---------- */
@@ -1245,6 +1429,10 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 200px;
+  /* 高度钳制 + 滚动:条目再多也不会超出视口、遮挡顶部选项(与网页端输入触发器菜单一致) */
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--vscode-menu-background, #252526);
   border: 1px solid var(--dsh-border);
   border-radius: 10px;
@@ -1252,8 +1440,23 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
+.plus-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.plus-menu::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+  border-radius: 4px;
+}
+
 .plus-menu[hidden] {
   display: none;
+}
+
+/* 技能区内部再限高:菜单整体可滚动,技能列表自身不超过 180px */
+.plus-menu-skills {
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .attach-menu {
@@ -1605,6 +1808,118 @@ body {
     padding: 0 8px 6px;
   }
 }
+
+.plus-menu-item.perm-danger {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.plus-menu-item.perm-danger:hover {
+  background: rgba(244, 135, 113, 0.14);
+}
+
+.perm-danger-chip {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.settings-perm-row .settings-tab.active.perm-danger-active {
+  border-color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-errorForeground, #f48771);
+  background: rgba(244, 135, 113, 0.12);
+}
+
+.settings-perm-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-perm-row .settings-tab {
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.3));
+}
+
+/* 浮动 toast(操作反馈) */
+
+.toast-box {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  width: max-content;
+  max-width: 92%;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 6px 8px 6px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  background: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.16s ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.toast.toast-hide {
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.toast-error { border-color: var(--vscode-errorForeground, #f48771); }
+.toast-warning { border-color: var(--vscode-charts-yellow, #e2b93d); }
+
+.toast-icon { flex: none; }
+
+.toast-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.toast-close {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+}
+
+.toast-close:hover { background: var(--vscode-toolbar-hoverBackground); }
+
+.toast-action {
+  flex: none;
+  border: 1px solid var(--vscode-textLink-foreground, #3794ff);
+  background: none;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.toast-action:hover { background: rgba(55, 148, 255, 0.12); }
 
 /* ============================================================
    侧栏大面板:工作区 / 任务 / 轨迹 / 设置 / 子代理

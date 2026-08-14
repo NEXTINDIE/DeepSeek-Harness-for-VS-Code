@@ -139,5 +139,8 @@
   "info.swHint3": "2. 先试:命令面板 → Developer: Reload Window;",
   "info.swHint4": "3. 再试:帮助 → 检查更新,升级到最新版 VS Code;",
   "info.swHint5": "4. 仍失败:完全退出 VS Code,删除 %APPDATA%\\Code\\Service Worker\\CacheStorage 与 %APPDATA%\\Code\\Cache\\Cache_Data 后重启;仍不行则从 code.visualstudio.com 重装 VS Code。",
-  "info.openBuiltInChat": "打开内置聊天"
+  "info.openBuiltInChat": "打开内置聊天",
+  "notice.commandExecuted": "命令已执行: {line}",
+  "notice.commandUnmatched": "宿主没有此命令: {line}",
+  "notice.commandUnavailable": "当前部署没有会话内命令通道,命令未执行: {line}"
 }

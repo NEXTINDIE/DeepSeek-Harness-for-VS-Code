@@ -1,6 +1,107 @@
 # DeepSeek Harness for VS Code (dsh-vscode)
 
-[English version](#english) | 发布者:Jager · 最新版本:0.12.0
+[中文版](#chinese) | Publisher: Jager · Latest: 0.12.12
+
+Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
+
+![DeepSeek Harness for VS Code](media/home.jpg)
+
+## Features
+
+- **Built-in chat participant `@dsh`**: type `@` in the native Chat panel (Ctrl+Alt+I); streamed replies with tool calls and approval buttons; slash commands `/new`, `/session <ID>`, `/preset <name>`.
+- **Secondary sidebar tab**: container appears in the Secondary Side Bar on VS Code ≥ 1.106 (falls back to the Activity Bar on older versions).
+- **Standalone chat window**: `DSH: Open Standalone Chat Window`.
+- **Modern chat UI**: large rounded input box, pill toolbar (thinking depth / model / preset / permission), session stats line (turns · steps · LLM/tool time · first token · tok/s · cache hit · in/out tokens), context usage bar.
+- **Per-message actions** (minimal line icons): copy (double-rectangle icon) / branch (forked line icon; menu: counter-clockwise arrow "Rewind here" · forked icon "Branch from here" · up-left fold "Branch and rewind earlier" · up-left arrow "Back to main") / thumbs up/down (line icons, official `/feedback`) / message header shows model · thinking time · per-step tokens.
+- **Collapsible reasoning** (hidden by default) and per-turn tool summary ("Called N tools this turn").
+- **Deliverables box**: files produced each turn listed at the end of the conversation, click to open.
+- **Session management**: ⋯ menu with fork / rename (pre-filled title) / archive.
+- **Goals**: progress card + 🎯 chip with edit / complete / clear.
+- **Plan mode**: 📝 chip appears after `/plan`, click to exit.
+- **Attachments**: auto-attach the active editor file (follows editor switches) + add file/folder (separate pickers); context is injected into the model but displayed collapsed.
+- **Subagents**: status chips with recent-reply preview.
+- **Skills**: available skills listed in the `/` menu (official skill.list).
+- **.claude / .codex / GitHub Copilot directories**: CLAUDE.md / AGENTS.md auto-loaded by the DSH core; `.claude/commands`, `.claude/skills`, `.codex/skills` (SKILL.md), `.github/copilot-instructions.md`, `.github/instructions`, `.github/agents` and `.github/prompts` are listed in the `/` menu and insertable.
+- **Permissions**: read-only / workspace-write / full-access switch (official `/permission` command).
+- **Cross-project sessions**: per-folder @dsh sessions; multi-root follows the active editor; `dsh.participantSessionMode: global` to share one session.
+- **Workspace browser** (📁 button, web Workspaces parity): sessions grouped by workspace; add / rename / delete / reorder workspaces; per-group session ordering and archive; session content search (instant title matches + server content search with local fallback when the index is disabled); rows show waiting-for-approval / plan-review / question / running states.
+- **Background jobs panel** (⚙️ button): bash / pwsh / subagent jobs for the current session with status, timings, and detail, live from session/jobs frames.
+- **Trajectory view** (🧭 button, web Trajectory parity): turn-aware event ledger (seq · time · type · summary · token usage), click to expand the full event JSON, type filter.
+- **Settings panel** (⚙️ button, web Settings parity): general settings (schema-driven forms for every namespace, restart badges, per-namespace reset), models & providers (provider route directory + model catalog + endpoint model discovery), credential management (API key set/clear), agent preset authoring (view composition / copy / open directory to edit cordis.yml / delete user presets).
+- **Subagent conversations**: click a subagent chip to open its transcript; continuable children accept prompts (subagent.prompt) and interrupts (subagent.interrupt).
+- **Image attachments**: 🖼️ add images (official image content-block channel), in both sending and history playback.
+- **Queued-message actions**: queued messages can be edited / removed / steered (official session.updateQueue).
+- **Goal creation**: the 🎯 chip creates a goal when none exists (goal.create with objective and round cap).
+- **One-click commit messages**: the ✨ button in the Source Control title bar (`DSH: Generate Commit Message`) reads the staged/unstaged git diff and generates a Conventional Commits-style message in a disposable session (archived immediately, never shown in the session list) with a lightweight model (default `deepseek-v4-flash` + low effort; configurable via `dsh.commitModel` / `dsh.commitReasoningEffort`), writing the result into the SCM input box and auto-cancelling on timeout or when the model requests extra interaction.
+- **i18n**: Simplified Chinese / Traditional Chinese / English / Japanese / Korean / German / French / Spanish / Portuguese / Thai / Indonesian / Turkish / Arabic — follows the VS Code display language, or switch in place via `dsh.language` / the 🌐 section of the settings panel.
+
+## Install
+
+```bash
+cd <this folder>
+npm install
+npm run package          # outputs Releases/dsh-vscode-<version>.vsix
+```
+
+VS Code → Extensions → `…` → Install from VSIX → pick the file in `Releases\` → reload.
+
+Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar container ≥ 1.106); DSH CLI or npx fallback; model credentials configured (same as `dsh web`).
+
+## Usage highlights
+
+- Enter to send, Shift+Enter for newline; while running the send button (paper-plane line icon) becomes stop (square line icon), typing turns it back into send (queued send).
+- `/` button (bottom-left): command menu (plan / compact / goal / feedback / permission / skills / .claude) — inserts the command into the input; press Enter to run.
+- `+` button next to it: add file / add folder; the blue chip is the auto-attached active file.
+- Message actions: click the forked-line icon to open the branch/rewind menu — counter-clockwise arrow "Rewind here", forked icon "Branch from here", up-left fold "Branch and rewind earlier"; branch sessions also show the up-left arrow "Back to main".
+- Session ⋯ menu: fork / rename / archive; preset pill at the top-right (new sessions only); thinking / model pills at the bottom-right.
+- Source Control title bar: the ✨ button generates a Conventional Commits message from the current diff and fills the SCM input box (a picker appears when several repositories are open).
+- Context menus: selection → `DSH: Send Selection to @dsh`; file → `DSH: Ask @dsh About This File`.
+
+## Configuration
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `dsh.url` | `http://127.0.0.1:3080` | DSH web server URL |
+| `dsh.autoStart` | `true` | On VS Code startup, start `dsh web` if the server is not running |
+| `dsh.command` | `dsh` | Start command; falls back to npx |
+| `dsh.autoStartTimeoutSec` | `60` | Auto-start timeout (seconds) |
+| `dsh.participantSessionMode` | `per-workspace` | @dsh session scope: per-project / global |
+| `dsh.openPanelOnStartup` | `false` | Open the standalone window on startup |
+| `dsh.defaultReasoningEffort` | `""` | Default thinking depth for new sessions (off/high/max, model-dependent) |
+| `dsh.commitModel` | `deepseek-v4-flash` | Model used to generate commit messages (resolved from the DSH model catalog; falls back to the session's current model) |
+| `dsh.commitReasoningEffort` | `low` | Reasoning effort for commit messages (`low` = no thinking on DeepSeek models, fastest) |
+| `dsh.language` | `auto` | UI language: auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ar |
+
+## Troubleshooting
+
+- Nothing appears → reload the window; run `DSH: Show Diagnostics`; check the extension runtime state for validation errors.
+- "No registered data provider" → run `DSH: Repair Chat View (Reset View Locations)` or `Restart Extension Host`.
+- Service worker error in the webview → VS Code 1.100.x platform bug: update VS Code or clear `%APPDATA%\Code\Service Worker\CacheStorage`.
+- "agent preset is fixed" → started sessions cannot switch presets; the preset pill only shows for new sessions.
+- Not connected → run `DSH: Start Server`; check `dsh.url`.
+- Server does not auto-start → the extension retries every 15 s and connects as soon as the server is up; see the `[server]` log in the "DeepSeek Harness" output channel. If the error mentions `0xC0000142`/`EPERM`, VS Code was launched from a DSH session or a restricted terminal (child process creation blocked) — launch VS Code normally, or set that session's permission to `danger-full-access`.
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm run build
+npm run package     # → Releases/
+```
+
+- Host: `src/extension.ts`, `src/dsh/*` (API client, server manager, session store, chat participant, project-session mapping, commit message generation).
+- UI: `src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`; icon `media/icon.png`.
+- i18n: `package.nls.json` + `package.nls.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, `l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, the `EN_TEXT` dictionary in `ui.ts` + `src/webview/texts/*.json`.
+- Integration test: `tools/test-client.ts`.
+
+---
+
+<a id="chinese"></a>
+
+# DeepSeek Harness for VS Code (dsh-vscode)
+
+[English version](#) | 发布者:Jager · 最新版本:0.12.12
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية,跟随 VS Code 显示语言或手动切换)。
 
@@ -114,102 +215,3 @@ npm run package     # 打包到 Releases/
 - 界面:`src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`;图标 `media/icon.png`。
 - 本地化:`package.nls.json` + `package.nls.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`(贡献点)、`l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`(宿主运行时)、`ui.ts` 的 EN_TEXT 词典 + `src/webview/texts/*.json`(Webview)。
 - 集成测试:`tools/test-client.ts`(对运行中的服务器验证全链路)。
-
----
-
-<a id="english"></a>
-
-# DeepSeek Harness for VS Code (dsh-vscode)
-
-[中文版](#) | Publisher: Jager · Latest: 0.12.0
-
-Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
-
-## Features
-
-- **Built-in chat participant `@dsh`**: type `@` in the native Chat panel (Ctrl+Alt+I); streamed replies with tool calls and approval buttons; slash commands `/new`, `/session <ID>`, `/preset <name>`.
-- **Secondary sidebar tab**: container appears in the Secondary Side Bar on VS Code ≥ 1.106 (falls back to the Activity Bar on older versions).
-- **Standalone chat window**: `DSH: Open Standalone Chat Window`.
-- **Modern chat UI**: large rounded input box, pill toolbar (thinking depth / model / preset / permission), session stats line (turns · steps · LLM/tool time · first token · tok/s · cache hit · in/out tokens), context usage bar.
-- **Per-message actions** (minimal line icons): copy (double-rectangle icon) / branch (forked line icon; menu: counter-clockwise arrow "Rewind here" · forked icon "Branch from here" · up-left fold "Branch and rewind earlier" · up-left arrow "Back to main") / thumbs up/down (line icons, official `/feedback`) / message header shows model · thinking time · per-step tokens.
-- **Collapsible reasoning** (hidden by default) and per-turn tool summary ("Called N tools this turn").
-- **Deliverables box**: files produced each turn listed at the end of the conversation, click to open.
-- **Session management**: ⋯ menu with fork / rename (pre-filled title) / archive.
-- **Goals**: progress card + 🎯 chip with edit / complete / clear.
-- **Plan mode**: 📝 chip appears after `/plan`, click to exit.
-- **Attachments**: auto-attach the active editor file (follows editor switches) + add file/folder (separate pickers); context is injected into the model but displayed collapsed.
-- **Subagents**: status chips with recent-reply preview.
-- **Skills**: available skills listed in the `/` menu (official skill.list).
-- **.claude / .codex / GitHub Copilot directories**: CLAUDE.md / AGENTS.md auto-loaded by the DSH core; `.claude/commands`, `.claude/skills`, `.codex/skills` (SKILL.md), `.github/copilot-instructions.md`, `.github/instructions`, `.github/agents` and `.github/prompts` are listed in the `/` menu and insertable.
-- **Permissions**: read-only / workspace-write / full-access switch (official `/permission` command).
-- **Cross-project sessions**: per-folder @dsh sessions; multi-root follows the active editor; `dsh.participantSessionMode: global` to share one session.
-- **Workspace browser** (📁 button, web Workspaces parity): sessions grouped by workspace; add / rename / delete / reorder workspaces; per-group session ordering and archive; session content search (instant title matches + server content search with local fallback when the index is disabled); rows show waiting-for-approval / plan-review / question / running states.
-- **Background jobs panel** (⚙️ button): bash / pwsh / subagent jobs for the current session with status, timings, and detail, live from session/jobs frames.
-- **Trajectory view** (🧭 button, web Trajectory parity): turn-aware event ledger (seq · time · type · summary · token usage), click to expand the full event JSON, type filter.
-- **Settings panel** (⚙️ button, web Settings parity): general settings (schema-driven forms for every namespace, restart badges, per-namespace reset), models & providers (provider route directory + model catalog + endpoint model discovery), credential management (API key set/clear), agent preset authoring (view composition / copy / open directory to edit cordis.yml / delete user presets).
-- **Subagent conversations**: click a subagent chip to open its transcript; continuable children accept prompts (subagent.prompt) and interrupts (subagent.interrupt).
-- **Image attachments**: 🖼️ add images (official image content-block channel), in both sending and history playback.
-- **Queued-message actions**: queued messages can be edited / removed / steered (official session.updateQueue).
-- **Goal creation**: the 🎯 chip creates a goal when none exists (goal.create with objective and round cap).
-- **One-click commit messages**: the ✨ button in the Source Control title bar (`DSH: Generate Commit Message`) reads the staged/unstaged git diff and generates a Conventional Commits-style message in a disposable session (archived immediately, never shown in the session list) with a lightweight model (default `deepseek-v4-flash` + low effort; configurable via `dsh.commitModel` / `dsh.commitReasoningEffort`), writing the result into the SCM input box and auto-cancelling on timeout or when the model requests extra interaction.
-- **i18n**: Simplified Chinese / Traditional Chinese / English / Japanese / Korean / German / French / Spanish / Portuguese / Thai / Indonesian / Turkish / Arabic — follows the VS Code display language, or switch in place via `dsh.language` / the 🌐 section of the settings panel.
-
-## Install
-
-```bash
-cd <this folder>
-npm install
-npm run package          # outputs Releases/dsh-vscode-<version>.vsix
-```
-
-VS Code → Extensions → `…` → Install from VSIX → pick the file in `Releases\` → reload.
-
-Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar container ≥ 1.106); DSH CLI or npx fallback; model credentials configured (same as `dsh web`).
-
-## Usage highlights
-
-- Enter to send, Shift+Enter for newline; while running the send button (paper-plane line icon) becomes stop (square line icon), typing turns it back into send (queued send).
-- `/` button (bottom-left): command menu (plan / compact / goal / feedback / permission / skills / .claude) — inserts the command into the input; press Enter to run.
-- `+` button next to it: add file / add folder; the blue chip is the auto-attached active file.
-- Message actions: click the forked-line icon to open the branch/rewind menu — counter-clockwise arrow "Rewind here", forked icon "Branch from here", up-left fold "Branch and rewind earlier"; branch sessions also show the up-left arrow "Back to main".
-- Session ⋯ menu: fork / rename / archive; preset pill at the top-right (new sessions only); thinking / model pills at the bottom-right.
-- Source Control title bar: the ✨ button generates a Conventional Commits message from the current diff and fills the SCM input box (a picker appears when several repositories are open).
-- Context menus: selection → `DSH: Send Selection to @dsh`; file → `DSH: Ask @dsh About This File`.
-
-## Configuration
-
-| Key | Default | Description |
-| --- | --- | --- |
-| `dsh.url` | `http://127.0.0.1:3080` | DSH web server URL |
-| `dsh.autoStart` | `true` | On VS Code startup, start `dsh web` if the server is not running |
-| `dsh.command` | `dsh` | Start command; falls back to npx |
-| `dsh.autoStartTimeoutSec` | `60` | Auto-start timeout (seconds) |
-| `dsh.participantSessionMode` | `per-workspace` | @dsh session scope: per-project / global |
-| `dsh.openPanelOnStartup` | `false` | Open the standalone window on startup |
-| `dsh.defaultReasoningEffort` | `""` | Default thinking depth for new sessions (off/high/max, model-dependent) |
-| `dsh.commitModel` | `deepseek-v4-flash` | Model used to generate commit messages (resolved from the DSH model catalog; falls back to the session's current model) |
-| `dsh.commitReasoningEffort` | `low` | Reasoning effort for commit messages (`low` = no thinking on DeepSeek models, fastest) |
-| `dsh.language` | `auto` | UI language: auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ar |
-
-## Troubleshooting
-
-- Nothing appears → reload the window; run `DSH: Show Diagnostics`; check the extension runtime state for validation errors.
-- "No registered data provider" → run `DSH: Repair Chat View (Reset View Locations)` or `Restart Extension Host`.
-- Service worker error in the webview → VS Code 1.100.x platform bug: update VS Code or clear `%APPDATA%\Code\Service Worker\CacheStorage`.
-- "agent preset is fixed" → started sessions cannot switch presets; the preset pill only shows for new sessions.
-- Not connected → run `DSH: Start Server`; check `dsh.url`.
-- Server does not auto-start → the extension retries every 15 s and connects as soon as the server is up; see the `[server]` log in the "DeepSeek Harness" output channel. If the error mentions `0xC0000142`/`EPERM`, VS Code was launched from a DSH session or a restricted terminal (child process creation blocked) — launch VS Code normally, or set that session's permission to `danger-full-access`.
-
-## Development
-
-```bash
-npm install
-npm run typecheck
-npm run build
-npm run package     # → Releases/
-```
-
-- Host: `src/extension.ts`, `src/dsh/*` (API client, server manager, session store, chat participant, project-session mapping, commit message generation).
-- UI: `src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`; icon `media/icon.png`.
-- i18n: `package.nls.json` + `package.nls.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, `l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, the `EN_TEXT` dictionary in `ui.ts` + `src/webview/texts/*.json`.
-- Integration test: `tools/test-client.ts`.

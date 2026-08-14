@@ -305,14 +305,67 @@ export class DshHub {
     return undefined;
   }
 
-  async send(sessionId: string, text: string) {
+  async send(sessionId: string, text: string): Promise<{ accepted: true; command?: { kind: "success"; text?: string } } | undefined> {
     try {
-      await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text }] });
+      return await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text }] });
     } catch (error) {
       const message = error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
       this.deps.onNotice?.(this.deps.t?.("hub.sendFailed", { message }) ?? `Send failed: ${message}`, "error");
       throw error;
     }
+  }
+
+  /**
+   * 执行一条斜杠命令(网页端 live.command() 同款语义):
+   * 1. 优先 commands.execute 网关通道(纯命令执行,不产生模型回合);
+   * 2. 网关不可用时回退 session.prompt 命令路径,并检查响应中的 command 槽确认宿主拦截;
+   * 3. 若两者都未被宿主拦截(命令会进入模型),在会话空闲时立即取消该轮,避免模型收到命令文本。
+   * 返回 "executed"(已由宿主执行)/ "unmatched"(无此命令)/ "unavailable"(通道不可用且已取消)。
+   */
+  async runCommandLine(sessionId: string, line: string): Promise<"executed" | "unmatched" | "unavailable"> {
+    try {
+      const result = await this.client.executeCommand(sessionId, line);
+      return result.matched ? "executed" : "unmatched";
+    } catch (error) {
+      // 网关通道不可用(部署未组合 api-gateway / commands 远程):回退官方命令消息路径
+      console.error("[dsh] commands.execute unavailable, falling back to session.prompt:", error);
+    }
+    const wasRunning = this.store.sessions.get(sessionId)?.running === true;
+    try {
+      const res = await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text: line }] });
+      if (res.command !== undefined) return "executed";
+      // 宿主未拦截:命令文本会进入模型。会话原本空闲时立即取消该轮,避免产生可见回复
+      if (!wasRunning) await this.client.cancelSession(sessionId);
+      return "unavailable";
+    } catch {
+      return "unavailable";
+    }
+  }
+
+  /** 宿主命令名缓存(sessionId → 名称集合),供 /token 路由判定:命令走命令通道,技能 token 走普通 prompt。 */
+  private readonly commandNames = new Map<string, Set<string>>();
+
+  /** 判断一个(不带斜杠的)名称是否为宿主命令。 */
+  async isKnownCommand(sessionId: string, name: string): Promise<boolean> {
+    const lower = name.toLowerCase();
+    let set = this.commandNames.get(sessionId);
+    if (!set) {
+      try {
+        const names = await this.client.listCommands(sessionId);
+        set = new Set(names.map((n) => n.toLowerCase()));
+        this.commandNames.set(sessionId, set);
+      } catch (error) {
+        console.error("[dsh] commands/list failed:", error);
+        // 无法确认时保守视为命令:走命令通道,失败会取消回合并提示,不会误发给模型
+        return true;
+      }
+    }
+    return set.has(lower);
+  }
+
+  /** 清空命令名缓存(连接重建时调用)。 */
+  clearCommandCache() {
+    this.commandNames.clear();
   }
 
   /** 发送带内容块的消息(文本 + 图片)。 */

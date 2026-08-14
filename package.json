@@ -1,8 +1,8 @@
 {
   "name": "dsh-vscode",
-  "displayName": "%displayName%",
-  "description": "%description%",
-  "version": "0.12.0",
+  "displayName": "DeepSeek Harness for VS Code",
+  "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant, model/preset/permission/thinking controls, attachments, goals and subagents.",
+  "version": "0.12.12",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -262,6 +262,32 @@
           ],
           "default": "auto",
           "description": "%config.language%"
+        },
+        "dsh.agentConfigDirs": {
+          "type": "object",
+          "default": {
+            "claude": true,
+            "codex": true,
+            "githubCopilot": true
+          },
+          "properties": {
+            "claude": {
+              "type": "boolean",
+              "default": true,
+              "description": "%config.agentDirs.claude%"
+            },
+            "codex": {
+              "type": "boolean",
+              "default": true,
+              "description": "%config.agentDirs.codex%"
+            },
+            "githubCopilot": {
+              "type": "boolean",
+              "default": true,
+              "description": "%config.agentDirs.githubCopilot%"
+            }
+          },
+          "description": "%config.agentDirs%"
         }
       }
     }

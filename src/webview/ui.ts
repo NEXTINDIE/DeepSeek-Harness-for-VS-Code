@@ -190,6 +190,8 @@ const state = {
   lang: "zh-cn",
   /** 排队消息权威快照(供语言切换时重建排队节点) */
   queueItems: [] as { id: string; placement: string; message?: { content?: unknown[] } }[],
+  /** 重放历史期间跳过滚动/流式渲染等增量 DOM 更新,避免长会话切换卡顿 */
+  replaying: false,
   /** 用户配置的语言偏好(auto / zh-cn / en) */
   languagePref: "auto" as string,
   /** 每步开始时间,用于计算每条回答的思考耗时 */
@@ -354,13 +356,25 @@ const panels = createPanels({
   requestAttachment: (_sessionId, attachmentId, messageId) => vscode.postMessage({ kind: "attachmentRead", attachmentId, messageId }),
 } as PanelsContext);
 
-/** 权限预设的中文名称。 */
+/** 权限预设的中文名称(经 t() 翻译)。 */
 const PERMISSION_LABELS: Record<string, string> = {
   "read-only": "只读",
   "workspace-write": "工作区可写",
   "danger-full-access": "完全访问(危险)",
   custom: "自定义",
 };
+
+/** 权限预设图标:只读 🔒 / 工作区可写 🖊️ / 完全访问 ⚠️(红色三角形警告)。 */
+const PERMISSION_ICONS: Record<string, { icon: string; danger?: boolean }> = {
+  "read-only": { icon: "🔒" },
+  "workspace-write": { icon: "🖊️" },
+  "danger-full-access": { icon: "⚠️", danger: true },
+  custom: { icon: "🔓" },
+};
+
+function permissionIcon(value: string): string {
+  return PERMISSION_ICONS[value]?.icon ?? "🔒";
+}
 
 function permissionLabel(value: string, fallback?: string): string {
   return t(PERMISSION_LABELS[value] ?? fallback ?? value);
@@ -682,6 +696,31 @@ const EN_TEXT: Record<string, string> = {
   "❌ 拒绝": "❌ Reject",
   "子代理": "Subagent",
   "(暂无)": "(none yet)",
+  // ---- 权限预设(标签本身在下方权限词表,此处只补提示文案) ----
+  "危险:放开全部沙箱与审批限制": "Danger: lifts all sandbox and approval restrictions",
+  "默认权限预设": "Default permission preset",
+  "切换到完全访问(危险)": "Switch to full access (dangerous)",
+  "完全访问会放开全部沙箱与审批限制,agent 可读取并修改任意文件。确定将其设为新会话的默认权限?": "Full access lifts all sandbox and approval restrictions; the agent can read and modify any file. Set it as the default for new sessions?",
+  "确认切换": "Confirm switch",
+  "该设置对新会话生效;当前会话的权限用输入框旁的权限下拉切换。": "Applies to new sessions; the current session's permission switches via the dropdown next to the composer.",
+  "当前部署未提供会话内权限切换通道,会话权限未变更。可为新会话设定默认权限。": "This deployment provides no in-session permission channel; the session's permission was not changed. You can set the default permission for new sessions instead.",
+  "默认权限设置": "Default permission",
+  // ---- 子代理目录 ----
+  "子代理目录": "Subagent catalog",
+  "子代理目录({n} 个运行中)": "Subagent catalog ({n} running)",
+  "(暂无子代理)": "(no subagents yet)",
+  "one-shot 子代理 · 点击查看记录": "One-shot subagent · click to view its record",
+  "continuable 子代理 · 点击打开对话(可追问 / 打断)": "Continuable subagent · click to open its conversation (prompt / interrupt)",
+  "刷新": "Refresh",
+  "技能(选中插入 /名称 调用)": "Skills (pick inserts /name to invoke)",
+  "▾ 展开全部技能 ({n})": "▾ Expand all skills ({n})",
+  // ---- 产物 ----
+  "📦 产物 ({n})": "📦 Deliverables ({n})",
+  "在文件夹中显示": "Show in folder",
+  "在系统资源管理器中显示产物目录": "Reveal the deliverables folder in the system file explorer",
+  "＋ 其余 {n} 个文件": "+ {n} more files",
+  "收起": "Collapse",
+  "在资源管理器中显示": "Reveal in File Explorer",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
@@ -760,7 +799,14 @@ moreAnchor.append(btnMore, sessionMenu);
 
 headerSessionRow.append(sessionSelectWrap, moreAnchor, btnNew);
 const toolLeft = el("div", "header-tools");
-toolLeft.append(btnWorkspaces, btnJobs, btnTrajectory, btnSettings);
+// 子代理目录按钮(网页端 session.header.actions 目录树同款定位:单个按钮 + 展开目录,不占对话空间)
+const btnSubagents = el("button", "btn btn-icon");
+btnSubagents.title = t("子代理目录");
+btnSubagents.append(el("span", "btn-emoji", "🤖"));
+const subagentsBadge = el("span", "btn-badge");
+subagentsBadge.hidden = true;
+btnSubagents.append(subagentsBadge);
+toolLeft.append(btnWorkspaces, btnJobs, btnTrajectory, btnSettings, btnSubagents);
 const toolRight = el("div", "header-tools header-tools-right");
 toolRight.append(btnBrowser, statusDot, statusText);
 headerToolRow.append(toolLeft, toolRight);
@@ -769,6 +815,10 @@ header.append(headerSessionRow, headerToolRow);
 // 通用对话框(重命名输入 / 归档确认)
 const dialogOverlay = el("div", "dialog-overlay");
 dialogOverlay.hidden = true;
+
+// 浮动提示(toast):操作反馈显示在界面顶部,不再进入对话流
+const toastBox = el("div", "toast-box");
+root.append(toastBox);
 const dialogBox = el("div", "dialog-box");
 const dialogTitle = el("div", "dialog-title");
 const dialogText = el("div", "dialog-text");
@@ -968,6 +1018,10 @@ btnWorkspaces.addEventListener("click", () => panels.openWorkspaces());
 btnJobs.addEventListener("click", () => panels.openJobs());
 btnTrajectory.addEventListener("click", () => panels.openTrajectory(state.rawEvents));
 btnSettings.addEventListener("click", () => panels.openSettings());
+btnSubagents.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openSubagentCatalog();
+});
 sessionSelect.addEventListener("change", () => {
   const id = sessionSelect.value;
   if (id) vscode.postMessage({ kind: "select", sessionId: id });
@@ -1024,8 +1078,8 @@ function renderPlusMenu() {
     autoResize();
     updateSendButton();
   };
-  const item = (icon: string, label: string, action: () => void, hintText?: string) => {
-    const b = el("button", "plus-menu-item", `${icon} ${label}`);
+  const item = (icon: string, label: string, action: () => void, hintText?: string, cls?: string) => {
+    const b = el("button", "plus-menu-item" + (cls ? ` ${cls}` : ""), `${icon} ${label}`);
     if (hintText) b.title = hintText;
     b.addEventListener("click", action);
     plusMenu.append(b);
@@ -1051,21 +1105,45 @@ function renderPlusMenu() {
     plusMenu.append(group);
     for (const option of perms) {
       const active = state.permissions?.currentValue === option.value;
-      item(active ? "✅" : "🔒", permissionLabel(option.value, option.name), () => {
-        state.permissions = { ...(state.permissions ?? { options: [], currentValue: "" }), currentValue: option.value };
-        renderPermissionsSelect();
-        vscode.postMessage({ kind: "permission", preset: option.value });
-      }, option.description ?? "");
+      const danger = PERMISSION_ICONS[option.value]?.danger === true;
+      item(
+        active ? "✅" : permissionIcon(option.value),
+        permissionLabel(option.value, option.name),
+        () => {
+          state.permissions = { ...(state.permissions ?? { options: [], currentValue: "" }), currentValue: option.value };
+          renderPermissionsSelect();
+          vscode.postMessage({ kind: "permission", preset: option.value });
+        },
+        (option.description ?? "") + (danger ? (option.description ? " · " : "") + t("危险:放开全部沙箱与审批限制") : ""),
+        danger ? "perm-danger" : undefined,
+      );
     }
   }
-  // 技能列表(来自 DSH skill.list,模型可调用)
+  // 技能列表(来自 DSH skill.list):与网页端一致,选中插入字面 "/名称 " 文本,
+  // 由宿主 pre-step 边界注入技能正文;列表默认收起到前 6 个,展开全部走菜单滚动。
   const skills = state.skills ?? [];
   if (skills.length > 0) {
-    const group = el("div", "plus-menu-label", t("技能(插入提示词)"));
+    const group = el("div", "plus-menu-label", t("技能(选中插入 /名称 调用)"));
     plusMenu.append(group);
-    for (const skill of skills.slice(0, 12)) {
-      item("🧩", skill.name, () => insert(t("请使用技能「{name}」处理:", { name: skill.name })), skill.description || skill.whenToUse || "");
-    }
+    const list = el("div", "plus-menu-skills");
+    const MAX_VISIBLE = 6;
+    const renderSkillRows = (all: boolean) => {
+      list.innerHTML = "";
+      const shown = all ? skills : skills.slice(0, MAX_VISIBLE);
+      for (const skill of shown) {
+        const b = el("button", "plus-menu-item", `🧩 /${skill.name}`);
+        b.title = skill.description || skill.whenToUse || skill.name;
+        b.addEventListener("click", () => insert(`/${skill.name} `));
+        list.append(b);
+      }
+      if (!all && skills.length > MAX_VISIBLE) {
+        const more = el("button", "plus-menu-item", t("▾ 展开全部技能 ({n})", { n: String(skills.length) }));
+        more.addEventListener("click", () => renderSkillRows(true));
+        list.append(more);
+      }
+    };
+    renderSkillRows(false);
+    plusMenu.append(list);
   }
   // 智能体/技能配置:.claude(DSH 核心自动读 CLAUDE.md/AGENTS.md)/ .codex / .github(Copilot)
   const claude = state.claudeConfig;
@@ -1295,17 +1373,61 @@ function renderNode(node: NodeState): HTMLElement {
       return wrap;
     }
     case "files": {
-      // 本轮生成的文件列表框(Codex 风格)
+      // 产物列表框(网页端 ProducedFiles 同款:最多 6 个条目,余量折叠为 +N;点击在 VS Code 中打开)
       const wrap = el("div", "msg files-card");
       const head = el("div", "files-card-head");
-      head.append(lineIcon(ICONS.box, 13), el("span", undefined, t("本轮生成的文件 ({n})", { n: String(node.files?.length ?? 0) })));
+      head.append(lineIcon(ICONS.box, 13), el("span", undefined, t("📦 产物 ({n})", { n: String(node.files?.length ?? 0) })));
+      const revealAll = el("button", "files-card-reveal", t("在文件夹中显示"));
+      revealAll.title = t("在系统资源管理器中显示产物目录");
+      const firstDir = node.files?.length ? parentDir(node.files[0]) : undefined;
+      revealAll.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (firstDir) vscode.postMessage({ kind: "revealInExplorer", path: firstDir });
+      });
+      head.append(revealAll);
       wrap.append(head);
-      for (const path of node.files ?? []) {
-        const row = el("button", "files-card-row");
-        row.append(lineIcon(ICONS.copy, 12), el("span", "files-card-name", basename(path)));
-        row.title = path;
-        row.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path }));
-        wrap.append(row);
+
+      const files = node.files ?? [];
+      const MAX = 6;
+      const rows = el("div", "files-card-rows");
+      const renderRows = (list: string[]) => {
+        rows.innerHTML = "";
+        for (const path of list) {
+          const row = el("button", "files-card-row");
+          row.append(lineIcon(ICONS.copy, 12));
+          const main = el("span", "files-card-main");
+          main.append(el("span", "files-card-name", basename(path)));
+          const dir = parentDir(path);
+          if (dir) {
+            const sub = el("span", "files-card-sub");
+            sub.textContent = dir;
+            sub.title = path;
+            main.append(sub);
+          }
+          row.append(main);
+          const reveal = el("button", "files-card-reveal-btn", "📁");
+          reveal.title = t("在资源管理器中显示");
+          reveal.addEventListener("click", (e) => {
+            e.stopPropagation();
+            vscode.postMessage({ kind: "revealInExplorer", path });
+          });
+          row.append(reveal);
+          row.title = path;
+          row.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path }));
+          rows.append(row);
+        }
+      };
+      renderRows(files.slice(0, MAX));
+      wrap.append(rows);
+      if (files.length > MAX) {
+        let expanded = false;
+        const more = el("button", "files-card-more", t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) }));
+        more.addEventListener("click", () => {
+          expanded = !expanded;
+          renderRows(expanded ? files : files.slice(0, MAX));
+          more.textContent = expanded ? t("收起") : t("＋ 其余 {n} 个文件", { n: String(files.length - MAX) });
+        });
+        wrap.append(more);
       }
       return wrap;
     }
@@ -1336,8 +1458,10 @@ function beginAssistantBlock(turn: number, step: number, index: number, blockTyp
   state.streamBlock = block;
 }
 
-function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState) {
+function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState, force = false) {
   if (!assistant.el || !assistant.blocks) return;
+  // 重放历史时跳过中间渲染(block-start),仅在 assistant/message(force)时一次性渲染最终内容
+  if (state.replaying && !force) return;
   const container = assistant.el.querySelector(".msg-blocks") as HTMLElement;
   container.innerHTML = "";
   for (const block of assistant.blocks) {
@@ -1372,6 +1496,7 @@ function appendToStream(blockType: string, text: string) {
   if (!state.streamBlock) return;
   if ((state.streamBlock.type === "reasoning") !== (blockType === "reasoning")) return;
   state.streamBlock.text += text;
+  if (state.replaying) return; // 重放期间仅累积文本,最终由 assistant/message 一次性渲染
   if (state.streamBlock.el) setHtml(state.streamBlock.el, state.streamBlock.text);
   scrollToBottom();
 }
@@ -1532,12 +1657,29 @@ function handleEvent(wire: WireEvent) {
           appendNode({ kind: "attach", key: `at:${ev.seq}`, el: null, text: split.attachContext });
         }
         if (isSlashCommandOnly(split.userText) && images.length === 0) {
-          // 纯斜杠命令(权限切换/计划模式等):不显示为用户气泡,以小字命令行呈现
+          // 权限切换是系统级开关(permissionPresets/preset + sandbox/mode + approval/policy 事件):
+          // 与网页端一致,不渲染为对话条目;状态由 permissions 投影芯片 + 宿主提示气泡呈现
+          if (/^\/permission(?:\s|$)/.test(split.userText.trim())) {
+            break;
+          }
+          // 其余纯斜杠命令(计划模式等):不显示为用户气泡,以小字命令行呈现
           appendNode({ kind: "note", key: `cmd:${ev.seq}`, el: null, text: `⌘ ${split.userText.trim()}`, cmd: true });
         } else {
           appendNode({ kind: "user", key: `u:${ev.seq}`, el: null, text: split.userText, ...(images.length ? { images } : {}) });
         }
-      } else if (text) appendNode({ kind: "note", key: `n:${ev.seq}`, el: null, text });
+      } else if (text) {
+        // 系统提示词/运行时上下文快照:合并为一条折叠笔记,避免同一位置弹出 N 个
+        const last = state.nodes[state.nodes.length - 1];
+        if (last && last.kind === "note" && !last.cmd && last.key.startsWith("n:")) {
+          last.text = `${last.text ?? ""}\n\n${text}`;
+          if (last.el) {
+            const body = last.el.querySelector(".system-note-body");
+            if (body) setHtml(body as HTMLElement, last.text);
+          }
+        } else {
+          appendNode({ kind: "note", key: `n:${ev.seq}`, el: null, text });
+        }
+      }
       break;
     }
     case "assistant/chunk": {
@@ -1592,7 +1734,7 @@ function handleEvent(wire: WireEvent) {
         if (block.type === "text") addedText += block.text + "\n";
       }
       if (addedText) assistant.plainText = ((assistant.plainText ?? "") + "\n" + addedText.trim()).trim();
-      refreshAssistantNode(assistant);
+      refreshAssistantNode(assistant, undefined, true); // 重放/实时均在此一次性渲染最终内容
       // 回合级元信息与操作条(最终一步的数据生效)
       assistant.seq = ev.seq;
       assistant.deliverables = [...currentTurnDeliverables];
@@ -1807,9 +1949,12 @@ function openAnchoredMenu(anchor: HTMLElement, build: (menu: HTMLElement) => voi
   root.append(menu);
   const rect = anchor.getBoundingClientRect();
   menu.style.position = "fixed";
-  menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 230))}px`;
-  menu.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - 240)}px`;
+  menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 240))}px`;
   menu.style.zIndex = "300";
+  // 先临时定位再按实测高度钳制,保证整块菜单始终在视口内(高度上限由 CSS max-height 控制)
+  menu.style.top = `${rect.bottom + 6}px`;
+  const height = menu.offsetHeight;
+  menu.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - height - 10))}px`;
   activePopover = menu;
   menu.addEventListener("click", (ev) => ev.stopPropagation());
   const close = () => {
@@ -2066,6 +2211,13 @@ function basename(p: string): string {
   return parts[parts.length - 1] ?? p;
 }
 
+/** 父目录(无父目录时返回空串)。 */
+function parentDir(p: string): string {
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  if (parts.length <= 1) return "";
+  return parts.slice(0, -1).join(p.includes("/") && !p.includes("\\") ? "/" : "\\");
+}
+
 function renderThinkingSelect() {
   const m = state.models?.current;
   const modelInfo = m ? findModel(m.provider, m.model) : undefined;
@@ -2160,7 +2312,8 @@ function renderPermissionsSelect() {
   const current = state.permissions?.currentValue;
   let currentInList = false;
   for (const option of options) {
-    const item = el("option", undefined, permissionLabel(option.value, option.name));
+    // 选项文本带权限图标:完全访问(危险)使用红色 ⚠️ 警告标识
+    const item = el("option", undefined, `${permissionIcon(option.value)} ${permissionLabel(option.value, option.name)}`);
     item.value = option.value;
     if (current === option.value) {
       item.selected = true;
@@ -2170,7 +2323,7 @@ function renderPermissionsSelect() {
   }
   // 当前权限不在预设列表(自定义组合)时,补一个只读占位项
   if (current && !currentInList) {
-    const item = el("option", undefined, permissionLabel(current));
+    const item = el("option", undefined, `${permissionIcon(current)} ${permissionLabel(current)}`);
     item.value = current;
     item.selected = true;
     permissionSelect.prepend(item);
@@ -2348,28 +2501,57 @@ function applyAttachmentData(msg: { attachmentId: string; data?: string; mediaTy
   frame.append(img);
 }
 
-// ---------- 子代理芯片 ----------
+// ---------- 子代理目录(头部按钮 + 弹层目录,不再占用对话底部空间) ----------
 
-function renderSubagentChips() {
-  const old = document.querySelectorAll(".subagent-chip");
-  old.forEach((n) => n.remove());
+/** 刷新子代理按钮徽标:显示数量,有运行中的子代理时高亮。 */
+function updateSubagentButton() {
   const entries = state.subagents ?? [];
-  if (entries.length === 0) return;
-  for (const entry of entries) {
-    const label = entry.label ?? entry.id.slice(0, 12);
-    const running = entry.activity === "running";
-    const chip = el("span", "mode-chip subagent-chip" + (running ? " running-chip" : ""));
-    chip.append(el("span", undefined, `${running ? "⏳" : "🤖"} ${label}`));
-    chip.title = t("子代理 {name}({status}) · 点击打开对话(可追问 / 打断)", {
-      name: label,
-      status: running ? t("运行中") : t("已结束"),
+  const running = entries.filter((e) => e.activity === "running").length;
+  subagentsBadge.textContent = String(entries.length);
+  subagentsBadge.hidden = entries.length === 0;
+  btnSubagents.classList.toggle("subagents-running", running > 0);
+  btnSubagents.title = running > 0 ? t("子代理目录({n} 个运行中)", { n: String(running) }) : t("子代理目录");
+}
+
+/** 打开子代理目录弹层(网页端 header catalog 的扁平版):头部右上角刷新,列表限高滚动。 */
+function openSubagentCatalog() {
+  const entries = state.subagents ?? [];
+  openAnchoredMenu(btnSubagents, (menu) => {
+    menu.classList.add("subagent-catalog");
+    // 头部:标题 + 右上角刷新按钮(固定在列表之外,滚动时保持可见)
+    const head = el("div", "subagent-catalog-head");
+    head.append(el("div", "plus-menu-label", t("子代理目录")));
+    const refresh = el("button", "subagent-catalog-refresh", "🔄");
+    refresh.title = t("刷新");
+    refresh.addEventListener("click", () => {
+      closeActivePopover();
+      vscode.postMessage({ kind: "getSubagents" });
     });
-    chip.addEventListener("click", (e) => {
-      e.stopPropagation();
-      panels.openSubagent(entry.id, entry.mode === "one-shot" ? "one-shot" : "continuable", label);
-    });
-    conversationBottom.append(chip);
-  }
+    head.append(refresh);
+    menu.append(head);
+
+    // 列表区:限高 + 滚动,子代理再多也不会超出视口
+    const list = el("div", "subagent-catalog-list");
+    if (entries.length === 0) {
+      list.append(el("div", "subagent-catalog-empty", t("(暂无子代理)")));
+    } else {
+      for (const entry of entries) {
+        const label = entry.label ?? entry.id.slice(0, 12);
+        const running = entry.activity === "running";
+        const row = el("button", "plus-menu-item", `${running ? "⏳" : "🤖"} ${label}`);
+        row.title = entry.mode === "one-shot" ? t("one-shot 子代理 · 点击查看记录") : t("continuable 子代理 · 点击打开对话(可追问 / 打断)");
+        const sub = el("span", "subagent-catalog-sub");
+        sub.textContent = entry.mode === "one-shot" ? "one-shot" : running ? t("运行中") : t("已结束");
+        row.append(sub);
+        row.addEventListener("click", () => {
+          closeActivePopover();
+          panels.openSubagent(entry.id, entry.mode === "one-shot" ? "one-shot" : "continuable", label);
+        });
+        list.append(row);
+      }
+    }
+    menu.append(list);
+  });
 }
 
 // ---------- 回合活动指示(输入框上方:深度思考中… 12分50秒) ----------
@@ -2403,6 +2585,7 @@ function tickTurnStatus() {
 }
 
 function startTurnStatus(time: number) {
+  if (state.replaying) return; // 重放历史时跳过回合活动指示
   turnStatusStartedAt = Number.isFinite(time) ? time : Date.now();
   turnStatus.hidden = false;
   tickTurnStatus();
@@ -2465,6 +2648,7 @@ function updateStatus(status: HubStatus) {
 }
 
 function scrollToBottom() {
+  if (state.replaying) return; // 重放历史时跳过滚动(避免每次插入都触发强制布局)
   const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 260;
   if (nearBottom) messages.scrollTop = messages.scrollHeight;
 }
@@ -2671,6 +2855,37 @@ function applyQueueItems(items: { id: string; placement: string; message?: { con
   }
 }
 
+/** 浮动 toast:显示操作反馈(信息 4s / 错误 8s),点击 × 关闭;可带一个动作按钮。 */
+function showToast(message: string, level: string, action?: { label: string; onClick: () => void }) {
+  if (!message) return;
+  const toast = el("div", `toast toast-${level === "error" ? "error" : level === "warning" ? "warning" : "info"}`);
+  toast.append(el("span", "toast-icon", level === "info" ? "ℹ️" : "⚠️"));
+  toast.append(el("span", "toast-text", message));
+  if (action) {
+    const btn = el("button", "toast-action", action.label);
+    btn.addEventListener("click", () => {
+      action.onClick();
+      toast.classList.add("toast-hide");
+      setTimeout(() => toast.remove(), 250);
+    });
+    toast.append(btn);
+  }
+  const close = el("button", "toast-close", "×");
+  close.addEventListener("click", () => {
+    toast.classList.add("toast-hide");
+    setTimeout(() => toast.remove(), 250);
+  });
+  toast.append(close);
+  toastBox.append(toast);
+  // 最多保留 4 条,超出移除最旧的
+  while (toastBox.children.length > 4) toastBox.firstElementChild?.remove();
+  const ttl = level === "error" ? 8000 : level === "warning" ? 8000 : 4000;
+  setTimeout(() => {
+    toast.classList.add("toast-hide");
+    setTimeout(() => toast.remove(), 250);
+  }, ttl);
+}
+
 // ---------- 消息处理 ----------
 
 /** 重设静态控件文案(语言切换后就地应用,不刷新页面)。 */
@@ -2681,6 +2896,7 @@ function applyStaticLabels() {
   btnJobs.title = t("后台任务");
   btnTrajectory.title = t("轨迹(事件台账)");
   btnSettings.title = t("设置(常规 / 模型 / 预设)");
+  btnSubagents.title = t("子代理目录");
   btnBrowser.title = t("在浏览器中打开");
   btnPlus.title = t("输入命令(/plan、/compact、.claude 命令…)");
   btnAddAttach.title = t("添加文件或文件夹到对话");
@@ -2722,8 +2938,10 @@ function applyLanguage() {
   state.streamedBlockKeys = new Set();
   currentTurnDeliverables = [];
   messages.innerHTML = "";
+  state.replaying = true;
   for (const wire of events) handleEvent(wire);
   applyQueueItems(queue);
+  state.replaying = false;
   chipsSignature = "";
   renderSessions();
   renderThinkingSelect();
@@ -2737,7 +2955,7 @@ function applyLanguage() {
   renderTodos();
   renderAttachments();
   renderImageChips();
-  renderSubagentChips();
+  updateSubagentButton();
   renderPending();
   renderLoadMoreButton();
   updateStatus(state.status);
@@ -2784,8 +3002,10 @@ function handleMessage(msg: any) {
       state.streamedBlockKeys = new Set();
       state.turnToolGroup = null;
       messages.innerHTML = "";
+      state.replaying = true;
       for (const wire of msg.events ?? []) handleEvent(wire);
       applyQueueItems(msg.queue ?? []);
+      state.replaying = false;
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
@@ -2836,7 +3056,7 @@ function handleMessage(msg: any) {
     case "subagents": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       state.subagents = msg.value?.entries ?? [];
-      renderSubagentChips();
+      updateSubagentButton();
       break;
     }
     case "claudeConfig": {
@@ -2964,7 +3184,9 @@ function handleMessage(msg: any) {
       state.rawEvents = [];
       messages.innerHTML = "";
       state.nodes = [];
+      state.replaying = true;
       for (const wire of events) handleEvent(wire);
+      state.replaying = false;
       state.hasMore = !!msg.hasMore;
       renderLoadMoreButton();
       break;
@@ -3039,8 +3261,16 @@ function handleMessage(msg: any) {
       break;
     }
     case "notice": {
-      const icon = msg.level === "info" ? "ℹ️" : "⚠️";
-      appendNode({ kind: "note", key: `notice:${Date.now()}`, el: null, text: `${icon} ${msg.message ?? ""}` });
+      // 操作反馈走浮动 toast,不再作为对话条目插入聊天流
+      showToast(msg.message ?? "", msg.level ?? "info");
+      break;
+    }
+    case "permissionUnavailable": {
+      // 部署未提供会话内权限切换通道:给出可操作的引导(跳转"默认权限预设"设置)
+      showToast(t("当前部署未提供会话内权限切换通道,会话权限未变更。可为新会话设定默认权限。"), "warning", {
+        label: t("默认权限设置"),
+        onClick: () => panels.openSettings(),
+      });
       break;
     }
     default:

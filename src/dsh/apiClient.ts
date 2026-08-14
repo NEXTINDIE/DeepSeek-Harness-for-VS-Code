@@ -143,6 +143,73 @@ export class DshApiClient {
   sendPromptParts(sessionId: string, mode: "queue" | "steer", content: PromptContentPart[]) {
     return this.post<SessionPromptValue>("session.prompt", { sessionId, mode, content }, 60_000);
   }
+
+  /**
+   * 会话级斜杠命令执行(与网页端 live.command() 完全一致的通道):
+   * 连接 RPC 端点为斜杠形式 /api/commands/execute(点号形式会 404),
+   * 信封 {type:"client-request", rpcId, method:"commands/execute",
+   * payload:{args:{agentId, line}}},响应为标准 server-response 信封;
+   * result.value === undefined 表示未匹配任何命令。
+   */
+  async executeCommand(sessionId: string, line: string): Promise<{ matched: boolean }> {
+    const endpoint = "commands/execute";
+    const message: ClientRequest = {
+      type: "client-request",
+      rpcId: randomUUID(),
+      method: endpoint,
+      payload: { args: { agentId: sessionId, line } },
+    };
+    const res = await fetch(`${this.baseUrl}/api/${endpoint}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(message),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`DSH transport failure for commands/execute: HTTP ${res.status}`);
+    const full = (await res.json()) as {
+      type?: string;
+      rpcId?: string;
+      result?: { ok: boolean; value?: unknown; error?: { code: string; message: string } };
+    };
+    if (full.type !== "server-response" || full.rpcId !== message.rpcId || !full.result) {
+      throw new Error(`DSH unexpected envelope for commands/execute`);
+    }
+    if (!full.result.ok) {
+      throw new DshApiError(full.result.error?.code ?? "command-error", full.result.error?.message ?? "commands/execute failed");
+    }
+    return { matched: full.result.value !== undefined };
+  }
+
+  /**
+   * 列出某会话可用的宿主命令名(网页端 ui-commands 目录同款通道 /api/commands/list)。
+   * 用于区分宿主命令与技能 token(/skill-name 走普通 prompt,由宿主 pre-step 注入)。
+   */
+  async listCommands(sessionId: string): Promise<string[]> {
+    const endpoint = "commands/list";
+    const message: ClientRequest = {
+      type: "client-request",
+      rpcId: randomUUID(),
+      method: endpoint,
+      payload: { args: { agentId: sessionId } },
+    };
+    const res = await fetch(`${this.baseUrl}/api/${endpoint}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(message),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`DSH transport failure for commands/list: HTTP ${res.status}`);
+    const full = (await res.json()) as {
+      type?: string;
+      rpcId?: string;
+      result?: { ok: boolean; value?: unknown; error?: { code: string; message: string } };
+    };
+    if (full.type !== "server-response" || full.rpcId !== message.rpcId || !full.result || !full.result.ok) {
+      throw new Error(`DSH unexpected response for commands/list`);
+    }
+    const value = full.result.value as { name?: string }[] | undefined;
+    return (value ?? []).map((d) => String(d.name ?? "")).filter(Boolean);
+  }
   cancelSession(sessionId: string) {
     return this.post<{ accepted: true }>("session.cancel", { sessionId });
   }

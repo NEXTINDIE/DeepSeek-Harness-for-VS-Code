@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { createTranslator, effectiveLanguage, SUPPORTED_LANGUAGES } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
@@ -52,6 +53,10 @@ export class ChatChannel {
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("dsh.language")) {
         this.post({ kind: "lang", lang: effectiveLanguage(), languagePref: this.languagePref() });
+      }
+      if (e.affectsConfiguration("dsh.agentConfigDirs")) {
+        // 扫描目录开关变更:重新扫描并推送(前端 / 菜单随开关显示对应分区)
+        void this.rescanAgentConfigs();
       }
     });
     this.disposables.push(
@@ -171,6 +176,41 @@ export class ChatChannel {
     return { event: stored.event, ...(stored.view ? { view: stored.view } : {}) };
   }
 
+  /**
+   * 批量序列化(init / historyMore 载荷):合并同一 (turn, step, index) 内连续的
+   * assistant/chunk text-delta / reasoning-delta 事件,显著减小长会话的 wire 载荷
+   * 与 webview 重放事件数。合并后事件 data 为克隆对象,不修改存储内的事件。
+   */
+  private serializeEventsForWire(stored: StoredEvent[]): { event: any; view?: unknown }[] {
+    const out: { event: any; view?: unknown }[] = [];
+    for (const item of stored) {
+      const ev = item.event;
+      if (ev.type === "assistant/chunk") {
+        const chunk = ev.data?.chunk ?? {};
+        const kind = chunk.type;
+        const key = `${ev.data?.turn ?? ""}|${ev.data?.step ?? ""}|${chunk.index ?? ""}`;
+        if (kind === "text-delta" || kind === "reasoning-delta") {
+          const last = out.length > 0 ? out[out.length - 1] : undefined;
+          if (last && last.event?.type === "assistant/chunk") {
+            const lastChunk = last.event.data?.chunk ?? {};
+            if (lastChunk.type === kind && `${last.event.data?.turn ?? ""}|${last.event.data?.step ?? ""}|${lastChunk.index ?? ""}` === key) {
+              last.event = {
+                ...last.event,
+                seq: ev.seq,
+                data: { ...last.event.data, chunk: { ...lastChunk, text: (lastChunk.text ?? "") + (chunk.text ?? "") } },
+              };
+              continue;
+            }
+          }
+        }
+        out.push({ event: { ...ev, data: { ...(ev.data ?? {}), chunk: { ...chunk } } } });
+        continue;
+      }
+      out.push({ event: ev, ...(item.view ? { view: item.view } : {}) });
+    }
+    return out;
+  }
+
   private async pushFullState() {
     const store = this.hub.store;
     const current = store.currentSessionId;
@@ -182,7 +222,7 @@ export class ChatChannel {
       sessions: this.serializeSessions(),
       ...this.serializeWorkspaces(),
       current,
-      events: current ? store.eventsFor(current).map((e) => this.serializeEvent(e)) : [],
+      events: current ? this.serializeEventsForWire(store.eventsFor(current)) : [],
       approvals: current ? [...store.pendingApprovals.values()].filter((a) => a.sessionId === current) : [],
       questions: current ? [...store.pendingQuestions.values()].filter((q) => q.sessionId === current) : [],
       queue: current ? store.queues.get(current) ?? [] : [],
@@ -220,8 +260,22 @@ export class ChatChannel {
               content.push({ type: "text", text });
               await this.hub.sendParts(current, content);
             } else {
-              const text = await this.composeWithAttachments(msg.text, msg.attachments);
-              await this.hub.send(current, text);
+              const raw = msg.text.trim();
+              // 斜杠 token 路由(与网页端裁决一致):
+              // - 已知宿主命令 → 命令通道(commands.execute,不产生模型回合);
+              // - 其他 token(技能 /name 等)→ 普通 prompt,由宿主 pre-step 边界注入技能正文。
+              if (isCommandLine(raw) && !(msg.attachments?.length > 0)) {
+                const cmdName = raw.split(/\s+/)[0].slice(1);
+                if (await this.hub.isKnownCommand(current, cmdName)) {
+                  await this.runCommandAndNotify(current, raw);
+                } else {
+                  const text = await this.composeWithAttachments(msg.text, msg.attachments);
+                  await this.hub.send(current, text);
+                }
+              } else {
+                const text = await this.composeWithAttachments(msg.text, msg.attachments);
+                await this.hub.send(current, text);
+              }
             }
           } catch {
             // 错误已通过 notice 提示
@@ -403,10 +457,11 @@ export class ChatChannel {
       }
       case "getClaudeConfig": {
         // 扫描工作区的智能体/技能配置目录:.claude / .codex / .github(Copilot)
+        // 各目录族由 dsh.agentConfigDirs 勾选控制,全部勾选则全部扫描(默认全开)
         const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [] };
         try {
           const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
-          const value = folder ? await scanAgentConfigs(folder) : empty;
+          const value = folder ? await scanAgentConfigs(folder, this.agentDirsConfig()) : empty;
           this.post({ kind: "claudeConfig", value });
         } catch (error) {
           this.post({ kind: "claudeConfig", value: empty, error: String(error) });
@@ -574,11 +629,7 @@ export class ChatChannel {
         if (current && (msg.rating === "positive" || msg.rating === "negative")) {
           const snippet = typeof msg.snippet === "string" ? msg.snippet.slice(0, 200) : "";
           const label = msg.rating === "positive" ? "positive" : "negative";
-          try {
-            await this.hub.send(current, `/feedback ${label}${snippet ? `: ${snippet}` : ""}`);
-          } catch {
-            // 错误已通过 notice 提示
-          }
+          await this.runCommandAndNotify(current, `/feedback ${label}${snippet ? `: ${snippet}` : ""}`);
         }
         break;
       }
@@ -597,23 +648,18 @@ export class ChatChannel {
         break;
       }
       case "command": {
-        // 预设命令(计划模式等):直接作为斜杠命令发送
+        // 预设命令(计划模式等):走命令执行通道
         if (current && typeof msg.line === "string" && msg.line.trim()) {
-          try {
-            await this.hub.send(current, msg.line.trim());
-          } catch {
-            // 错误已通过 notice 提示
-          }
+          await this.runCommandAndNotify(current, msg.line.trim());
         }
         break;
       }
       case "permission": {
         if (current && typeof msg.preset === "string") {
-          try {
-            await this.hub.send(current, `/permission ${msg.preset}`);
-            this.post({ kind: "notice", message: t("notice.permissionSet", { preset: msg.preset }), level: "info" });
-          } catch {
-            // 错误已通过 notice 提示
+          const outcome = await this.runCommandAndNotify(current, `/permission ${msg.preset}`);
+          if (outcome !== "executed") {
+            // 回退乐观更新:把存储中的真实权限投影重新推给界面
+            this.post({ kind: "permissions", sessionId: current, value: store.permissions.get(current) });
           }
         }
         break;
@@ -685,12 +731,22 @@ export class ChatChannel {
         break;
       }
       case "openFile": {
+        // 产物/文件打开:相对路径按会话 cwd 解析(与网页端 openFile 语义一致),非文本文件回退资源管理器
         if (typeof msg.path === "string" && msg.path) {
+          let target = msg.path;
+          if (!isAbsolutePath(target) && current) {
+            const cwd = store.sessions.get(current)?.cwd;
+            if (cwd) target = join(cwd, target);
+          }
           try {
-            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(msg.path));
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
             await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: false });
-          } catch (error) {
-            this.post({ kind: "notice", message: t("notice.openFileFailed", { error: String(error) }), level: "error" });
+          } catch {
+            try {
+              await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(target));
+            } catch {
+              // 无原生揭示能力则忽略
+            }
           }
         }
         break;
@@ -701,7 +757,7 @@ export class ChatChannel {
           this.post({
             kind: "historyMore",
             sessionId: current,
-            events: store.eventsFor(current).map((e) => this.serializeEvent(e)),
+            events: this.serializeEventsForWire(store.eventsFor(current)),
             hasMore,
           });
         }
@@ -978,9 +1034,54 @@ export class ChatChannel {
     return vscode.workspace.getConfiguration("dsh").get<string>("url", "http://127.0.0.1:3080");
   }
 
-  /** 用户配置的语言偏好(auto / zh-cn / en)。 */
+  /** 执行一条斜杠命令并给出结果提示;返回执行结果。 */
+  private async runCommandAndNotify(sessionId: string, line: string): Promise<"executed" | "unmatched" | "unavailable"> {
+    const outcome = await this.hub.runCommandLine(sessionId, line);
+    const name = line.trim().split(/\s+/)[0] ?? line;
+    if (outcome === "executed") {
+      if (name === "/permission") {
+        this.post({ kind: "notice", message: t("notice.permissionSet", { preset: line.trim().split(/\s+/)[1] ?? "" }), level: "info" });
+      } else {
+        this.post({ kind: "notice", message: t("notice.commandExecuted", { line }), level: "info" });
+      }
+    } else if (outcome === "unmatched") {
+      this.post({ kind: "notice", message: t("notice.commandUnmatched", { line }), level: "error" });
+    } else {
+      if (name === "/permission") {
+        // 权限切换不可用:带引导的操作提示(可跳转到"默认权限预设"设置)
+        this.post({ kind: "permissionUnavailable", preset: line.trim().split(/\s+/)[1] ?? "" });
+      } else {
+        this.post({ kind: "notice", message: t("notice.commandUnavailable", { line }), level: "error" });
+      }
+    }
+    return outcome;
+  }
+
+  /** 用户配置的语言偏好(auto / zh-cn / en …)。 */
   private languagePref(): string {
     return vscode.workspace.getConfiguration("dsh").get<string>("language", "auto");
+  }
+
+  /** 扫描目录开关(dsh.agentConfigDirs):默认全部勾选(全部扫描)。 */
+  private agentDirsConfig(): { claude: boolean; codex: boolean; githubCopilot: boolean } {
+    const cfg = vscode.workspace.getConfiguration("dsh").get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean }>("agentConfigDirs", {});
+    return {
+      claude: cfg.claude !== false,
+      codex: cfg.codex !== false,
+      githubCopilot: cfg.githubCopilot !== false,
+    };
+  }
+
+  /** 按当前开关重新扫描智能体配置目录并推送前端。 */
+  private async rescanAgentConfigs() {
+    const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [] };
+    try {
+      const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+      const value = folder ? await scanAgentConfigs(folder, this.agentDirsConfig()) : empty;
+      this.post({ kind: "claudeConfig", value });
+    } catch (error) {
+      this.post({ kind: "claudeConfig", value: empty, error: String(error) });
+    }
   }
 
   /** 把附件(文件内容 / 文件夹清单)拼进消息上下文。 */
@@ -1074,8 +1175,21 @@ function getNonce(): string {
   return text;
 }
 
+/** 是否为斜杠命令行(与宿主拦截规则一致:纯文本、以 /命令名 开头)。 */
+function isCommandLine(text: string): boolean {
+  return /^\/[a-zA-Z][\w-]*(\s.*)?$/.test(text.trim());
+}
+
+/** 是否为绝对路径(Windows 盘符 / UNC / POSIX 根)。 */
+function isAbsolutePath(p: string): boolean {
+  return isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p);
+}
+
 /** 扫描工作区的智能体/技能配置:.claude(命令与技能)、.codex(技能与配置)、.github(Copilot 指令/智能体/提示词)。 */
-async function scanAgentConfigs(folder: vscode.Uri): Promise<{
+async function scanAgentConfigs(
+  folder: vscode.Uri,
+  dirs: { claude: boolean; codex: boolean; githubCopilot: boolean },
+): Promise<{
   claudeMd: boolean;
   commands: { name: string; content: string }[];
   skills: { name: string; content: string }[];
@@ -1147,26 +1261,31 @@ async function scanAgentConfigs(folder: vscode.Uri): Promise<{
   };
 
   // CLAUDE.md / AGENTS.md(工作区根,DSH 核心自动加载;这里仅报告存在性)
-  result.claudeMd = (await exists(vscode.Uri.joinPath(folder, "CLAUDE.md"))) || (await exists(vscode.Uri.joinPath(folder, "AGENTS.md")));
-
-  // .claude/commands/*.md
-  result.commands = await scanMdFiles(vscode.Uri.joinPath(folder, ".claude", "commands"));
-  // .claude/skills/*/SKILL.md
-  result.skills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".claude", "skills"));
-
-  // .codex:config.toml 存在性 + skills
-  result.codexConfig = await exists(vscode.Uri.joinPath(folder, ".codex", "config.toml"));
-  result.codexSkills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".codex", "skills"));
-
-  // .github(Copilot):copilot-instructions.md / instructions/*.md / agents/*.md / prompts/*.prompt.md
-  const copilotInstructionsUri = vscode.Uri.joinPath(folder, ".github", "copilot-instructions.md");
-  if (await exists(copilotInstructionsUri)) {
-    const content = await readText(copilotInstructionsUri, 12_000);
-    if (content) result.copilotInstructions = content;
+  if (dirs.claude) {
+    result.claudeMd = (await exists(vscode.Uri.joinPath(folder, "CLAUDE.md"))) || (await exists(vscode.Uri.joinPath(folder, "AGENTS.md")));
+    // .claude/commands/*.md
+    result.commands = await scanMdFiles(vscode.Uri.joinPath(folder, ".claude", "commands"));
+    // .claude/skills/*/SKILL.md
+    result.skills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".claude", "skills"));
   }
-  result.copilotInstructionFiles = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "instructions"));
-  result.copilotAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "agents"));
-  result.copilotPrompts = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "prompts"), ".prompt.md");
+
+  if (dirs.codex) {
+    // .codex:config.toml 存在性 + skills
+    result.codexConfig = await exists(vscode.Uri.joinPath(folder, ".codex", "config.toml"));
+    result.codexSkills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".codex", "skills"));
+  }
+
+  if (dirs.githubCopilot) {
+    // .github(Copilot):copilot-instructions.md / instructions/*.md / agents/*.md / prompts/*.prompt.md
+    const copilotInstructionsUri = vscode.Uri.joinPath(folder, ".github", "copilot-instructions.md");
+    if (await exists(copilotInstructionsUri)) {
+      const content = await readText(copilotInstructionsUri, 12_000);
+      if (content) result.copilotInstructions = content;
+    }
+    result.copilotInstructionFiles = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "instructions"));
+    result.copilotAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "agents"));
+    result.copilotPrompts = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "prompts"), ".prompt.md");
+  }
 
   return result;
 }

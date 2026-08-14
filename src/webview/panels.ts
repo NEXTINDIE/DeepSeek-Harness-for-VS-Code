@@ -745,9 +745,57 @@ export function createPanels(ctx: PanelsContext) {
     if (!desc.writable) {
       body.append(ctx.el("div", "ws-note", t("⚠️ 设置存储为只读,表单仅可查看。")));
     }
-    const general = desc.namespaces.filter((n) => nsGroup(n.ns) === "general");
+    // 默认权限预设(网页端同款:危险选项需显式风险确认)
+    const permissionNs = desc.namespaces.find((n) => n.ns === "permission");
+    if (permissionNs) renderPermissionDefaultSection(body, permissionNs);
+    const general = desc.namespaces.filter((n) => nsGroup(n.ns) === "general" && n.ns !== "permission");
     for (const ns of general) body.append(renderNamespaceSection(ns));
     if (general.length === 0) body.append(ctx.el("div", "ws-note", t("没有可配置的常规设置项。")));
+  }
+
+  /** 默认权限预设专属行:带图标的按钮组 + 完全访问风险确认(网页端 ui-permission-presets 同款行为)。 */
+  function renderPermissionDefaultSection(body: HTMLElement, ns: PanelNamespace) {
+    const { root, refs } = parseSchema(ns.schema);
+    const refId = root.dict?.["defaultPreset"];
+    const node = refId !== undefined ? refs[String(refId)] : undefined;
+    const values = node?.list ? node.list.map((id) => refs[String(id)]?.value).filter((v) => typeof v === "string") : [];
+    if (values.length === 0) return;
+    const current = (ns.value as { defaultPreset?: string } | undefined)?.defaultPreset;
+    const icons: Record<string, string> = { "read-only": "🔒", "workspace-write": "🖊️", "danger-full-access": "⚠️" };
+    const labelOf = (v: string): string =>
+      v === "read-only" ? t("只读") : v === "workspace-write" ? t("工作区可写") : v === "danger-full-access" ? t("完全访问(危险)") : v;
+
+    const section = ctx.el("div", "settings-section");
+    section.append(ctx.el("div", "settings-section-title", t("默认权限预设")));
+    const row = ctx.el("div", "settings-perm-row");
+    for (const value of values) {
+      const danger = value === "danger-full-access";
+      const active = current === value;
+      const b = ctx.el(
+        "button",
+        "settings-tab" + (active ? (danger ? " active perm-danger-active" : " active") : danger ? " perm-danger-chip" : ""),
+        `${icons[value] ?? "🔒"} ${labelOf(value)}`,
+      ) as HTMLButtonElement;
+      b.title = danger ? t("危险:放开全部沙箱与审批限制") : value;
+      b.addEventListener("click", () => {
+        if (active) return;
+        if (danger) {
+          void ctx.showDialog({
+            title: t("切换到完全访问(危险)"),
+            text: t("完全访问会放开全部沙箱与审批限制,agent 可读取并修改任意文件。确定将其设为新会话的默认权限?"),
+            confirmLabel: t("确认切换"),
+          }).then((ok) => {
+            if (ok) post({ kind: "settingsSave", ns: ns.ns, patch: { defaultPreset: value }, expectedRevision: ns.revision, requestId: nextRequestId() });
+          });
+          return;
+        }
+        post({ kind: "settingsSave", ns: ns.ns, patch: { defaultPreset: value }, expectedRevision: ns.revision, requestId: nextRequestId() });
+      });
+      row.append(b);
+    }
+    section.append(row);
+    section.append(ctx.el("div", "ws-note", t("该设置对新会话生效;当前会话的权限用输入框旁的权限下拉切换。")));
+    body.append(section);
   }
 
   function renderModelsTab(body: HTMLElement) {

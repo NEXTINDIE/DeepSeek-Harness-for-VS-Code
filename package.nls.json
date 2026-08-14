@@ -44,5 +44,9 @@
   "config.language.th": "Thai (ไทย)",
   "config.language.id": "Indonesian (Bahasa Indonesia)",
   "config.language.tr": "Turkish (Türkçe)",
-  "config.language.ar": "Arabic (العربية)"
+  "config.language.ar": "Arabic (العربية)",
+  "config.agentDirs": "Agent config directories to scan and list in the / menu",
+  "config.agentDirs.claude": "Scan .claude (commands, skills) and report CLAUDE.md / AGENTS.md",
+  "config.agentDirs.codex": "Scan .codex (config.toml, skills)",
+  "config.agentDirs.githubCopilot": "Scan .github Copilot files (instructions, agents, prompts)"
 }
