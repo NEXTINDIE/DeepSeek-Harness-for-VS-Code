@@ -381,7 +381,7 @@ export class ChatChannel {
         }
         const cwd = folderCwd();
         try {
-          const sessionId = await this.hub.createSession(cwd);
+          const sessionId = await this.hub.createSessionForFolder(cwd);
           void this.hub.applyDefaultReasoningEffort(sessionId);
           void this.hub.updateCurrentModel(sessionId);
           await this.pushFullState();

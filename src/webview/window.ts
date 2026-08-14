@@ -78,7 +78,7 @@ export class ChatWindowProvider {
     const ready = await this.hub.ensureReady();
     if (!ready.ok) return undefined;
     try {
-      const sessionId = await this.hub.createSession(folderCwd());
+      const sessionId = await this.hub.createSessionForFolder(folderCwd());
       void this.hub.applyDefaultReasoningEffort(sessionId);
       return await this.open(sessionId);
     } catch {

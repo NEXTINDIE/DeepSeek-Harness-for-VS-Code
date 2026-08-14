@@ -282,7 +282,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
     const existing = await getParticipantSession(ctx);
     if (existing && hub.store.sessions.has(existing)) return existing;
     const cwd = folderCwd();
-    const sessionId = await hub.createSession(cwd, nextPreset);
+    const sessionId = await hub.createSessionForFolder(cwd, nextPreset);
     nextPreset = undefined;
     await setParticipantSession(ctx, sessionId);
     void hub.applyDefaultReasoningEffort(sessionId);
@@ -291,7 +291,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
 
   async function newSession(): Promise<string> {
     const cwd = folderCwd();
-    const sessionId = await hub.createSession(cwd, nextPreset);
+    const sessionId = await hub.createSessionForFolder(cwd, nextPreset);
     nextPreset = undefined;
     await setParticipantSession(ctx, sessionId);
     void hub.applyDefaultReasoningEffort(sessionId);

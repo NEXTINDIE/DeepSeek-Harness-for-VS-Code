@@ -220,6 +220,20 @@ export class DshHub {
     this.store.notifySessionsChanged();
   }
 
+  /** 把目录采纳为 DSH 工作区(先确保服务器就绪;幂等)。 */
+  async adoptWorkspace(path: string): Promise<boolean> {
+    if (!path) return false;
+    const ready = await this.ensureReady();
+    if (!ready.ok) return false;
+    try {
+      await this.client.adoptWorkspace(path);
+      return true;
+    } catch (error) {
+      this.deps.onLog?.(`[workspace] 采纳工作区失败 ${path}: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   /** 打开会话并回填历史。 */
   async openSession(sessionId: string) {
     this.store.selectSession(sessionId);
@@ -263,6 +277,16 @@ export class DshHub {
   /** 工作区列表(侧边栏按工作区分组会话)。 */
   listWorkspaces() {
     return this.client.listWorkspaces();
+  }
+
+  /**
+   * 在当前 VS Code 文件夹下创建会话:先采纳该目录为工作区(幂等,
+   * 以前打开过则进入已有分组,从未打开过则自动建立新分组),再创建会话。
+   * 避免服务器回退到"上次会话目录"导致新对话进错工作区。
+   */
+  async createSessionForFolder(cwd?: string, agentPreset?: string): Promise<string> {
+    if (cwd) await this.adoptWorkspace(cwd);
+    return this.createSession(cwd, agentPreset);
   }
 
   async createSession(cwd?: string, agentPreset?: string): Promise<string> {
