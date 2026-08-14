@@ -61,7 +61,7 @@ function reasoningToMarkdown(text: string): string {
     .split("\n")
     .map((line) => (line.length > 0 ? `> ${line}` : ">"))
     .join("\n");
-  return `> 💭 思考过程\n${body}`;
+  return `> 思考过程\n${body}`;
 }
 
 interface ChunkInfo {
@@ -97,13 +97,13 @@ class StreamFollower {
       if (approval.sessionId !== this.sessionId) return;
       this.flushAll();
       const reason = approval.reason ? `\n\n> ${truncate(approval.reason, 300)}` : "";
-      this.stream.markdown(`⏸️ **等待审批:调用工具 \`${approval.toolName}\`**${reason}`);
-      this.addButton("✅ 允许", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "allowed-once" });
-      this.addButton("❌ 拒绝", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "rejected" });
+      this.stream.markdown(`**等待审批:调用工具 \`${approval.toolName}\`**${reason}`);
+      this.addButton("允许", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "allowed-once" });
+      this.addButton("拒绝", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "rejected" });
     };
     const onApprovalResolved = (approvalId: string, outcome: string) => {
-      if (outcome === "allowed-once") this.stream.markdown("✅ 已允许");
-      else this.stream.markdown("❌ 已拒绝");
+      if (outcome === "allowed-once") this.stream.markdown("已允许");
+      else this.stream.markdown("已拒绝");
     };
     const onQuestion = (q: { sessionId: string; frameRpcId: string; questions: { id: string; question: string; detail?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean }[] }) => {
       if (q.sessionId !== this.sessionId) return;
@@ -113,7 +113,7 @@ class StreamFollower {
         const options = item.options?.map((o) => `- ${o.label}`).join("\n") ?? "";
         return `**${item.question}**${detail}${options ? `\n\n${options}` : ""}`;
       });
-      this.stream.markdown(`❓ ${parts.join("\n\n")}`);
+      this.stream.markdown(parts.join("\n\n"));
       for (const item of q.questions) {
         if (item.multiSelect) {
           this.stream.markdown("*(多选提问请到 DSH 聊天面板中回答)*");
@@ -242,13 +242,13 @@ class StreamFollower {
         this.flushAll();
         const name: string = event.data?.name ?? "unknown";
         const args = prettyArgs(event.data?.arguments ?? "");
-        this.stream.markdown(`**🔧 调用工具 \`${name}\`**\n\n\`\`\`json\n${truncate(args, MAX_ARGS_CHARS)}\n\`\`\``);
+        this.stream.markdown(`**调用工具 \`${name}\`**\n\n\`\`\`json\n${truncate(args, MAX_ARGS_CHARS)}\n\`\`\``);
         break;
       }
       case "tool/result": {
         this.flushAll();
         const text = extractToolResultText(event.data);
-        if (text) this.stream.markdown(`**↩︎ 工具结果**\n\n\`\`\`\n${truncate(text, MAX_RESULT_CHARS)}\n\`\`\``);
+        if (text) this.stream.markdown(`**工具结果**\n\n\`\`\`\n${truncate(text, MAX_RESULT_CHARS)}\n\`\`\``);
         break;
       }
       case "step/start": {
