@@ -28,6 +28,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     command: cfg().get<string>("command", "dsh"),
     autoStart: cfg().get<boolean>("autoStart", true),
     autoStartTimeoutSec: cfg().get<number>("autoStartTimeoutSec", 60),
+    cwd: folderCwd,
     t: (key, args) => t(key, args ?? {}),
     defaultReasoningEffort: cfg().get<string>("defaultReasoningEffort", ""),
     onNotice: (message, kind) => {
@@ -47,6 +48,26 @@ export function activate(ctx: vscode.ExtensionContext) {
     onLog: (message) => output.appendLine(message),
   });
   output.appendLine(`[activate] 服务器地址 ${dshUrl()}`);
+
+  // ---------- 工作区自动同步 ----------
+  // 把 VS Code 当前打开的文件夹自动采纳为 DSH 工作区(workspace.create),
+  // 无需在 GUI 里手动"添加工作区";切换文件夹时自动跟随(多根工作区跟随活动编辑器)。
+  let syncedFolder: string | undefined;
+  const syncWorkspace = async () => {
+    const path = folderCwd();
+    if (!path || path === syncedFolder) return;
+    if (await hub.adoptWorkspace(path)) {
+      syncedFolder = path;
+      output.appendLine(`[workspace] 已同步工作区: ${path}`);
+    }
+  };
+  hub.onStatus((status) => {
+    if (status.serverUp && status.muxConnected) void syncWorkspace();
+  });
+  ctx.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => void syncWorkspace()),
+    vscode.window.onDidChangeActiveTextEditor(() => void syncWorkspace()),
+  );
 
   // ---------- 界面:视图 provider 优先注册 ----------
   // 必须在视图被解析之前完成注册;视图条目在 package.json 中声明 "type": "webview",
@@ -309,7 +330,10 @@ export function activate(ctx: vscode.ExtensionContext) {
         output.appendLine("[activate] dsh.autoStart=true · 服务器离线,启动时自动启动…");
         const ensured = await hub.ensureReady();
         output.appendLine(`[activate] 启动时自动启动结果: ${ensured.ok ? "成功" : `失败 · ${ensured.message ?? "未知错误"}`}`);
-        if (ensured.ok) return;
+        if (ensured.ok) {
+          void syncWorkspace();
+          return;
+        }
       }
       watchServer();
     }

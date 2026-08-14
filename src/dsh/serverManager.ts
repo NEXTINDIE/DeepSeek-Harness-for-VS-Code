@@ -6,6 +6,8 @@ export interface ServerManagerConfig {
   command: string;
   autoStart: boolean;
   timeoutSec: number;
+  /** 启动服务器时的工作目录(懒取值:每次启动时读取,通常返回 VS Code 当前文件夹)。 */
+  cwd?: () => string | undefined;
   /** 翻译函数;缺省时回退到英文。 */
   t?: (key: string, args?: Record<string, string | number>) => string;
   /** 诊断日志回调(启动器解析 / 进程退出码等),用于输出到日志通道。 */
@@ -116,6 +118,8 @@ export class ServerManager {
         shell: true,
         stdio: "ignore",
         windowsHide: true,
+        // 以 VS Code 当前文件夹作为服务器工作区根目录(而非 VS Code 进程的启动目录)
+        cwd: this.cfg.cwd?.(),
         // POSIX 下分离进程组,使服务器在扩展宿主重载后仍存活;Windows 子进程本就独立存活
         detached: process.platform !== "win32",
       });
