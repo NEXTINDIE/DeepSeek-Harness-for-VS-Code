@@ -1,7 +1,7 @@
 import { DshApiClient, DshApiError, type FrameEnvelope } from "./apiClient";
 import { ServerManager } from "./serverManager";
 import { SessionStore, type StoredSession } from "./sessionStore";
-import type { HostFrame, MuxFrame } from "./types";
+import type { HostFrame, MuxFrame, PromptContentPart } from "./types";
 
 export interface HubStatus {
   serverUp: boolean;
@@ -161,9 +161,15 @@ export class DshHub {
   /** 刷新会话列表(合并 host 帧之外的信息:标题、running、更新顺序)。 */
   async refreshSessions() {
     try {
-      const { items } = await this.client.listSessions();
+      const [sessionList, workspaceList] = await Promise.all([
+        this.client.listSessions(),
+        this.client.listWorkspaces().catch(() => undefined),
+      ]);
+      if (workspaceList) {
+        this.store.applyWorkspaceList(workspaceList.items, workspaceList.archivedSessionIds);
+      }
       let changed = false;
-      for (const item of items) {
+      for (const item of sessionList.items) {
         const existing = this.store.sessions.get(item.sessionId);
         const next: StoredSession = {
           sessionId: item.sessionId,
@@ -208,7 +214,7 @@ export class DshHub {
         // 通知会话列表变化(通过伪造帧路径之外,直接派发)
         this.notifySessionsChanged();
       }
-      return items;
+      return sessionList.items;
     } catch (error) {
       console.error("[dsh] refreshSessions failed:", error);
       return [];
@@ -269,6 +275,17 @@ export class DshHub {
   async send(sessionId: string, text: string) {
     try {
       await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text }] });
+    } catch (error) {
+      const message = error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
+      this.deps.onNotice?.(this.deps.t?.("hub.sendFailed", { message }) ?? `Send failed: ${message}`, "error");
+      throw error;
+    }
+  }
+
+  /** 发送带内容块的消息(文本 + 图片)。 */
+  async sendParts(sessionId: string, content: PromptContentPart[]) {
+    try {
+      await this.client.sendPromptParts(sessionId, "queue", content);
     } catch (error) {
       const message = error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
       this.deps.onNotice?.(this.deps.t?.("hub.sendFailed", { message }) ?? `Send failed: ${message}`, "error");
@@ -364,6 +381,12 @@ export class DshHub {
 
   // ---------- goal ----------
 
+  async createGoal(sessionId: string, objective: string, maxGoalRounds?: number) {
+    const result = await this.client.goalCreate(sessionId, objective, maxGoalRounds);
+    await this.refreshSessions();
+    return result;
+  }
+
   async completeGoal(sessionId: string, ref: { id: string; revision: number }) {
     const result = await this.client.goalComplete(sessionId, ref);
     await this.refreshSessions();
@@ -404,8 +427,110 @@ export class DshHub {
     return this.client.listSubagents(sessionId);
   }
 
-  subagentHistory(sessionId: string, childSessionId: string, mode: "one-shot" | "continuable") {
-    return this.client.subagentHistory(sessionId, childSessionId, mode);
+  subagentHistory(sessionId: string, childSessionId: string, mode: "one-shot" | "continuable", beforeSeq?: number, maxMessages?: number) {
+    return this.client.subagentHistory(sessionId, childSessionId, mode, beforeSeq, maxMessages);
+  }
+
+  subagentPrompt(parentSessionId: string, childSessionId: string, text: string) {
+    return this.client.subagentPrompt(parentSessionId, childSessionId, text);
+  }
+
+  subagentInterrupt(parentSessionId: string, childSessionId: string) {
+    return this.client.subagentInterrupt(parentSessionId, childSessionId);
+  }
+
+  // ---------- 工作区 ----------
+
+  listWorkspaces() {
+    return this.client.listWorkspaces();
+  }
+
+  async refreshWorkspaces() {
+    try {
+      const list = await this.client.listWorkspaces();
+      this.store.applyWorkspaceList(list.items, list.archivedSessionIds);
+      return list;
+    } catch (error) {
+      console.error("[dsh] refreshWorkspaces failed:", error);
+      return undefined;
+    }
+  }
+
+  createWorkspace(path: string) {
+    return this.client.createWorkspace(path);
+  }
+  renameWorkspace(workspaceId: string, title: string) {
+    return this.client.renameWorkspace(workspaceId, title);
+  }
+  deleteWorkspace(workspaceId: string) {
+    return this.client.deleteWorkspace(workspaceId);
+  }
+  moveWorkspace(workspaceId: string, beforeWorkspaceId?: string) {
+    return this.client.moveWorkspace(workspaceId, beforeWorkspaceId);
+  }
+  moveSessionInWorkspace(workspaceId: string, sessionId: string, beforeSessionId?: string) {
+    return this.client.moveSessionInWorkspace(workspaceId, sessionId, beforeSessionId);
+  }
+
+  // ---------- 会话搜索 / 图片附件 ----------
+
+  searchSessions(query: string) {
+    return this.client.searchSessions(query);
+  }
+
+  readAttachment(sessionId: string, attachmentId: string) {
+    return this.client.readAttachment(sessionId, attachmentId);
+  }
+
+  // ---------- 预设作者 ----------
+
+  readPreset(agentPreset: string) {
+    return this.client.readAgentPreset(agentPreset);
+  }
+  copyPreset(from: string, agentPreset: string, name?: string) {
+    return this.client.copyAgentPreset(from, agentPreset, name);
+  }
+  openPresetDocument(agentPreset: string) {
+    return this.client.openAgentPresetDocument(agentPreset);
+  }
+  removePreset(agentPreset: string) {
+    return this.client.removeAgentPreset(agentPreset);
+  }
+
+  // ---------- 设置 / 凭据 / LLM ----------
+
+  settingsDescribe() {
+    return this.client.settingsDescribe();
+  }
+  settingsOpenDocument() {
+    return this.client.settingsOpenDocument();
+  }
+  settingsUpdate(ns: string, patch: object, expectedRevision?: number) {
+    return this.client.settingsUpdate(ns, patch, expectedRevision);
+  }
+  settingsReplace(ns: string, section: object, expectedRevision?: number) {
+    return this.client.settingsReplace(ns, section, expectedRevision);
+  }
+  settingsMutate(ns: string, ops: Parameters<DshApiClient["settingsMutate"]>[1], expectedRevision?: number) {
+    return this.client.settingsMutate(ns, ops, expectedRevision);
+  }
+  credentialsDescribe(refs: string[]) {
+    return this.client.credentialsDescribe(refs);
+  }
+  credentialsSet(ref: string, value: string) {
+    return this.client.credentialsSet(ref, value);
+  }
+  credentialsUnset(ref: string) {
+    return this.client.credentialsUnset(ref);
+  }
+  llmProviders() {
+    return this.client.llmProviders();
+  }
+  llmModels() {
+    return this.client.llmModels();
+  }
+  llmDiscoverModels(payload: { settingsNs: string; provider?: string; baseURL?: string; api?: string; apiKey?: string }) {
+    return this.client.llmDiscoverModels(payload);
   }
 
   /** 新建会话后,若配置了默认思考深度且当前模型支持,则自动应用。 */

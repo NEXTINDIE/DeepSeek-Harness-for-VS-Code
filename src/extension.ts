@@ -21,6 +21,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("DeepSeek Harness");
   output.appendLine(`[activate] 扩展已激活 · VS Code ${vscode.version} · 扩展版本 ${ctx.extension.packageJSON.version}`);
   output.appendLine(`[activate] 辅助侧栏容器支持: ${supportsSecondarySidebar ? `是(容器位于辅助侧栏)` : `否(VS Code < 1.106,容器回退到活动栏)`}`);
+  output.appendLine(`[activate] node ${process.version} · execPath ${process.execPath} · platform ${process.platform}`);
+  output.appendLine(`[activate] PATH 条目:`);
+  for (const entry of (process.env.PATH ?? "").split(";").filter(Boolean)) output.appendLine(`  ${entry}`);
+  output.appendLine(
+    `[activate] APPDATA=${process.env.APPDATA ?? "-"} LOCALAPPDATA=${process.env.LOCALAPPDATA ?? "-"} USERPROFILE=${process.env.USERPROFILE ?? "-"} TEMP=${process.env.TEMP ?? "-"}`,
+  );
+  output.appendLine(`[activate] 配置: url=${dshUrl()} autoStart=${cfg().get<boolean>("autoStart", true)} command=${cfg().get<string>("command", "dsh")} timeoutSec=${cfg().get<number>("autoStartTimeoutSec", 60)}`);
   let lastStatusKey = "";
 
   const hub = new DshHub({
@@ -302,16 +309,20 @@ export function activate(ctx: vscode.ExtensionContext) {
     }, 15_000);
   };
   void (async () => {
-    const ok = await hub.probe();
-    output.appendLine(`[activate] 服务器探测结果: ${ok ? "在线" : "离线"}`);
-    if (!ok) {
-      if (cfg().get<boolean>("autoStart", true)) {
-        output.appendLine("[activate] dsh.autoStart=true · 服务器离线,启动时自动启动…");
-        const ensured = await hub.ensureReady();
-        output.appendLine(`[activate] 启动时自动启动结果: ${ensured.ok ? "成功" : `失败 · ${ensured.message ?? "未知错误"}`}`);
-        if (ensured.ok) return;
+    try {
+      const ok = await hub.probe();
+      output.appendLine(`[activate] 服务器探测结果: ${ok ? "在线" : "离线"}`);
+      if (!ok) {
+        if (cfg().get<boolean>("autoStart", true)) {
+          output.appendLine("[activate] dsh.autoStart=true · 服务器离线,启动时自动启动…");
+          const ensured = await hub.ensureReady();
+          output.appendLine(`[activate] 启动时自动启动结果: ${ensured.ok ? "成功" : `失败 · ${ensured.message ?? "未知错误"}`}`);
+          if (ensured.ok) return;
+        }
+        watchServer();
       }
-      watchServer();
+    } catch (error) {
+      output.appendLine(`[activate] 启动流程异常: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
     }
   })();
   output.appendLine("[activate] 注册完成 · 活动栏图标 / 辅助侧栏 tab / 命令与右键菜单均来自 package.json 静态贡献");

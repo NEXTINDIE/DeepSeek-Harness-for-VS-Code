@@ -1,5 +1,24 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { join } from "node:path";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+/** 直接 node 启动器:完全绕开 npm 的 cmd shim(规避部分机器上 PATH/shims 损坏导致的 npx 执行包失败)。 */
+interface DirectLauncher {
+  kind: "direct";
+  node: string;
+  npmCli: string;
+  installDir: string;
+  label: string;
+}
+
+interface ShellLauncher {
+  kind: "shell";
+  command: string;
+  label: string;
+}
+
+type ResolvedLauncher = DirectLauncher | ShellLauncher;
 
 export interface ServerManagerConfig {
   url: string;
@@ -88,8 +107,9 @@ export class ServerManager {
     }
     const detail = started.detail ?? "unknown";
     let msg = this.cfg.t?.("hub.startFailed", { detail }) ?? `Cannot start the DSH server: ${detail}`;
-    // 0xC0000142 / EPERM 是环境级进程创建拦截(如从 DSH 会话/受限终端启动 VS Code),给出针对性提示
-    if (/3221225794|EPERM|EACCES/.test(detail)) {
+    // 0xC0000142 / spawn EPERM 是环境级进程创建拦截(如从 DSH 会话/受限终端启动 VS Code),给出针对性提示。
+    // 判定基于启动器解析与 spawn 层失败信息,不包含进程日志尾部,避免把 npm 的 EACCES(缓存权限)误判为沙箱拦截。
+    if (started.restricted) {
       const hint = this.cfg.t?.("hub.startRestrictedHint") ?? "Process creation appears to be blocked by the environment.";
       msg = `${msg} ${hint}`;
     }
@@ -98,29 +118,64 @@ export class ServerManager {
   }
 
   /** 启动服务器并轮询等待就绪。 */
-  private async start(): Promise<{ ok: boolean; detail?: string }> {
+  private async start(): Promise<{ ok: boolean; detail?: string; restricted?: boolean }> {
     const resolved = await this.resolveLauncher();
     if (!resolved.launcher) {
       const detail = resolved.detail ?? "no launcher found (dsh/npx/npm)";
+      const restricted = /3221225794|EPERM|EACCES/.test(detail);
       this.log(`启动器解析失败: ${detail}`);
-      return { ok: false, detail };
+      return { ok: false, detail, restricted };
     }
     const launcher = resolved.launcher;
-    this.log(`使用启动器: ${launcher}`);
+    this.log(`使用启动器: ${launcher.label}`);
     this.starting = true;
     this.setStatus({ starting: true, up: false });
     let childExited = false;
     let exitInfo = "";
+    // 把子进程输出重定向到日志文件(不丢失 npx/dsh 的报错;也避免沙箱下的管道限制)
+    const logFile = join(tmpdir(), "dsh-vscode-server.log");
     try {
-      this.child = spawn(shellCommand(launcher, ["web"]), {
-        shell: true,
-        stdio: "ignore",
-        windowsHide: true,
-        // POSIX 下分离进程组,使服务器在扩展宿主重载后仍存活;Windows 子进程本就独立存活
-        detached: process.platform !== "win32",
-      });
+      unlinkSync(logFile);
+    } catch {
+      // 首次运行没有旧日志,忽略
+    }
+    this.log(`启动日志: ${logFile}`);
+    const fd = openSync(logFile, "a");
+    try {
+      if (launcher.kind === "direct") {
+        // 首次安装(如已安装则秒过),随后 node 直接运行包入口,全程无 cmd shim
+        if (!(await this.ensureDirectInstall(launcher, fd))) {
+          closeSync(fd);
+          this.starting = false;
+          this.setStatus({ starting: false });
+          return { ok: false, detail: `直接安装 @deepseek-ai/dsh 失败,详见日志 ${logFile}` };
+        }
+        const binJs = this.resolveDshBin(launcher);
+        if (!binJs) {
+          closeSync(fd);
+          this.starting = false;
+          this.setStatus({ starting: false });
+          return { ok: false, detail: "无法解析 @deepseek-ai/dsh 的 bin 入口(包结构变化?)" };
+        }
+        this.child = spawn(launcher.node, [binJs, "web"], {
+          shell: false,
+          stdio: ["ignore", fd, fd],
+          windowsHide: true,
+          detached: process.platform !== "win32",
+        });
+        this.log(`直接启动: node ${binJs} web (pid=${this.child.pid ?? "?"})`);
+      } else {
+        this.child = spawn(`${shellCommand(launcher.command, ["web"])} > "${logFile}" 2>&1`, {
+          shell: true,
+          stdio: "ignore",
+          windowsHide: true,
+          // POSIX 下分离进程组,使服务器在扩展宿主重载后仍存活;Windows 子进程本就独立存活
+          detached: process.platform !== "win32",
+        });
+        this.log(`已启动子进程 pid=${this.child.pid ?? "?"}(首次 npx 下载包可能较慢)`);
+      }
+      closeSync(fd);
       this.startedByUs = true;
-      this.log(`已启动子进程 pid=${this.child.pid ?? "?"}(首次 npx 下载包可能较慢)`);
       this.child.once("exit", (code, signal) => {
         exitInfo = `exit code=${code ?? "null"} signal=${signal ?? "none"}`;
         childExited = true;
@@ -138,11 +193,16 @@ export class ServerManager {
         this.setStatus({ up: false, startedByUs: false, starting: false });
       });
     } catch (error) {
+      try {
+        closeSync(fd);
+      } catch {
+        // fd 已关闭
+      }
       this.starting = false;
       this.setStatus({ starting: false });
       const detail = `spawn 抛出异常: ${error instanceof Error ? error.message : String(error)}`;
       this.log(detail);
-      return { ok: false, detail };
+      return { ok: false, detail, restricted: /3221225794|EPERM|EACCES/.test(detail) };
     }
 
     const deadline = Date.now() + this.cfg.timeoutSec * 1000;
@@ -151,7 +211,7 @@ export class ServerManager {
         this.log("服务器已就绪");
         return { ok: true };
       }
-      // 子进程提前退出:不再傻等,立即失败并给出退出码(如端口被占用 / npx 报错 / 环境拦截)
+      // 子进程提前退出:不再傻等,立即失败并带上进程输出日志(如 npx 注册表报错 / 缺少凭证配置)
       if (childExited) {
         this.log(`子进程在就绪前退出(${exitInfo}),停止等待`);
         break;
@@ -159,28 +219,67 @@ export class ServerManager {
       await sleep(500);
     }
     this.starting = false;
+    const logTail = this.readLogTail(logFile);
+    const diagnostics =
+      `cwd=${process.cwd()} | ComSpec=${process.env.ComSpec ?? process.env.comspec ?? "-"} | ` +
+      `npm_config_cache=${process.env.npm_config_cache ?? "-"} | npm_config_prefix=${process.env.npm_config_prefix ?? "-"}`;
     const detail =
-      this.cfg.t?.("hub.serverNotReady", { secs: this.cfg.timeoutSec, detail: exitInfo || "no exit info" }) ??
-      `DSH server not ready within ${this.cfg.timeoutSec}s (${exitInfo}). It may have started on another port, or the first npx download needs longer than the timeout.`;
+      this.cfg.t?.("hub.serverExited", { code: exitInfo || "no exit info", log: logTail, file: logFile, diag: diagnostics }) ??
+      `The server process exited before becoming ready (${exitInfo}). Output log tail: ${logTail} (full log: ${logFile})`;
     this.setStatus({ starting: false, up: false, message: detail });
-    return { ok: false, detail };
+    return { ok: false, detail, restricted: /3221225794|EPERM|EACCES/.test(exitInfo) };
   }
 
-  /** 找到可用的启动命令:dsh → npx → npm exec 回退(含常见绝对路径,规避 VS Code PATH 不含 node 的问题)。 */
-  private async resolveLauncher(): Promise<{ launcher?: string; detail?: string }> {
+  /** 读取启动日志尾部(报错通常出现在末尾);中文 Windows 下 cmd 输出为 GBK,自动识别解码。 */
+  private readLogTail(file: string, maxChars = 1500): string {
+    try {
+      const buf = readFileSync(file);
+      let text = buf.toString("utf8");
+      if (text.includes("\uFFFD")) {
+        // UTF-8 解码出现替换字符 → 大概率是 GBK(ANSI 代码页)输出
+        try {
+          text = new TextDecoder("gbk").decode(buf);
+        } catch {
+          text = buf.toString("latin1");
+        }
+      }
+      const tail = text.length > maxChars ? `…${text.slice(text.length - maxChars)}` : text;
+      const trimmed = tail.trim();
+      return trimmed || "(日志为空)";
+    } catch {
+      return "(日志不可读)";
+    }
+  }
+
+  /**
+   * 找到可用的启动器,按可靠性排序:
+   * 1. 用户配置的 dsh.command;
+   * 2. 直接 node 方案(node.exe + npm-cli.js 安装包 + node 直跑包入口)—— 完全绕开 cmd shim,规避 npx/PATH 损坏环境;
+   * 3. npx shim 回退;4. npm exec 回退(均含常见绝对路径)。
+   */
+  private async resolveLauncher(): Promise<{ launcher?: ResolvedLauncher; detail?: string }> {
     const failures: string[] = [];
     const configured = await this.canRun(this.cfg.command);
     if (configured.ok) {
       this.log(`启动器命中配置 dsh.command = ${this.cfg.command}`);
-      return { launcher: this.cfg.command };
+      return { launcher: { kind: "shell", command: this.cfg.command, label: `dsh.command=${this.cfg.command}` } };
     }
     failures.push(`${this.cfg.command}:${configured.detail}`);
-    this.log(`dsh.command = ${this.cfg.command} 不可用(${configured.detail}),尝试 npx 回退`);
+    this.log(`dsh.command = ${this.cfg.command} 不可用(${configured.detail})`);
+
+    const direct = await this.findDirectLauncher();
+    if (direct) {
+      this.log(`直接 node 启动器可用: ${direct.node}`);
+      return { launcher: direct };
+    }
+    failures.push("direct-node: node.exe 或 npm-cli.js 不可用");
+
+    this.log("尝试 npx 回退");
     for (const npx of this.npxCandidates()) {
       const r = await this.canRun(npx);
       if (r.ok) {
         this.log(`npx 可用: ${npx}`);
-        return { launcher: `${npx} --yes @deepseek-ai/dsh@latest` };
+        return { launcher: { kind: "shell", command: `${npx} --yes @deepseek-ai/dsh@latest`, label: `npx ${npx}` } };
       }
       failures.push(`${npx}:${r.detail}`);
     }
@@ -188,11 +287,146 @@ export class ServerManager {
       const r = await this.canRun(npm);
       if (r.ok) {
         this.log(`npm 可用: ${npm}`);
-        return { launcher: `${npm} exec --yes @deepseek-ai/dsh@latest` };
+        return { launcher: { kind: "shell", command: `${npm} exec --yes @deepseek-ai/dsh@latest`, label: `npm exec ${npm}` } };
       }
       failures.push(`${npm}:${r.detail}`);
     }
     return { detail: failures.join("; ") };
+  }
+
+  /** 直接 node 方案:定位 node.exe + 同目录的 npm-cli.js,安装目标为扩展自有目录。 */
+  private async findDirectLauncher(): Promise<DirectLauncher | undefined> {
+    for (const node of await this.nodeCandidates()) {
+      const npmCli = join(dirname(node), "node_modules", "npm", "bin", "npm-cli.js");
+      if (!existsSync(npmCli)) continue;
+      return {
+        kind: "direct",
+        node,
+        npmCli,
+        installDir: join(process.env.USERPROFILE ?? homedir(), ".dsh-vscode", "server"),
+        label: `node ${node}`,
+      };
+    }
+    return undefined;
+  }
+
+  /** node.exe 候选:常见安装位置 + PATH(where)查询,过滤存在的。 */
+  private async nodeCandidates(): Promise<string[]> {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    const push = (p: string) => {
+      if (p && !seen.has(p)) {
+        seen.add(p);
+        list.push(p);
+      }
+    };
+    const bases = [
+      process.env.ProgramFiles,
+      process.env["ProgramFiles(x86)"],
+      process.env.LOCALAPPDATA,
+      process.env.APPDATA,
+      process.env.USERPROFILE,
+    ];
+    for (const base of bases) {
+      if (!base) continue;
+      push(join(base, "nodejs", "node.exe"));
+      push(join(base, "nvm4w", "nodejs", "node.exe"));
+      push(join(base, "nvm", "current", "node.exe"));
+      push(join(base, "scoop", "apps", "nodejs", "current", "node.exe"));
+    }
+    push("C:\\Program Files\\nodejs\\node.exe");
+    push("C:\\Program Files (x86)\\nodejs\\node.exe");
+    for (const line of await this.where("node")) push(line);
+    return list.filter((p) => existsSync(p));
+  }
+
+  /** 用 where/which 在 PATH 中定位可执行文件(失败/受限环境返回空数组)。 */
+  private where(command: string): Promise<string[]> {
+    return new Promise((resolve) => {
+      try {
+        const child = spawn(process.platform === "win32" ? "where.exe" : "which", [command], {
+          shell: false,
+          stdio: ["ignore", "pipe", "ignore"],
+          windowsHide: true,
+        });
+        let out = "";
+        child.stdout?.on("data", (d: Buffer) => {
+          out += d.toString("utf8");
+        });
+        child.once("error", () => resolve([]));
+        child.once("exit", () => resolve(out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)));
+      } catch {
+        resolve([]);
+      }
+    });
+  }
+
+  /** 首次安装 @deepseek-ai/dsh 到扩展自有目录(用 npm-cli.js,不走任何 shim);已安装则秒过。 */
+  private ensureDirectInstall(l: DirectLauncher, fd: number): Promise<boolean> {
+    const pkgJson = join(l.installDir, "node_modules", "@deepseek-ai", "dsh", "package.json");
+    if (existsSync(pkgJson)) {
+      this.log(`直接安装已存在: ${l.installDir}(跳过安装)`);
+      return Promise.resolve(true);
+    }
+    mkdirSync(l.installDir, { recursive: true });
+    this.log(`首次直接安装 @deepseek-ai/dsh@latest → ${l.installDir}(下载依赖,可能较慢)`);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (ok: boolean) => {
+        if (!settled) {
+          settled = true;
+          resolve(ok);
+        }
+      };
+      let child: ChildProcess | undefined;
+      const installTimeout = Math.max(this.cfg.timeoutSec, 180) * 1000;
+      const timer = setTimeout(() => {
+        this.log("直接安装超时,终止安装进程");
+        try {
+          child?.kill();
+        } catch {
+          // 进程已退出
+        }
+        finish(false);
+      }, installTimeout);
+      try {
+        child = spawn(
+          l.node,
+          [l.npmCli, "install", "--prefix", l.installDir, "--no-fund", "--no-audit", "--no-update-notifier", "@deepseek-ai/dsh@latest"],
+          { shell: false, stdio: ["ignore", fd, fd], windowsHide: true },
+        );
+        child.once("error", (error) => {
+          this.log(`直接安装 spawn 错误: ${error.message}`);
+          clearTimeout(timer);
+          finish(false);
+        });
+        child.once("exit", (code) => {
+          clearTimeout(timer);
+          const ok = code === 0 && existsSync(pkgJson);
+          this.log(`直接安装退出: code=${code ?? "null"} ok=${ok}`);
+          finish(ok);
+        });
+      } catch (error) {
+        clearTimeout(timer);
+        this.log(`直接安装异常: ${error instanceof Error ? error.message : String(error)}`);
+        finish(false);
+      }
+    });
+  }
+
+  /** 从安装好的包解析 bin 入口(当前为 lib/bin.js;按 package.json 的 bin 字段动态解析)。 */
+  private resolveDshBin(l: DirectLauncher): string | undefined {
+    const pkgJsonPath = join(l.installDir, "node_modules", "@deepseek-ai", "dsh", "package.json");
+    try {
+      const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf8")) as { bin?: string | Record<string, string> };
+      const bin = pkg?.bin;
+      const rel = typeof bin === "string" ? bin : bin?.dsh;
+      if (typeof rel !== "string") return undefined;
+      const abs = join(dirname(pkgJsonPath), rel);
+      return existsSync(abs) ? abs : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** npx 候选命令:PATH 中的 npx + Windows 常见 node 安装位置(去重)。 */

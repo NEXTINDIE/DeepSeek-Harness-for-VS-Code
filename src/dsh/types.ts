@@ -101,17 +101,12 @@ export type MuxFrame =
 
 // ---------- Host 帧(WebSocket /api/events.host) ----------
 
-export interface WorkspaceView {
-  workspaceId: string;
-  [key: string]: unknown;
-}
-
 export type HostFrame =
   | { type: "host/session-added"; sessionId: string; blank: boolean; parentSessionId?: string; origin?: "subagent"; cwd?: string; agentPreset?: string }
   | { type: "host/session-removed"; sessionId: string }
   | { type: "host/session-status"; sessionId: string; running: boolean }
   | { type: "host/agent-error"; sessionId: string; message: string }
-  | { type: "host/workspace-changed"; workspace: WorkspaceView }
+  | { type: "host/workspace-changed"; workspace: WorkspaceItem }
   | { type: "host/workspace-removed"; workspaceId: string }
   | { type: "host/workspace-order-changed"; workspaceIds: string[] }
   | { type: "host/archived-sessions-changed"; archivedSessionIds: string[] }
@@ -154,7 +149,7 @@ export interface SessionHistoryValue {
 export interface SessionPromptRequest {
   sessionId: string;
   mode: "queue" | "steer";
-  content: { type: "text"; text: string }[];
+  content: PromptContentPart[];
   clientTimeZone?: string;
 }
 export interface SessionPromptValue {
@@ -247,3 +242,120 @@ export interface SkillEntry {
 export type SubagentEntry =
   | { kind: "child"; id: string; mode: "one-shot" | "continuable"; activity: "running" | "inactive"; hasChildren: boolean; label?: string }
   | { kind: "diagnostic"; id: string; reason: string };
+
+// ---------- 工作区(workspace.*) ----------
+
+export interface WorkspaceItem {
+  workspaceId: string;
+  path: string;
+  title: string;
+  sessionIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceListValue {
+  items: WorkspaceItem[];
+  archivedSessionIds: string[];
+}
+
+// ---------- 会话内容搜索(session.search) ----------
+
+export interface SessionSearchItem {
+  sessionId: string;
+  snippet: string;
+}
+
+export interface SessionSearchValue {
+  items: SessionSearchItem[];
+  hasMore: boolean;
+}
+
+// ---------- 图片内容块(session.prompt 的 image 部分) ----------
+
+export interface ImageContentPart {
+  type: "image";
+  mediaType: string;
+  data: string;
+  name?: string;
+}
+
+export type PromptContentPart = { type: "text"; text: string } | ImageContentPart;
+
+export interface SessionAttachmentValue {
+  attachment: { id: string; mediaType?: string; name?: string; [key: string]: unknown };
+  data: string;
+}
+
+// ---------- Agent 预设作者(agentPreset.read/copy/openDocument/remove) ----------
+
+export interface AgentPresetReadValue {
+  agentPreset: string;
+  trust: "system" | "user";
+  content: string;
+  name?: string;
+  description?: string;
+}
+
+export interface AgentPresetOpenDocumentValue {
+  opened: boolean;
+  path?: string;
+}
+
+// ---------- 设置(settings.* / credentials.*) ----------
+
+export interface SettingsSecretView {
+  path: string[];
+  set: boolean;
+}
+
+export interface SettingsNamespaceView {
+  ns: string;
+  schema: unknown;
+  value: unknown;
+  base?: unknown;
+  user?: unknown;
+  applies: "live" | "restart";
+  secrets: SettingsSecretView[];
+  revision: number;
+}
+
+export interface SettingsDescribeValue {
+  writable: boolean;
+  hasDocument: boolean;
+  namespaces: SettingsNamespaceView[];
+}
+
+export type SettingsPathOpView =
+  | { op: "set"; path: string[]; value: unknown }
+  | { op: "unset"; path: string[] };
+
+export interface CredentialView {
+  configured: boolean;
+  source?: string;
+  writable: boolean;
+}
+
+// ---------- LLM 目录(llm.*) ----------
+
+export interface ConfigurableProviderView {
+  provider: string;
+  displayName: string;
+  settingsNs: string;
+  settingsPath: string[];
+  active: boolean;
+  declared?: boolean;
+}
+
+export interface DiscoveredModelView {
+  id: string;
+  name?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+}
+
+// ---------- 子代理追问/打断(subagent.prompt / subagent.interrupt) ----------
+
+export interface SubagentPromptReceipt {
+  messageId: string;
+}

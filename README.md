@@ -22,6 +22,14 @@
 - **.claude / .codex / GitHub Copilot 目录**:CLAUDE.md / AGENTS.md 由 DSH 核心自动读取(菜单显示 ✅);.claude/commands 与 .claude/skills、.codex/skills(SKILL.md)、.github/copilot-instructions.md、.github/instructions、.github/agents、.github/prompts 均可在 / 菜单中查看并插入使用。
 - **读写权限**:权限胶囊切换只读 / 工作区可写 / 完全访问(危险),官方 `/permission` 命令。
 - **跨项目会话**:每项目(工作区文件夹)独立 @dsh 会话;多根工作区跟随活动编辑器;`/session <ID>` 显式切换;`dsh.participantSessionMode: global` 可全局共用。
+- **工作区浏览器**(📁 按钮,网页端 Workspace 对齐):按工作区分组显示会话;添加 / 重命名 / 删除 / 上移下移工作区,组内会话排序与归档;会话内容搜索(标题即时匹配 + 服务器内容搜索,后端索引禁用时自动回退本地匹配);会话行显示 等待审批 / 计划待审 / 等待回答 / 运行中 状态。
+- **后台任务面板**(⚙️ 按钮):当前会话的 bash / pwsh / 子代理等后台任务清单(状态 · 起止时间 · 耗时 · 明细),随 session/jobs 帧实时刷新。
+- **轨迹视图**(🧭 按钮,网页端 Trajectory 对齐):按回合组织的事件台账(序号 / 时间 / 类型 / 摘要 / token 用量),点击展开完整事件 JSON,支持类型筛选。
+- **设置面板**(⚙️ 按钮,网页端 Settings 对齐):常规设置(schema 驱动表单,全部命名空间,含"需重启"标注与命名空间重置)、模型与供应商(供应商路由目录 + 模型目录 + 发现模型端点探测)、凭据管理(API Key 写入 / 清除)、Agent 预设管理(查看组合文本 / 复制新预设 / 打开预设目录编辑 cordis.yml / 删除用户预设)。
+- **子代理对话**:点击子代理芯片打开完整记录;continuable 子代理可直接追问(subagent.prompt)与打断(subagent.interrupt)。
+- **图片附件**:🖼️ 添加图片(官方 image 内容块通道),发送与历史回放均支持。
+- **排队消息操作**:排队消息条可 编辑 / 移除 / 插队(session.updateQueue 官方端点)。
+- **目标创建**:无目标时 🎯 芯片一键创建(goal.create,目标描述 + 最大轮数)。
 - **多语言**:扩展与聊天界面跟随 VS Code 显示语言(简体中文 / English)。
 
 ## 安装
@@ -130,6 +138,14 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **.claude / .codex / GitHub Copilot directories**: CLAUDE.md / AGENTS.md auto-loaded by the DSH core; `.claude/commands`, `.claude/skills`, `.codex/skills` (SKILL.md), `.github/copilot-instructions.md`, `.github/instructions`, `.github/agents` and `.github/prompts` are listed in the `/` menu and insertable.
 - **Permissions**: read-only / workspace-write / full-access switch (official `/permission` command).
 - **Cross-project sessions**: per-folder @dsh sessions; multi-root follows the active editor; `dsh.participantSessionMode: global` to share one session.
+- **Workspace browser** (📁 button, web Workspaces parity): sessions grouped by workspace; add / rename / delete / reorder workspaces; per-group session ordering and archive; session content search (instant title matches + server content search with local fallback when the index is disabled); rows show waiting-for-approval / plan-review / question / running states.
+- **Background jobs panel** (⚙️ button): bash / pwsh / subagent jobs for the current session with status, timings, and detail, live from session/jobs frames.
+- **Trajectory view** (🧭 button, web Trajectory parity): turn-aware event ledger (seq · time · type · summary · token usage), click to expand the full event JSON, type filter.
+- **Settings panel** (⚙️ button, web Settings parity): general settings (schema-driven forms for every namespace, restart badges, per-namespace reset), models & providers (provider route directory + model catalog + endpoint model discovery), credential management (API key set/clear), agent preset authoring (view composition / copy / open directory to edit cordis.yml / delete user presets).
+- **Subagent conversations**: click a subagent chip to open its transcript; continuable children accept prompts (subagent.prompt) and interrupts (subagent.interrupt).
+- **Image attachments**: 🖼️ add images (official image content-block channel), in both sending and history playback.
+- **Queued-message actions**: queued messages can be edited / removed / steered (official session.updateQueue).
+- **Goal creation**: the 🎯 chip creates a goal when none exists (goal.create with objective and round cap).
 - **i18n**: follows the VS Code display language (zh-cn / en).
 
 ## Install

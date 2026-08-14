@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
+import type { PromptContentPart } from "../dsh/types";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
@@ -59,6 +60,13 @@ export class ChatChannel {
       // 语言设置变更:通知前端重载界面
       { dispose: () => configSub.dispose() },
       { dispose: store.on("sessionsChanged", () => this.post({ kind: "sessions", sessions: this.serializeSessions() })) },
+      { dispose: store.on("jobs", (sid: string, jobs: unknown) => this.post({ kind: "jobs", sessionId: sid, jobs })) },
+      {
+        dispose: store.on("queue", (sid: string, items: unknown) => {
+          if (sid === store.currentSessionId) this.post({ kind: "queue", sessionId: sid, items });
+        }),
+      },
+      { dispose: store.on("workspaces", () => this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() })) },
       {
         dispose: store.on("sessionEvent", (sid: string, stored: StoredEvent) => {
           if (sid === store.currentSessionId) {
@@ -144,7 +152,19 @@ export class ChatChannel {
   }
 
   private serializeSessions(): StoredSession[] {
-    return this.hub.store.listSessions();
+    return this.hub.store.listSessions().map((s) => {
+      const pending = this.hub.store.pendingFor(s.sessionId);
+      return { ...s, ...(pending ? { pending } : {}) };
+    });
+  }
+
+  private serializeWorkspaces() {
+    const store = this.hub.store;
+    return {
+      workspaces: store.listWorkspaces(),
+      workspaceOrder: store.workspaceOrder,
+      archivedSessionIds: [...store.archivedSessionIds],
+    };
   }
 
   private serializeEvent(stored: StoredEvent): { event: unknown; view?: unknown } {
@@ -159,10 +179,13 @@ export class ChatChannel {
       lang: effectiveLanguage(),
       status: this.hub.status,
       sessions: this.serializeSessions(),
+      ...this.serializeWorkspaces(),
       current,
       events: current ? store.eventsFor(current).map((e) => this.serializeEvent(e)) : [],
       approvals: current ? [...store.pendingApprovals.values()].filter((a) => a.sessionId === current) : [],
       questions: current ? [...store.pendingQuestions.values()].filter((q) => q.sessionId === current) : [],
+      queue: current ? store.queues.get(current) ?? [] : [],
+      jobs: current ? store.jobs.get(current) ?? [] : [],
       running: current ? (store.sessions.get(current)?.running ?? false) : false,
       goal: current ? store.goals.get(current) : undefined,
       context: current ? store.context.get(current) : undefined,
@@ -183,11 +206,152 @@ export class ChatChannel {
       case "send": {
         if (current && typeof msg.text === "string" && msg.text.trim()) {
           try {
-            const text = await this.composeWithAttachments(msg.text, msg.attachments);
-            await this.hub.send(current, text);
+            const images: { data: string; mediaType: string; name?: string }[] = Array.isArray(msg.images) ? msg.images.slice(0, 8) : [];
+            if (images.length > 0) {
+              // 带图片的消息:直接以内容块发送(官方 session.prompt image 通道)
+              const content: PromptContentPart[] = images.map((img) => ({
+                type: "image",
+                mediaType: typeof img.mediaType === "string" ? img.mediaType : "image/png",
+                data: img.data,
+                ...(img.name ? { name: img.name } : {}),
+              }));
+              const text = await this.composeWithAttachments(msg.text, msg.attachments);
+              content.push({ type: "text", text });
+              await this.hub.sendParts(current, content);
+            } else {
+              const text = await this.composeWithAttachments(msg.text, msg.attachments);
+              await this.hub.send(current, text);
+            }
           } catch {
             // 错误已通过 notice 提示
           }
+        }
+        break;
+      }
+      case "pickImages": {
+        try {
+          const picked = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: true,
+            openLabel: "添加图片",
+            filters: { 图片: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] },
+            defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+          });
+          if (!picked || picked.length === 0) break;
+          const images: { data: string; mediaType: string; name: string }[] = [];
+          for (const uri of picked.slice(0, 8)) {
+            const raw = await vscode.workspace.fs.readFile(uri);
+            if (raw.byteLength > 6 * 1024 * 1024) {
+              this.post({ kind: "notice", message: `${uri.fsPath} 超过 6MB,已跳过`, level: "warning" });
+              continue;
+            }
+            const name = uri.fsPath.replace(/\\/g, "/").split("/").pop() ?? "image";
+            const ext = name.split(".").pop()?.toLowerCase() ?? "png";
+            const mediaType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "image/png";
+            images.push({ data: Buffer.from(raw).toString("base64"), mediaType, name });
+          }
+          this.post({ kind: "imagesPicked", images });
+        } catch (error) {
+          this.post({ kind: "notice", message: t("notice.attachmentsFailed", { error: String(error) }), level: "error" });
+        }
+        break;
+      }
+      case "attachmentRead": {
+        if (current && typeof msg.attachmentId === "string" && typeof msg.messageId === "string") {
+          try {
+            const value = await this.hub.readAttachment(current, msg.attachmentId);
+            this.post({ kind: "attachmentData", messageId: msg.messageId, attachmentId: msg.attachmentId, data: value.data, mediaType: value.attachment?.mediaType });
+          } catch (error) {
+            this.post({ kind: "attachmentData", messageId: msg.messageId, attachmentId: msg.attachmentId, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "searchSessions": {
+        if (typeof msg.query === "string" && msg.query.trim()) {
+          try {
+            const value = await this.hub.searchSessions(msg.query.trim().slice(0, 500));
+            this.post({ kind: "searchResults", requestId: msg.requestId, value });
+          } catch (error) {
+            this.post({ kind: "searchResults", requestId: msg.requestId, value: null, error: String(error) });
+          }
+        }
+        break;
+      }
+      // ---------- 工作区管理 ----------
+      case "workspaceAdd": {
+        try {
+          const picked = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: "添加工作区",
+            defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+          });
+          const path = picked?.[0]?.fsPath;
+          if (!path) break;
+          await this.hub.createWorkspace(path);
+          await this.hub.refreshWorkspaces();
+          this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+        } catch (error) {
+          this.post({ kind: "notice", message: t("notice.workspaceAddFailed", { error: String(error) }), level: "error" });
+        }
+        break;
+      }
+      case "workspaceRename": {
+        if (typeof msg.workspaceId === "string" && typeof msg.title === "string" && msg.title.trim()) {
+          try {
+            await this.hub.renameWorkspace(msg.workspaceId, msg.title.trim());
+            await this.hub.refreshWorkspaces();
+            this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.workspaceRenameFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "workspaceDelete": {
+        if (typeof msg.workspaceId === "string") {
+          try {
+            await this.hub.deleteWorkspace(msg.workspaceId);
+            await this.hub.refreshWorkspaces();
+            this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.workspaceDeleteFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "workspaceMove": {
+        if (typeof msg.workspaceId === "string") {
+          try {
+            await this.hub.moveWorkspace(msg.workspaceId, typeof msg.beforeWorkspaceId === "string" ? msg.beforeWorkspaceId : undefined);
+            await this.hub.refreshWorkspaces();
+            this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.workspaceMoveFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "sessionMove": {
+        if (typeof msg.workspaceId === "string" && typeof msg.sessionId === "string") {
+          try {
+            await this.hub.moveSessionInWorkspace(msg.workspaceId, msg.sessionId, typeof msg.beforeSessionId === "string" ? msg.beforeSessionId : undefined);
+            await this.hub.refreshWorkspaces();
+            this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.sessionMoveFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "unarchiveSession": {
+        // 官方 wire 无 unarchive 端点;归档会话仍可打开(归档只是从分组表面隐藏)
+        if (typeof msg.sessionId === "string") {
+          await this.hub.openSession(msg.sessionId);
+          await this.pushFullState();
         }
         break;
       }
@@ -386,6 +550,21 @@ export class ChatChannel {
         }
         break;
       }
+      case "archiveSessionOnly": {
+        // 从工作区面板归档会话(不切换当前会话)
+        if (typeof msg.sessionId === "string") {
+          try {
+            await this.hub.archiveSession(msg.sessionId);
+            await this.hub.refreshSessions();
+            await this.hub.refreshWorkspaces();
+            this.post({ kind: "sessions", sessions: this.serializeSessions() });
+            this.post({ kind: "workspaces", workspaces: this.serializeWorkspaces() });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.archiveFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
       case "feedback": {
         // 官方 /feedback 命令记录会话反馈;附带被评价消息的片段
         if (current && (msg.rating === "positive" || msg.rating === "negative")) {
@@ -431,6 +610,17 @@ export class ChatChannel {
             this.post({ kind: "notice", message: t("notice.permissionSet", { preset: msg.preset }), level: "info" });
           } catch {
             // 错误已通过 notice 提示
+          }
+        }
+        break;
+      }
+      case "updateQueue": {
+        // 排队消息操作:编辑 / 移除 / 插队(session.updateQueue)
+        if (typeof msg.sessionId === "string" && typeof msg.itemId === "string" && msg.action && typeof msg.action === "object") {
+          try {
+            await this.hub.client.updateQueue(msg.sessionId, msg.itemId, msg.action as { kind: "edit"; content: unknown[] } | { kind: "remove" } | { kind: "steer" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.queueActionFailed", { error: String(error) }), level: "error" });
           }
         }
         break;
@@ -522,6 +712,235 @@ export class ChatChannel {
           await this.hub.respondQuestion(current, msg.frameRpcId, msg.answers);
         }
         break;
+      case "goalCreate": {
+        if (current && typeof msg.objective === "string" && msg.objective.trim()) {
+          try {
+            await this.hub.createGoal(current, msg.objective.trim(), typeof msg.maxGoalRounds === "number" ? msg.maxGoalRounds : undefined);
+            this.post({ kind: "notice", message: t("notice.goalCreate"), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.goalCreateFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      // ---------- 预设作者 ----------
+      case "presetRead": {
+        if (typeof msg.preset === "string") {
+          try {
+            const value = await this.hub.readPreset(msg.preset);
+            this.post({ kind: "presetRead", requestId: msg.requestId, value });
+          } catch (error) {
+            this.post({ kind: "presetRead", requestId: msg.requestId, value: null, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "presetCopy": {
+        if (typeof msg.from === "string" && typeof msg.preset === "string") {
+          try {
+            await this.hub.copyPreset(msg.from, msg.preset, typeof msg.name === "string" ? msg.name : undefined);
+            const value = await this.hub.listPresets();
+            this.post({ kind: "presets", value });
+            this.post({ kind: "notice", message: t("notice.presetCopied", { preset: msg.preset }), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.presetCopyFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "presetRemove": {
+        if (typeof msg.preset === "string") {
+          try {
+            await this.hub.removePreset(msg.preset);
+            const value = await this.hub.listPresets();
+            this.post({ kind: "presets", value });
+            this.post({ kind: "notice", message: t("notice.presetRemoved", { preset: msg.preset }), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.presetRemoveFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "presetOpenFolder": {
+        if (typeof msg.preset === "string") {
+          try {
+            const result = await this.hub.openPresetDocument(msg.preset);
+            if (!result.opened && result.path) {
+              await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(result.path));
+            }
+            this.post({ kind: "presetFolderOpened", preset: msg.preset, path: result.path });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.presetOpenFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      // ---------- 子代理交互 ----------
+      case "subagentOpen": {
+        if (current && typeof msg.childId === "string") {
+          try {
+            const mode: "one-shot" | "continuable" = msg.mode === "one-shot" ? "one-shot" : "continuable";
+            const history = await this.hub.subagentHistory(
+              current,
+              msg.childId,
+              mode,
+              typeof msg.beforeSeq === "number" ? msg.beforeSeq : undefined,
+              typeof msg.beforeSeq === "number" ? 60 : undefined,
+            );
+            this.post({ kind: "subagentOpen", requestId: msg.requestId, childId: msg.childId, mode, events: history.events, hasMore: history.hasMore, append: !!msg.append });
+          } catch (error) {
+            this.post({ kind: "subagentOpen", requestId: msg.requestId, childId: msg.childId, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "subagentPrompt": {
+        if (current && typeof msg.childId === "string" && typeof msg.text === "string" && msg.text.trim()) {
+          try {
+            await this.hub.subagentPrompt(current, msg.childId, msg.text.trim());
+            this.post({ kind: "notice", message: t("notice.subagentPrompted"), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.subagentPromptFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "subagentInterrupt": {
+        if (current && typeof msg.childId === "string") {
+          try {
+            await this.hub.subagentInterrupt(current, msg.childId);
+            this.post({ kind: "notice", message: t("notice.subagentInterrupted"), level: "info" });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.subagentInterruptFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      // ---------- 设置 / 凭据 / LLM ----------
+      case "settingsGet": {
+        try {
+          const value = await this.hub.settingsDescribe();
+          this.post({ kind: "settingsDescribe", requestId: msg.requestId, value });
+        } catch (error) {
+          this.post({ kind: "settingsDescribe", requestId: msg.requestId, value: null, error: String(error) });
+        }
+        break;
+      }
+      case "settingsSave": {
+        if (typeof msg.ns === "string" && msg.patch && typeof msg.patch === "object") {
+          try {
+            const next = await this.hub.settingsUpdate(msg.ns, msg.patch, typeof msg.expectedRevision === "number" ? msg.expectedRevision : undefined);
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, namespace: next });
+            this.post({ kind: "notice", message: t("notice.settingsSaved", { ns: msg.ns }), level: "info" });
+          } catch (error) {
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, error: String(error) });
+            this.post({ kind: "notice", message: t("notice.settingsSaveFailed", { ns: msg.ns, error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "settingsReset": {
+        if (typeof msg.ns === "string") {
+          try {
+            const next = await this.hub.settingsReplace(msg.ns, {}, typeof msg.expectedRevision === "number" ? msg.expectedRevision : undefined);
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, namespace: next });
+            this.post({ kind: "notice", message: t("notice.settingsReset", { ns: msg.ns }), level: "info" });
+          } catch (error) {
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, error: String(error) });
+            this.post({ kind: "notice", message: t("notice.settingsSaveFailed", { ns: msg.ns, error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "settingsMutate": {
+        if (typeof msg.ns === "string" && Array.isArray(msg.ops)) {
+          try {
+            const next = await this.hub.settingsMutate(msg.ns, msg.ops, typeof msg.expectedRevision === "number" ? msg.expectedRevision : undefined);
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, namespace: next });
+          } catch (error) {
+            this.post({ kind: "settingsSaved", requestId: msg.requestId, error: String(error) });
+            this.post({ kind: "notice", message: t("notice.settingsSaveFailed", { ns: msg.ns, error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "settingsOpenDocument": {
+        try {
+          await this.hub.settingsOpenDocument();
+        } catch (error) {
+          this.post({ kind: "notice", message: t("notice.settingsOpenFailed", { error: String(error) }), level: "error" });
+        }
+        break;
+      }
+      case "credentialSet": {
+        if (typeof msg.ref === "string" && typeof msg.value === "string") {
+          try {
+            await this.hub.credentialsSet(msg.ref, msg.value);
+            this.post({ kind: "credentialChanged", ref: msg.ref, set: true });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.credentialFailed", { ref: msg.ref, error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "credentialUnset": {
+        if (typeof msg.ref === "string") {
+          try {
+            await this.hub.credentialsUnset(msg.ref);
+            this.post({ kind: "credentialChanged", ref: msg.ref, set: false });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.credentialFailed", { ref: msg.ref, error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "credentialsState": {
+        if (Array.isArray(msg.refs)) {
+          try {
+            const value = await this.hub.credentialsDescribe(msg.refs.slice(0, 50));
+            this.post({ kind: "credentialsState", requestId: msg.requestId, value });
+          } catch (error) {
+            this.post({ kind: "credentialsState", requestId: msg.requestId, value: null, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "llmInfo": {
+        try {
+          const [providers, models] = await Promise.all([this.hub.llmProviders(), this.hub.llmModels()]);
+          this.post({ kind: "llmInfo", requestId: msg.requestId, providers, models });
+        } catch (error) {
+          this.post({ kind: "llmInfo", requestId: msg.requestId, error: String(error) });
+        }
+        break;
+      }
+      case "discoverModels": {
+        if (typeof msg.settingsNs === "string") {
+          try {
+            const value = await this.hub.llmDiscoverModels({
+              settingsNs: msg.settingsNs,
+              ...(typeof msg.provider === "string" ? { provider: msg.provider } : {}),
+              ...(typeof msg.baseURL === "string" && msg.baseURL ? { baseURL: msg.baseURL } : {}),
+              ...(typeof msg.api === "string" && msg.api ? { api: msg.api } : {}),
+              ...(typeof msg.apiKey === "string" && msg.apiKey ? { apiKey: msg.apiKey } : {}),
+            });
+            this.post({ kind: "discoveredModels", requestId: msg.requestId, value });
+          } catch (error) {
+            this.post({ kind: "discoveredModels", requestId: msg.requestId, value: null, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "revealInExplorer": {
+        if (typeof msg.path === "string" && msg.path) {
+          try {
+            await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(msg.path));
+          } catch {
+            // 无原生揭示能力则跳过
+          }
+        }
+        break;
+      }
       case "startServer":
         this.post({ kind: "status", status: { ...this.hub.status, serverStarting: true } });
         const result = await this.hub.ensureReady();

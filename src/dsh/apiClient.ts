@@ -2,10 +2,17 @@ import WebSocket from "ws";
 import { randomUUID } from "node:crypto";
 import type {
   AgentPresetListValue,
+  AgentPresetOpenDocumentValue,
+  AgentPresetReadValue,
   ClientRequest,
+  ConfigurableProviderView,
+  CredentialView,
+  DiscoveredModelView,
   HostFrame,
   HostDescribeValue,
   MuxFrame,
+  PromptContentPart,
+  SessionAttachmentValue,
   SessionCreateRequest,
   SessionCreateValue,
   SessionHistoryRequest,
@@ -14,9 +21,16 @@ import type {
   SessionModelsValue,
   SessionPromptRequest,
   SessionPromptValue,
+  SessionSearchValue,
+  SettingsDescribeValue,
+  SettingsNamespaceView,
+  SettingsPathOpView,
+  SubagentEntry,
+  SubagentPromptReceipt,
+  WorkspaceItem,
+  WorkspaceListValue,
   ApprovalAnswer,
   QuestionAnswer,
-  SubagentEntry,
 } from "./types";
 
 export class DshApiError extends Error {
@@ -111,6 +125,12 @@ export class DshApiClient {
   listSessions() {
     return this.post<SessionListValue>("session.list", {});
   }
+  searchSessions(query: string) {
+    return this.post<SessionSearchValue>("session.search", { query });
+  }
+  readAttachment(sessionId: string, attachmentId: string) {
+    return this.post<SessionAttachmentValue>("session.attachment", { sessionId, attachmentId });
+  }
   createSession(payload: SessionCreateRequest) {
     return this.post<SessionCreateValue>("session.create", payload);
   }
@@ -119,6 +139,9 @@ export class DshApiClient {
   }
   sendPrompt(payload: SessionPromptRequest) {
     return this.post<SessionPromptValue>("session.prompt", payload, 60_000);
+  }
+  sendPromptParts(sessionId: string, mode: "queue" | "steer", content: PromptContentPart[]) {
+    return this.post<SessionPromptValue>("session.prompt", { sessionId, mode, content }, 60_000);
   }
   cancelSession(sessionId: string) {
     return this.post<{ accepted: true }>("session.cancel", { sessionId });
@@ -134,6 +157,33 @@ export class DshApiClient {
   }
   archiveSession(sessionId: string) {
     return this.post<{ archivedSessionIds: string[] }>("workspace.archiveSession", { sessionId });
+  }
+
+  // 工作区管理
+  listWorkspaces() {
+    return this.post<WorkspaceListValue>("workspace.list", {});
+  }
+  createWorkspace(path: string) {
+    return this.post<{ workspace: WorkspaceItem; created: boolean }>("workspace.create", { path });
+  }
+  renameWorkspace(workspaceId: string, title: string) {
+    return this.post<{ workspace: WorkspaceItem }>("workspace.rename", { workspaceId, title });
+  }
+  deleteWorkspace(workspaceId: string) {
+    return this.post<{ deleted: true }>("workspace.delete", { workspaceId });
+  }
+  moveWorkspace(workspaceId: string, beforeWorkspaceId?: string) {
+    return this.post<{ workspaceIds: string[] }>("workspace.insertBefore", {
+      workspaceId,
+      ...(beforeWorkspaceId ? { beforeWorkspaceId } : {}),
+    });
+  }
+  moveSessionInWorkspace(workspaceId: string, sessionId: string, beforeSessionId?: string) {
+    return this.post<{ workspace: WorkspaceItem }>("workspace.insertSessionBefore", {
+      workspaceId,
+      sessionId,
+      ...(beforeSessionId ? { beforeSessionId } : {}),
+    });
   }
   sessionModels(sessionId: string) {
     return this.post<SessionModelsValue>("session.models", { sessionId });
@@ -153,8 +203,28 @@ export class DshApiClient {
   selectAgentPreset(sessionId: string, agentPreset: string) {
     return this.post<{ agentPreset: string }>("agentPreset.select", { sessionId, agentPreset });
   }
+  // 预设作者:读取组合 / 复制 / 打开目录 / 删除
+  readAgentPreset(agentPreset: string) {
+    return this.post<AgentPresetReadValue>("agentPreset.read", { agentPreset });
+  }
+  copyAgentPreset(from: string, agentPreset: string, name?: string) {
+    return this.post<{ agentPreset: string }>("agentPreset.copy", { from, agentPreset, ...(name ? { name } : {}) });
+  }
+  openAgentPresetDocument(agentPreset: string) {
+    return this.post<AgentPresetOpenDocumentValue>("agentPreset.openDocument", { agentPreset });
+  }
+  removeAgentPreset(agentPreset: string) {
+    return this.post<Record<string, never>>("agentPreset.remove", { agentPreset });
+  }
 
   // goals
+  goalCreate(sessionId: string, objective: string, maxGoalRounds?: number) {
+    return this.post<{ ref: { id: string; revision: number } }>("goal.create", {
+      sessionId,
+      objective,
+      ...(maxGoalRounds !== undefined ? { maxGoalRounds } : {}),
+    });
+  }
   goalEdit(sessionId: string, ref: { id: string; revision: number }, objective?: string) {
     return this.post<unknown>("goal.edit", { sessionId, ref, ...(objective !== undefined ? { objective } : {}) });
   }
@@ -178,11 +248,68 @@ export class DshApiClient {
   listSubagents(parentSessionId: string) {
     return this.post<{ entries: SubagentEntry[]; parentAvailable: boolean }>("subagent.list", { parentSessionId });
   }
-  subagentHistory(parentSessionId: string, childSessionId: string, mode: "one-shot" | "continuable") {
+  subagentHistory(parentSessionId: string, childSessionId: string, mode: "one-shot" | "continuable", beforeSeq?: number, maxMessages?: number) {
     return this.post<{ events: { event: { type: string; seq: number; time: number; data: any }; view?: unknown }[]; hasMore: boolean }>(
       "subagent.history",
-      { parentSessionId, childSessionId, mode },
+      {
+        parentSessionId,
+        childSessionId,
+        mode,
+        ...(beforeSeq !== undefined ? { beforeSeq } : {}),
+        ...(maxMessages !== undefined ? { maxMessages } : {}),
+      },
     );
+  }
+  subagentPrompt(parentSessionId: string, childSessionId: string, text: string) {
+    return this.post<SubagentPromptReceipt>("subagent.prompt", {
+      parentSessionId,
+      childSessionId,
+      mode: "continuable",
+      content: [{ type: "text", text }],
+    });
+  }
+  subagentInterrupt(parentSessionId: string, childSessionId: string) {
+    return this.post<{ accepted: true }>("subagent.interrupt", {
+      parentSessionId,
+      childSessionId,
+      mode: "continuable",
+    });
+  }
+
+  // ---------- 设置 / 凭据 / LLM 目录 ----------
+
+  settingsDescribe() {
+    return this.post<SettingsDescribeValue>("settings.describe", {}, 60_000);
+  }
+  settingsOpenDocument() {
+    return this.post<{ opened: true }>("settings.openDocument", {});
+  }
+  settingsUpdate(ns: string, patch: object, expectedRevision?: number) {
+    return this.post<SettingsNamespaceView>("settings.update", { ns, patch, ...(expectedRevision !== undefined ? { expectedRevision } : {}) }, 60_000);
+  }
+  settingsReplace(ns: string, section: object, expectedRevision?: number) {
+    return this.post<SettingsNamespaceView>("settings.replace", { ns, section, ...(expectedRevision !== undefined ? { expectedRevision } : {}) }, 60_000);
+  }
+  settingsMutate(ns: string, ops: SettingsPathOpView[], expectedRevision?: number) {
+    return this.post<SettingsNamespaceView>("settings.mutate", { ns, ops, ...(expectedRevision !== undefined ? { expectedRevision } : {}) }, 60_000);
+  }
+  credentialsDescribe(refs: string[]) {
+    return this.post<{ credentials: Record<string, CredentialView> }>("credentials.describe", { refs });
+  }
+  credentialsSet(ref: string, value: string) {
+    return this.post<Record<string, never>>("credentials.set", { ref, value });
+  }
+  credentialsUnset(ref: string) {
+    return this.post<Record<string, never>>("credentials.unset", { ref });
+  }
+  llmProviders() {
+    return this.post<{ providers: ConfigurableProviderView[] }>("llm.providers", {}, 60_000);
+  }
+  llmModels() {
+    return this.post<{ groups: SessionModelsValue["groups"]; failures: SessionModelsValue["failures"] }>("llm.models", {}, 60_000);
+  }
+  llmDiscoverModels(payload: { settingsNs: string; provider?: string; baseURL?: string; api?: string; apiKey?: string }) {
+    return this.post<{ models: DiscoveredModelView[] }>("llm.discoverModels", payload, 60_000);
   }
 
   // ---------- /api/respond ----------

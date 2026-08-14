@@ -7,6 +7,7 @@ import type {
   SessionEvent,
   SessionSummary,
   ToolEventView,
+  WorkspaceItem,
 } from "./types";
 
 export interface StoredSession {
@@ -56,6 +57,12 @@ export class SessionStore {
   readonly pendingQuestions = new Map<string, PendingQuestion>(); // key: frameRpcId
   readonly queues = new Map<string, QueueItem[]>();
   readonly jobs = new Map<string, JobView[]>();
+  /** 工作区(workspace.list 基线 + host/workspace-changed 帧) */
+  readonly workspaces = new Map<string, WorkspaceItem>();
+  /** 工作区显示顺序(host/workspace-order-changed / workspace.list) */
+  workspaceOrder: string[] = [];
+  /** 全局归档会话集合(host/archived-sessions-changed / workspace.list) */
+  readonly archivedSessionIds = new Set<string>();
   /** 会话的目标状态(session.list / session/projection 帧的 goal 投影) */
   readonly goals = new Map<string, unknown>();
   /** 上下文压力(contextPressure 投影) */
@@ -92,6 +99,8 @@ export class SessionStore {
   on(name: "permissions", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "stats", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "todos", fn: (sessionId: string, value: unknown) => void): () => void;
+  on(name: "jobs", fn: (sessionId: string, jobs: JobView[]) => void): () => void;
+  on(name: "workspaces", fn: () => void): () => void;
   on(name: "currentChanged", fn: (sessionId: string | undefined) => void): () => void;
   on(name: string, fn: Listener): () => void {
     let set = this.listeners.get(name);
@@ -147,6 +156,7 @@ export class SessionStore {
         break;
       case "session/jobs":
         this.jobs.set(frame.sessionId, frame.jobs);
+        this.emit("jobs", frame.sessionId, frame.jobs);
         break;
       case "session/projection":
         this.applyProjection(frame.sessionId, frame.key, frame.value);
@@ -163,15 +173,19 @@ export class SessionStore {
     if (frame.type === "approval/requested") {
       this.pendingApprovals.set(frame.approvalId, { ...frame, frameRpcId: rpcId });
       this.emit("approval", this.pendingApprovals.get(frame.approvalId));
+      this.emit("sessionsChanged", this.listSessions());
     } else if (frame.type === "approval/resolved") {
       this.pendingApprovals.delete(frame.approvalId);
       this.emit("approvalResolved", frame.approvalId, frame.outcome);
+      this.emit("sessionsChanged", this.listSessions());
     } else if (frame.type === "question/requested") {
       this.pendingQuestions.set(rpcId, { sessionId: frame.sessionId, frameRpcId: rpcId, questions: frame.questions });
       this.emit("question", this.pendingQuestions.get(rpcId));
+      this.emit("sessionsChanged", this.listSessions());
     } else if (frame.type === "question/resolved") {
       this.pendingQuestions.delete(frame.questionRpcId);
       this.emit("questionResolved", frame.questionRpcId);
+      this.emit("sessionsChanged", this.listSessions());
     } else {
       this.handleMuxFrame(frame);
     }
@@ -215,10 +229,25 @@ export class SessionStore {
         break;
       }
       case "host/remote-event":
-      case "host/workspace-changed":
+        break;
+      case "host/workspace-changed": {
+        this.upsertWorkspace(frame.workspace);
+        this.emit("workspaces");
+        break;
+      }
       case "host/workspace-removed":
+        this.workspaces.delete(frame.workspaceId);
+        this.workspaceOrder = this.workspaceOrder.filter((id) => id !== frame.workspaceId);
+        this.emit("workspaces");
+        break;
       case "host/workspace-order-changed":
+        this.workspaceOrder = frame.workspaceIds;
+        this.emit("workspaces");
+        break;
       case "host/archived-sessions-changed":
+        this.archivedSessionIds.clear();
+        for (const id of frame.archivedSessionIds) this.archivedSessionIds.add(id);
+        this.emit("workspaces");
         break;
       case "stream/error":
         console.error("[dsh] host stream error:", frame.error);
@@ -307,6 +336,63 @@ export class SessionStore {
 
   // ---------- 查询 ----------
 
+  /** 合并一条工作区记录(帧或列表基线)。 */
+  upsertWorkspace(workspace: WorkspaceItem) {
+    const prev = this.workspaces.get(workspace.workspaceId);
+    this.workspaces.set(workspace.workspaceId, workspace);
+    if (prev === undefined && !this.workspaceOrder.includes(workspace.workspaceId)) {
+      this.workspaceOrder.push(workspace.workspaceId);
+    }
+  }
+
+  /** 应用 workspace.list 基线(顺序 + 归档集合)。 */
+  applyWorkspaceList(items: WorkspaceItem[], archivedSessionIds: string[]) {
+    for (const item of items) this.upsertWorkspace(item);
+    // 服务器顺序只在前端尚无顺序信息时整体覆盖(帧增量优先)
+    if (this.workspaceOrder.length === 0) {
+      this.workspaceOrder = items.map((w) => w.workspaceId);
+    }
+    this.archivedSessionIds.clear();
+    for (const id of archivedSessionIds) this.archivedSessionIds.add(id);
+    this.emit("workspaces");
+  }
+
+  /** 按显示顺序返回工作区列表(未知 id 兜底)。 */
+  listWorkspaces(): WorkspaceItem[] {
+    const seen = new Set<string>();
+    const out: WorkspaceItem[] = [];
+    for (const id of this.workspaceOrder) {
+      const w = this.workspaces.get(id);
+      if (w && !seen.has(id)) {
+        out.push(w);
+        seen.add(id);
+      }
+    }
+    for (const w of this.workspaces.values()) {
+      if (!seen.has(w.workspaceId)) {
+        out.push(w);
+        seen.add(w.workspaceId);
+      }
+    }
+    return out;
+  }
+
+  /** 会话当前等待的用户交互(审批 / 提问 / 计划审批),与网页端会话行状态一致。 */
+  pendingFor(sessionId: string): { kind: "approval" | "question" | "plan-review" } | undefined {
+    for (const approval of this.pendingApprovals.values()) {
+      if (approval.sessionId === sessionId) return { kind: "approval" };
+    }
+    for (const question of this.pendingQuestions.values()) {
+      if (question.sessionId !== sessionId) continue;
+      const planReview = question.questions.some((q) => {
+        const intent = (q as { intent?: unknown }).intent as { kind?: string } | undefined;
+        return intent?.kind === "plan-review";
+      });
+      return { kind: planReview ? "plan-review" : "question" };
+    }
+    return undefined;
+  }
+
   listSessions(): StoredSession[] {
     return [...this.sessions.values()].sort((a, b) => b.updatedAt - a.updatedAt);
   }
@@ -362,6 +448,9 @@ export class SessionStore {
     this.pendingQuestions.clear();
     this.queues.clear();
     this.jobs.clear();
+    this.workspaces.clear();
+    this.workspaceOrder = [];
+    this.archivedSessionIds.clear();
     this.goals.clear();
     this.context.clear();
     this.permissions.clear();

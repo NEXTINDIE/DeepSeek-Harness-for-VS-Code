@@ -1,6 +1,7 @@
 import "./safety";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { createPanels, type PanelsContext } from "./panels";
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void; getState(): any; setState(state: any): void };
 
@@ -16,7 +17,29 @@ interface StoredSession {
   cwd?: string;
   agentPreset?: string;
   parentSessionId?: string;
+  origin?: "subagent";
   updatedAt: number;
+  /** 等待的用户交互(approval / question / plan-review),由宿主补充 */
+  pending?: { kind: "approval" | "question" | "plan-review" };
+}
+
+interface WorkspaceItem {
+  workspaceId: string;
+  path: string;
+  title: string;
+  sessionIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface JobView {
+  id: string;
+  kind: string;
+  label: string;
+  status: "running" | "stopping" | "completed" | "killed" | "failed";
+  detail?: string;
+  startedAt: number;
+  finishedAt?: number;
 }
 
 interface WireEvent {
@@ -112,6 +135,8 @@ interface NodeState {
   attachContext?: string;
   /** note 节点是否为命令行(斜杠命令执行记录) */
   cmd?: boolean;
+  /** 用户消息携带的图片引用(官方 image 内容块) */
+  images?: { attachmentId: string; mediaType?: string }[];
 }
 
 // ---------- 状态 ----------
@@ -171,6 +196,31 @@ const state = {
     copilotInstructionFiles: { name: string; content: string }[];
     copilotAgents: { name: string; content: string }[];
     copilotPrompts: { name: string; content: string }[];
+  } | null,
+  /** 工作区与归档集合(workspace.list 基线 + host 帧) */
+  workspaces: [] as WorkspaceItem[],
+  workspaceOrder: [] as string[],
+  archivedSessionIds: [] as string[],
+  /** 当前会话的后台任务(session/jobs 帧) */
+  jobs: [] as JobView[],
+  /** 图片附件(待发送) */
+  images: [] as { data: string; mediaType: string; name: string }[],
+  /** 轨迹视图用原始事件 */
+  rawEvents: [] as WireEvent[],
+  /** 设置面板描述(settings.describe) */
+  settingsDescribe: null as {
+    writable: boolean;
+    hasDocument: boolean;
+    namespaces: {
+      ns: string;
+      schema: any;
+      value: any;
+      base?: any;
+      user?: any;
+      applies: "live" | "restart";
+      secrets: { path: string[]; set: boolean }[];
+      revision: number;
+    }[];
   } | null,
 };
 
@@ -232,6 +282,20 @@ const ICONS = {
   globe: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z|M2 12h20|M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
   send: "M22 2 11 13|M22 2 15 22l-4-9-9-4z",
   stop: "M6 6h12v12H6z",
+  // 工作区 / 任务 / 轨迹 / 设置 / 搜索
+  list: "M8 6h13|M8 12h13|M8 18h13|M3 6h.01|M3 12h.01|M3 18h.01",
+  ledger: "M4 4h16v16H4z|M8 8h8|M8 12h8|M8 16h5",
+  gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+  search: "M21 21l-4.35-4.35|M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z",
+  up2: "M12 19V5|M5 12l7-7 7 7",
+  down2: "M12 5v14|M19 12l-7 7-7-7",
+  x: "M18 6 6 18|M6 6l12 12",
+  edit: "M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
+  eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  trash: "M3 6h18|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6",
+  folder: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
+  back: "M19 12H5|M12 19l-7-7 7-7",
+  image: "M3 5h18v14H3z|M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z|M21 15l-5-5L5 21",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -253,6 +317,27 @@ function lineIcon(paths: string, size = 14): SVGSVGElement {
   }
   return svg;
 }
+
+// ---------- 侧栏大面板(工作区 / 任务 / 轨迹 / 设置 / 子代理) ----------
+
+const panels = createPanels({
+  state,
+  post: (msg) => vscode.postMessage(msg),
+  el: (tag, cls, text) => el(tag as keyof HTMLElementTagNameMap, cls, text),
+  t,
+  setHtml,
+  lineIcon,
+  ICONS,
+  showDialog,
+  basename,
+  fmtDuration,
+  fmtClock,
+  fmtTokens,
+  selectSession: (sessionId) => vscode.postMessage({ kind: "select", sessionId }),
+  openFile: (path) => vscode.postMessage({ kind: "openFile", path }),
+  reveal: (path) => vscode.postMessage({ kind: "revealInExplorer", path }),
+  requestAttachment: (_sessionId, attachmentId, messageId) => vscode.postMessage({ kind: "attachmentRead", attachmentId, messageId }),
+} as PanelsContext);
 
 /** 权限预设的中文名称。 */
 const PERMISSION_LABELS: Record<string, string> = {
@@ -405,6 +490,123 @@ const EN_TEXT: Record<string, string> = {
   "✅ 批准计划并开始执行": "✅ Approve plan and start",
   "✏️ 继续修改计划": "✏️ Keep editing the plan",
   "⚠️ 还有问题未回答,请作答或点击跳过本题": "⚠️ Some questions are unanswered; answer or skip them",
+  // ---- 头部按钮与图片附件 ----
+  "工作区(分组 / 搜索 / 归档)": "Workspaces (groups / search / archive)",
+  "后台任务": "Background jobs",
+  "轨迹(事件台账)": "Trajectory (event ledger)",
+  "设置(常规 / 模型 / 预设)": "Settings (general / models / presets)",
+  "🖼️ 添加图片": "🖼️ Add image",
+  // ---- 排队消息 ----
+  "⏳ 排队中(运行结束后自动发送)": "⏳ Queued (sent automatically when the run finishes)",
+  "编辑": "Edit",
+  "插队": "Steer now",
+  "移除": "Remove",
+  "编辑排队消息": "Edit queued message",
+  "修改后立即生效": "Applies immediately",
+  // ---- 目标创建 ----
+  "🎯 设置目标": "🎯 Set goal",
+  "创建一个长期目标(agent 自动多轮推进直至完成)": "Create a long-running goal (the agent keeps pushing until done)",
+  "目标描述(agent 将自动多轮推进直至完成):": "Goal description (the agent auto-advances rounds until done):",
+  "最大轮数(留空不限制):": "Max rounds (leave empty for unlimited):",
+  "创建": "Create",
+  // ---- 工作区面板 ----
+  "关闭": "Close",
+  "等待审批": "Waiting for approval",
+  "计划待审": "Plan awaiting review",
+  "等待回答": "Waiting for answer",
+  "📁 工作区": "📁 Workspaces",
+  "搜索会话(标题 / 内容)…": "Search sessions (title / content)…",
+  "＋ 添加工作区": "＋ Add workspace",
+  "选择现有文件夹作为工作区": "Pick an existing folder as a workspace",
+  "搜索中…": "Searching…",
+  "没有匹配的会话": "No matching sessions",
+  "搜索失败": "Search failed",
+  "上移工作区": "Move workspace up",
+  "下移工作区": "Move workspace down",
+  "重命名工作区": "Rename workspace",
+  "新标题(仅显示名,不影响目录)": "New title (display only; the directory is untouched)",
+  "移除工作区(会话保留为未分组)": "Remove workspace (sessions become ungrouped)",
+  "移除工作区": "Remove workspace",
+  "确定移除工作区": "Remove workspace",
+  "目录与会话日志都保留,会话变为未分组。": "The directory and session logs are kept; sessions become ungrouped.",
+  "未分组": "Ungrouped",
+  "🗄️ 已归档": "🗄️ Archived",
+  "打开": "Open",
+  "归档会话仍保留在服务器,可继续查看": "Archived sessions stay on the server and can still be opened",
+  "在组内上移": "Move up in group",
+  "在组内下移": "Move down in group",
+  // ---- 任务面板 ----
+  "⚙️ 后台任务": "⚙️ Background jobs",
+  "当前会话没有后台任务。agent 启动的 bash/pwsh/子代理等任务会出现在这里。": "No background jobs for this session. Bash/pwsh/subagent jobs started by the agent appear here.",
+  "提示:后台任务的启动与终止由 agent 的 job 工具完成;若需终止,可让 agent 执行 job_kill。": "Note: background jobs are started/stopped by the agent's job tools; ask the agent to run job_kill to stop one.",
+  // ---- 轨迹面板 ----
+  "🧭 事件轨迹": "🧭 Event trajectory",
+  "筛选事件类型(如 tool/call)…": "Filter by event type (e.g. tool/call)…",
+  "(空)没有匹配的事件。轨迹来自当前会话的已加载历史。": "(empty) No matching events. The trajectory covers the loaded history of the current session.",
+  "事件序号(seq)": "Event sequence (seq)",
+  "点击展开完整 JSON": "Click to expand the full JSON",
+  // ---- 设置面板 ----
+  "⚙️ 设置": "⚙️ Settings",
+  "常规": "General",
+  "模型与供应商": "Models & providers",
+  "加载设置中…": "Loading settings…",
+  "⚠️ 设置存储为只读,表单仅可查看。": "⚠️ The settings store is read-only; the form is view-only.",
+  "没有可配置的常规设置项。": "No configurable general settings.",
+  "供应商路由": "Provider routes",
+  "加载供应商目录中…": "Loading provider directory…",
+  "已注册(可请求)": "Registered (requestable)",
+  "未激活(配置后可用)": "Inactive (usable once configured)",
+  "模型目录": "Model catalog",
+  "发现模型(探测端点)": "Discover models (probe endpoint)",
+  "适配器(namespace)": "Adapter (namespace)",
+  "路由名(可选)": "Route name (optional)",
+  "API 端点": "API endpoint",
+  "API Key(临时,不保存)": "API key (temporary, never stored)",
+  "🔍 发现模型": "🔍 Discover models",
+  "询问端点可用的模型,不写入任何设置": "Ask the endpoint which models it serves; nothing is written",
+  "探测中…": "Probing…",
+  "探测失败": "Discovery failed",
+  "需重启": "restart required",
+  "清除": "Clear",
+  "从凭据存储删除该密钥": "Delete this secret from credential storage",
+  "该变体无可用字段,使用 JSON 编辑器:": "This variant has no form fields; use the JSON editor:",
+  "💾 保存": "💾 Save",
+  "仅提交修改过的字段": "Only changed fields are submitted",
+  "↺ 重置命名空间": "↺ Reset namespace",
+  "清空该命名空间的用户层设置,恢复默认": "Clear this namespace's user layer and restore defaults",
+  "重置命名空间": "Reset namespace",
+  "确定清除": "Reset",
+  "的全部自定义设置并恢复默认值?": " custom settings and restore defaults?",
+  "部署未组合任何 Agent 预设,所有会话共享宿主组合。": "This deployment composes no agent presets; every session shares the host composition.",
+  "默认": "default",
+  "用户预设": "user preset",
+  "查看组合文本": "View composition text",
+  "复制为新预设(本地作者)": "Copy as a new preset (local authoring)",
+  "新预设 id(小写字母数字与连字符)": "New preset id (lowercase letters, digits, hyphens)",
+  "复制预设": "Copy preset",
+  "显示名(可留空)": "Display name (optional)",
+  "打开预设目录": "Open preset directory",
+  "删除预设": "Delete preset",
+  "确定删除预设": "Delete preset",
+  "提示:预设组合文本是唯一编辑器。复制后通过\"打开预设目录\"在 VS Code 中编辑 cordis.yml;新会话创建时可选自定义预设。": "Note: the composition text is the only editor. Copy a preset, then \"Open preset directory\" to edit cordis.yml in VS Code; custom presets are selectable for new sessions.",
+  "读取预设失败": "Failed to read preset",
+  "未知错误": "Unknown error",
+  "组合": "Composition",
+  "读取设置失败": "Failed to read settings",
+  "保存失败": "Save failed",
+  "读取模型信息失败": "Failed to read model info",
+  // ---- 子代理面板 ----
+  "🤖 子代理": "🤖 Subagent",
+  "⏹ 打断": "⏹ Interrupt",
+  "终止该子代理当前回合": "Interrupt this subagent's current turn",
+  "向子代理发送消息(仅 continuable)…": "Message the subagent (continuable only)…",
+  "发送": "Send",
+  "Enter 发送": "Enter to send",
+  "加载子代理记录中…": "Loading subagent transcript…",
+  "执行中…": "Running…",
+  "加载更早的记录": "Load earlier records",
+  "向前翻页": "Page back",
+  "读取子代理记录失败": "Failed to read subagent transcript",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -422,8 +624,10 @@ function t(zh: string, params?: Record<string, string | number>): string {
 
 const root = el("div", "app-root");
 
-// 头部:会话切换 + 操作
+// 头部(两行):第一行 = 会话下拉 + 会话操作(⋯)+ 新建会话;第二行 = 工具面板按钮 + 状态
 const header = el("div", "header");
+const headerSessionRow = el("div", "header-row header-session-row");
+const headerToolRow = el("div", "header-row header-tool-row");
 const sessionSelectWrap = el("div", "session-select-wrap");
 const sessionSelect = el("select", "session-select");
 const btnNew = el("button", "btn btn-icon");
@@ -432,22 +636,42 @@ btnNew.append(lineIcon(ICONS.plus));
 const btnMore = el("button", "btn btn-icon");
 btnMore.title = t("会话操作:分叉 / 重命名 / 归档");
 btnMore.append(lineIcon(ICONS.more));
+const btnWorkspaces = el("button", "btn btn-icon");
+btnWorkspaces.title = t("工作区(分组 / 搜索 / 归档)");
+btnWorkspaces.append(lineIcon(ICONS.box, 15));
+const btnJobs = el("button", "btn btn-icon");
+btnJobs.title = t("后台任务");
+btnJobs.append(lineIcon(ICONS.list, 15));
+const btnTrajectory = el("button", "btn btn-icon");
+btnTrajectory.title = t("轨迹(事件台账)");
+btnTrajectory.append(lineIcon(ICONS.ledger, 15));
+const btnSettings = el("button", "btn btn-icon");
+btnSettings.title = t("设置(常规 / 模型 / 预设)");
+btnSettings.append(lineIcon(ICONS.gear, 15));
 const btnBrowser = el("button", "btn btn-icon");
 btnBrowser.title = t("在浏览器中打开");
 btnBrowser.append(lineIcon(ICONS.globe));
 const statusDot = el("span", "status-dot");
 const statusText = el("span", "status-text", "未连接");
 sessionSelectWrap.append(sessionSelect);
-header.append(sessionSelectWrap, btnMore, btnNew, btnBrowser, statusDot, statusText);
 
-// 会话操作菜单
+// 会话操作菜单(挂在 ⋯ 按钮的锚点上,随按钮位置展开)
 const sessionMenu = el("div", "session-menu");
 sessionMenu.hidden = true;
 const menuRename = el("button", "session-menu-item", t("✏️ 重命名会话"));
 const menuFork = el("button", "session-menu-item", t("🔀 分叉会话"));
 const menuArchive = el("button", "session-menu-item", t("🗄️ 归档会话"));
 sessionMenu.append(menuRename, menuFork, menuArchive);
-header.append(sessionMenu);
+const moreAnchor = el("div", "session-menu-anchor");
+moreAnchor.append(btnMore, sessionMenu);
+
+headerSessionRow.append(sessionSelectWrap, moreAnchor, btnNew);
+const toolLeft = el("div", "header-tools");
+toolLeft.append(btnWorkspaces, btnJobs, btnTrajectory, btnSettings);
+const toolRight = el("div", "header-tools header-tools-right");
+toolRight.append(btnBrowser, statusDot, statusText);
+headerToolRow.append(toolLeft, toolRight);
+header.append(headerSessionRow, headerToolRow);
 
 // 通用对话框(重命名输入 / 归档确认)
 const dialogOverlay = el("div", "dialog-overlay");
@@ -524,6 +748,10 @@ const composer = el("div", "composer");
 // 附件行:左上角 + 添加文件按钮 + 附件芯片(自动附加激活文件 / 手动选择)
 const attachmentsRow = el("div", "attachments-row");
 
+// 图片附件行(官方 image 内容块,独立于文本附件)
+const imagesRow = el("div", "images-row");
+imagesRow.hidden = true;
+
 function toolSelect(label: string, title: string): { wrap: HTMLElement; select: HTMLSelectElement } {
   const wrap = el("label", "tool-item");
   wrap.title = title;
@@ -585,7 +813,7 @@ composerBottom.append(btnPlus, permissionTool.wrap, composerRight, hint);
 const composerTop = el("div", "composer-top");
 attachmentsRow.append(btnAddAttach);
 composerTop.append(attachmentsRow, presetTool.wrap);
-composer.append(composerTop, inputWrap, composerBottom);
+composer.append(imagesRow, composerTop, inputWrap, composerBottom);
 
 // 添加文件/文件夹选择菜单(挂在 composer 内)
 const attachMenu = el("div", "plus-menu attach-menu");
@@ -614,7 +842,7 @@ input.addEventListener("keydown", (e) => {
   }
 });
 btnSendStop.addEventListener("click", () => {
-  const hasText = input.value.trim().length > 0;
+  const hasText = input.value.trim().length > 0 || state.images.length > 0;
   if (state.running && !hasText) {
     vscode.postMessage({ kind: "stop" });
     return;
@@ -624,16 +852,17 @@ btnSendStop.addEventListener("click", () => {
 btnAddAttach.addEventListener("click", (e) => {
   e.stopPropagation();
   attachMenu.innerHTML = "";
-  const item = (label: string, mode: "file" | "folder") => {
+  const item = (label: string, mode: "file" | "folder" | "image") => {
     const b = el("button", "plus-menu-item", label);
     b.addEventListener("click", () => {
       attachMenu.hidden = true;
-      vscode.postMessage({ kind: "pickAttachments", mode });
+      vscode.postMessage({ kind: mode === "image" ? "pickImages" : "pickAttachments", mode });
     });
     attachMenu.append(b);
   };
   item(t("📄 添加文件"), "file");
   item(t("📁 添加文件夹"), "folder");
+  item(t("🖼️ 添加图片"), "image");
   attachMenu.hidden = !attachMenu.hidden;
 });
 document.addEventListener("click", (e) => {
@@ -641,6 +870,10 @@ document.addEventListener("click", (e) => {
 });
 btnNew.addEventListener("click", () => vscode.postMessage({ kind: "new" }));
 btnBrowser.addEventListener("click", () => vscode.postMessage({ kind: "openBrowser" }));
+btnWorkspaces.addEventListener("click", () => panels.openWorkspaces());
+btnJobs.addEventListener("click", () => panels.openJobs());
+btnTrajectory.addEventListener("click", () => panels.openTrajectory(state.rawEvents));
+btnSettings.addEventListener("click", () => panels.openSettings());
 sessionSelect.addEventListener("change", () => {
   const id = sessionSelect.value;
   if (id) vscode.postMessage({ kind: "select", sessionId: id });
@@ -850,6 +1083,18 @@ function renderNode(node: NodeState): HTMLElement {
       const body = el("div", "msg-body");
       setHtml(body, node.text ?? "");
       wrap.append(body);
+      if (node.images && node.images.length > 0) {
+        const imgRow = el("div", "msg-images");
+        for (const img of node.images) {
+          const frame = el("div", "msg-image-frame");
+          const placeholder = el("div", "msg-image-placeholder", "🖼️ …");
+          frame.dataset.attachmentId = img.attachmentId;
+          frame.append(placeholder);
+          imgRow.append(frame);
+          vscode.postMessage({ kind: "attachmentRead", attachmentId: img.attachmentId, messageId: node.key });
+        }
+        wrap.append(imgRow);
+      }
       return wrap;
     }
     case "note": {
@@ -883,6 +1128,30 @@ function renderNode(node: NodeState): HTMLElement {
     }
     case "queued": {
       const wrap = el("div", "msg msg-queued");
+      const head = el("div", "msg-queued-head");
+      head.append(el("span", "msg-queued-badge", t("⏳ 排队中(运行结束后自动发送)")));
+      const actions = el("span", "msg-queued-actions");
+      const itemId = node.key.startsWith("q:") ? node.key.slice(2) : "";
+      const mkBtn = (label: string, fn: () => void) => {
+        const b = el("button", "mini-btn", label);
+        b.addEventListener("click", fn);
+        actions.append(b);
+      };
+      mkBtn(t("编辑"), () => {
+        void showDialog({ title: t("编辑排队消息"), text: t("修改后立即生效"), input: true, value: node.text ?? "" }).then((v) => {
+          if (v && itemId && state.current) {
+            vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "edit", content: [{ type: "text", text: v }] } });
+          }
+        });
+      });
+      mkBtn(t("插队"), () => {
+        if (itemId && state.current) vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "steer" } });
+      });
+      mkBtn(t("移除"), () => {
+        if (itemId && state.current) vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "remove" } });
+      });
+      head.append(actions);
+      wrap.append(head);
       const body = el("div", "msg-body");
       setHtml(body, node.text ?? "");
       wrap.append(body);
@@ -1144,10 +1413,10 @@ function handleEvent(wire: WireEvent) {
   const ev = wire.event;
   if (state.seqs.has(ev.seq)) return;
   state.seqs.add(ev.seq);
+  state.rawEvents.push(wire);
   const data = ev.data ?? {};
 
-  switch (ev.type) {
-    case "user/message": {
+  switch (ev.type) {    case "user/message": {
       const text = extractText(data?.content);
       const id: string | undefined = data?.id;
       if (id && state.queuedIds.has(id)) {
@@ -1155,17 +1424,21 @@ function handleEvent(wire: WireEvent) {
         state.queuedIds.delete(id);
         removeNode(queued);
       }
-      if (!text && !id) break;
+      // 图片内容块(官方 image 附件通道)
+      const images: { attachmentId: string; mediaType?: string }[] = (data?.message?.content ?? data?.content ?? [])
+        .filter((b: any) => b?.type === "image" && b?.attachment?.attachmentId)
+        .map((b: any) => ({ attachmentId: b.attachment.attachmentId, mediaType: b.attachment.mediaType }));
+      if (!text && !id && images.length === 0) break;
       if (data?.source?.kind === "user") {
         const split = splitAttachmentContext(text);
         if (split.attachContext) {
           appendNode({ kind: "attach", key: `at:${ev.seq}`, el: null, text: split.attachContext });
         }
-        if (isSlashCommandOnly(split.userText)) {
+        if (isSlashCommandOnly(split.userText) && images.length === 0) {
           // 纯斜杠命令(权限切换/计划模式等):不显示为用户气泡,以小字命令行呈现
           appendNode({ kind: "note", key: `cmd:${ev.seq}`, el: null, text: `⌘ ${split.userText.trim()}`, cmd: true });
         } else {
-          appendNode({ kind: "user", key: `u:${ev.seq}`, el: null, text: split.userText });
+          appendNode({ kind: "user", key: `u:${ev.seq}`, el: null, text: split.userText, ...(images.length ? { images } : {}) });
         }
       } else if (text) appendNode({ kind: "note", key: `n:${ev.seq}`, el: null, text });
       break;
@@ -1545,7 +1818,41 @@ function renderModeChips() {
       });
     });
     modeChips.append(chip);
+  } else if (!inner) {
+    // 无目标:提供"设置目标"入口(goal.create,网页端同等操作)
+    const chip = el("span", "mode-chip goal-chip", "🎯 设置目标");
+    chip.title = t("创建一个长期目标(agent 自动多轮推进直至完成)");
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void createGoalDialog();
+    });
+    modeChips.append(chip);
   }
+}
+
+/** 创建目标的对话框(goal.create)。 */
+async function createGoalDialog() {
+  const objective = await showDialog({
+    title: t("设置目标"),
+    text: t("目标描述(agent 将自动多轮推进直至完成):"),
+    input: true,
+    confirmLabel: t("创建"),
+  });
+  if (!objective || !objective.trim()) return;
+  const rounds = await showDialog({
+    title: t("设置目标"),
+    text: t("最大轮数(留空不限制):"),
+    input: true,
+    confirmLabel: t("创建"),
+    value: "20",
+  });
+  if (rounds === null) return;
+  const n = rounds.trim() === "" ? undefined : Number.parseInt(rounds, 10);
+  vscode.postMessage({
+    kind: "goalCreate",
+    objective: objective.trim(),
+    ...(n !== undefined && Number.isFinite(n) && n > 0 ? { maxGoalRounds: n } : {}),
+  });
 }
 
 // ---------- goal 进度 ----------
@@ -1627,7 +1934,15 @@ function renderSessions() {
   empty.value = "";
   sessionSelect.append(empty);
   for (const s of state.sessions) {
-    const option = el("option", undefined, s.title || sessionLabel(s));
+    const pendingMark = s.pending
+      ? s.pending.kind === "approval"
+        ? "🛡️ "
+        : s.pending.kind === "plan-review"
+          ? "📋 "
+          : "❓ "
+      : "";
+    const runningMark = !s.pending && s.running ? "⏳ " : "";
+    const option = el("option", undefined, `${pendingMark}${runningMark}${s.title || sessionLabel(s)}`);
     option.value = s.sessionId;
     if (s.sessionId === current) option.selected = true;
     sessionSelect.append(option);
@@ -1894,6 +2209,41 @@ function syncActiveFileAttachment() {
   renderAttachments();
 }
 
+// ---------- 图片附件(官方 image 内容块) ----------
+
+function renderImageChips() {
+  imagesRow.innerHTML = "";
+  for (const img of state.images) {
+    const chip = el("span", "attachment-chip image-chip");
+    chip.title = img.name;
+    chip.append(lineIcon(ICONS.image, 12));
+    chip.append(el("span", "attachment-label", img.name));
+    const close = el("button", "chip-close", "×");
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.images = state.images.filter((x) => x !== img);
+      renderImageChips();
+    });
+    chip.append(close);
+    imagesRow.append(chip);
+  }
+  imagesRow.hidden = state.images.length === 0;
+}
+
+function applyAttachmentData(msg: { attachmentId: string; data?: string; mediaType?: string; error?: string }) {
+  const frame = document.querySelector<HTMLElement>(`.msg-image-frame[data-attachment-id="${msg.attachmentId}"]`);
+  if (!frame) return;
+  frame.innerHTML = "";
+  if (msg.error || !msg.data) {
+    frame.append(el("span", "msg-image-error", `⚠️ ${msg.error ?? "加载失败"}`));
+    return;
+  }
+  const img = el("img", "msg-image");
+  img.src = `data:${msg.mediaType ?? "image/png"};base64,${msg.data}`;
+  img.alt = "image";
+  frame.append(img);
+}
+
 // ---------- 子代理芯片 ----------
 
 function renderSubagentChips() {
@@ -1906,10 +2256,10 @@ function renderSubagentChips() {
     const running = entry.activity === "running";
     const chip = el("span", "mode-chip subagent-chip" + (running ? " running-chip" : ""));
     chip.append(el("span", undefined, `${running ? "⏳" : "🤖"} ${label}`));
-    chip.title = `子代理 ${label}(${running ? "运行中" : "已结束"}) · 点击查看最近回复`;
+    chip.title = `子代理 ${label}(${running ? "运行中" : "已结束"}) · 点击打开对话(可追问 / 打断)`;
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
-      vscode.postMessage({ kind: "subagentPreview", childId: entry.id, mode: entry.mode });
+      panels.openSubagent(entry.id, entry.mode === "one-shot" ? "one-shot" : "continuable", label);
     });
     conversationBottom.append(chip);
   }
@@ -1971,7 +2321,7 @@ function updateRunning() {
 
 /** 发送/停止合一按钮 + 提示语状态。 */
 function updateSendButton() {
-  const hasText = input.value.trim().length > 0;
+  const hasText = input.value.trim().length > 0 || state.images.length > 0;
   btnSendStop.innerHTML = "";
   if (state.running && !hasText) {
     btnSendStop.append(lineIcon(ICONS.stop, 15));
@@ -2188,6 +2538,31 @@ function parseRecommendedLabel(label: string): { base: string; recommended: bool
   return { base: label.slice(0, m.index).trim() || label, recommended: true };
 }
 
+/** 应用 session/queue 权威快照:重建排队节点。 */
+function applyQueueItems(items: { id: string; placement: string; message?: { content?: unknown[] } }[]) {
+  for (const n of [...state.nodes]) {
+    if (n.kind === "queued") removeNode(n);
+  }
+  state.queuedIds = new Map();
+  for (const item of items) {
+    if (item.placement !== "queued") continue;
+    const id: string = item.id;
+    const text = extractText(item.message?.content);
+    const split = splitAttachmentContext(text);
+    if (split.attachContext) {
+      appendNode({ kind: "attach", key: `qat:${id}`, el: null, text: split.attachContext });
+    }
+    const node: NodeState = {
+      kind: "queued",
+      key: `q:${id}`,
+      el: null,
+      text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
+    };
+    state.queuedIds.set(id, node);
+    appendNode(node);
+  }
+}
+
 // ---------- 消息处理 ----------
 
 function handleMessage(msg: any) {
@@ -2214,6 +2589,12 @@ function handleMessage(msg: any) {
       state.lang = msg.lang ?? "zh-cn";
       state.models = null;
       state.presets = null;
+      state.workspaces = msg.workspaces ?? [];
+      state.workspaceOrder = msg.workspaceOrder ?? [];
+      state.archivedSessionIds = msg.archivedSessionIds ?? [];
+      state.jobs = msg.jobs ?? [];
+      state.rawEvents = [];
+      state.settingsDescribe = null;
       state.turnStarts = [];
       state.planMode = false;
       state.stepStarts = new Map();
@@ -2222,6 +2603,7 @@ function handleMessage(msg: any) {
       state.turnToolGroup = null;
       messages.innerHTML = "";
       for (const wire of msg.events ?? []) handleEvent(wire);
+      applyQueueItems(msg.queue ?? []);
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
@@ -2310,6 +2692,7 @@ function handleMessage(msg: any) {
       state.sessions = msg.sessions ?? [];
       renderSessions();
       renderPresetSelect();
+      panels.updateWorkspaces();
       break;
     }
     case "running": {
@@ -2335,6 +2718,7 @@ function handleMessage(msg: any) {
     case "presets": {
       state.presets = msg.value?.presets ?? [];
       renderPresetSelect();
+      panels.refreshSettings();
       break;
     }
     case "goal": {
@@ -2388,29 +2772,14 @@ function handleMessage(msg: any) {
       break;
     }
     case "queue": {
-      for (const item of msg.items ?? []) {
-        if (item.placement !== "queued") continue;
-        const id: string = item.id;
-        if (state.queuedIds.has(id)) continue;
-        const text = extractText(item.message?.content);
-        const split = splitAttachmentContext(text);
-        if (split.attachContext) {
-          appendNode({ kind: "attach", key: `qat:${id}`, el: null, text: split.attachContext });
-        }
-        const node: NodeState = {
-          kind: "queued",
-          key: `q:${id}`,
-          el: null,
-          text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
-        };
-        state.queuedIds.set(id, node);
-        appendNode(node);
-      }
+      // 权威快照:重建排队节点(含编辑 / 移除 / 插队后的收敛)
+      applyQueueItems(msg.items ?? []);
       break;
     }
     case "historyMore": {
       const events = msg.events ?? [];
       state.seqs = new Set();
+      state.rawEvents = [];
       messages.innerHTML = "";
       state.nodes = [];
       for (const wire of events) handleEvent(wire);
@@ -2418,6 +2787,58 @@ function handleMessage(msg: any) {
       renderLoadMoreButton();
       break;
     }
+    // ---------- 新增:工作区 / 任务 / 搜索 / 设置 / 子代理 / 图片 ----------
+    case "workspaces": {
+      state.workspaces = msg.workspaces?.workspaces ?? [];
+      state.workspaceOrder = msg.workspaces?.workspaceOrder ?? [];
+      state.archivedSessionIds = msg.workspaces?.archivedSessionIds ?? [];
+      panels.updateWorkspaces();
+      break;
+    }
+    case "jobs": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      state.jobs = msg.jobs ?? [];
+      panels.updateJobs();
+      break;
+    }
+    case "searchResults":
+      panels.renderSearchResults(msg);
+      break;
+    case "settingsDescribe":
+      panels.updateSettingsDescribe(msg);
+      break;
+    case "settingsSaved":
+      panels.settingsSaved(msg);
+      break;
+    case "credentialChanged":
+      panels.credentialChanged(msg);
+      break;
+    case "llmInfo":
+      panels.llmInfoResult(msg);
+      break;
+    case "discoveredModels":
+      panels.discoveredModelsResult(msg);
+      break;
+    case "presetRead":
+      panels.renderPresetReadResult(msg);
+      break;
+    case "presetFolderOpened":
+      panels.presetFolderOpened(msg);
+      break;
+    case "subagentOpen":
+      panels.subagentOpenResult(msg);
+      break;
+    case "imagesPicked": {
+      for (const img of msg.images ?? []) {
+        if (state.images.length >= 8) break;
+        state.images.push({ data: img.data, mediaType: img.mediaType ?? "image/png", name: img.name ?? "image" });
+      }
+      renderImageChips();
+      break;
+    }
+    case "attachmentData":
+      applyAttachmentData(msg);
+      break;
     case "status": {
       updateStatus(msg.status ?? state.status);
       break;
@@ -2443,7 +2864,8 @@ function handleMessage(msg: any) {
 
 function sendCurrent() {
   const text = input.value.trim();
-  if (!text) return;
+  const images = state.images.slice();
+  if (!text && images.length === 0) return;
   if (!state.current) {
     appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: "⚠️ 尚未选择会话,点击 ＋ 新建一个会话" });
     return;
@@ -2451,8 +2873,11 @@ function sendCurrent() {
   vscode.postMessage({
     kind: "send",
     text,
+    images,
     attachments: state.attachments.map(({ kind, path }) => ({ kind, path })),
   });
+  state.images = [];
+  renderImageChips();
   input.value = "";
   autoResize();
   updateSendButton();
