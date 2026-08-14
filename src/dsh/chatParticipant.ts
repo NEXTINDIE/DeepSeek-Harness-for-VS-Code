@@ -34,6 +34,11 @@ const MAX_REASONING_CHARS = 4000;
 const MAX_ARGS_CHARS = 1200;
 const MAX_RESULT_CHARS = 2000;
 
+/** 去除文本中的 emoji(与聊天面板一致,保持全界面无 emoji)。 */
+function clean(text: string): string {
+  return text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{2712}\u{2714}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{23E9}-\u{23FA}\u{2139}\u{2B06}\u{2B07}\u{25B6}\u{25C0}]/gu, "");
+}
+
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max) + `\n…(已截断,共 ${text.length} 字符)`;
@@ -61,7 +66,7 @@ function reasoningToMarkdown(text: string): string {
     .split("\n")
     .map((line) => (line.length > 0 ? `> ${line}` : ">"))
     .join("\n");
-  return `> 💭 思考过程\n${body}`;
+  return `> 思考过程\n${body}`;
 }
 
 interface ChunkInfo {
@@ -97,13 +102,13 @@ class StreamFollower {
       if (approval.sessionId !== this.sessionId) return;
       this.flushAll();
       const reason = approval.reason ? `\n\n> ${truncate(approval.reason, 300)}` : "";
-      this.stream.markdown(`⏸️ **等待审批:调用工具 \`${approval.toolName}\`**${reason}`);
-      this.addButton("✅ 允许", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "allowed-once" });
-      this.addButton("❌ 拒绝", "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "rejected" });
+      this.stream.markdown(`**等待审批:调用工具 \`${clean(approval.toolName)}\`**${reason}`);
+      this.addButton(t("允许"), "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "allowed-once" });
+      this.addButton(t("拒绝"), "dsh.respond", { sessionId: this.sessionId, approvalId: approval.approvalId, outcome: "rejected" });
     };
     const onApprovalResolved = (approvalId: string, outcome: string) => {
-      if (outcome === "allowed-once") this.stream.markdown("✅ 已允许");
-      else this.stream.markdown("❌ 已拒绝");
+      if (outcome === "allowed-once") this.stream.markdown(t("已允许"));
+      else this.stream.markdown(t("已拒绝"));
     };
     const onQuestion = (q: { sessionId: string; frameRpcId: string; questions: { id: string; question: string; detail?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean }[] }) => {
       if (q.sessionId !== this.sessionId) return;
@@ -113,10 +118,10 @@ class StreamFollower {
         const options = item.options?.map((o) => `- ${o.label}`).join("\n") ?? "";
         return `**${item.question}**${detail}${options ? `\n\n${options}` : ""}`;
       });
-      this.stream.markdown(`❓ ${parts.join("\n\n")}`);
+      this.stream.markdown(parts.join("\n\n"));
       for (const item of q.questions) {
         if (item.multiSelect) {
-          this.stream.markdown("*(多选提问请到 DSH 聊天面板中回答)*");
+          this.stream.markdown(t("*(多选提问请到 DSH 聊天面板中回答)*"));
           continue;
         }
         for (const option of item.options ?? []) {
@@ -128,7 +133,7 @@ class StreamFollower {
         }
       }
       if (q.questions.every((item) => !item.options?.length)) {
-        this.stream.markdown("*(该提问无可选项,请到 DSH 聊天面板中回答)*");
+        this.stream.markdown(t("*(该提问无可选项,请到 DSH 聊天面板中回答)*"));
       }
     };
     this.unsubs.push(
@@ -201,7 +206,7 @@ class StreamFollower {
           this.curBlock = "text";
         }
         if (typeof chunk.text === "string") {
-          this.textBuf += chunk.text;
+          this.textBuf += clean(chunk.text);
           this.scheduleFlush();
         }
         break;
@@ -210,7 +215,7 @@ class StreamFollower {
           this.flushCurrentBlock(true);
           this.curBlock = "reasoning";
         }
-        if (typeof chunk.text === "string") this.reasoningBuf += chunk.text;
+        if (typeof chunk.text === "string") this.reasoningBuf += clean(chunk.text);
         break;
       default:
         break;
@@ -242,13 +247,13 @@ class StreamFollower {
         this.flushAll();
         const name: string = event.data?.name ?? "unknown";
         const args = prettyArgs(event.data?.arguments ?? "");
-        this.stream.markdown(`**🔧 调用工具 \`${name}\`**\n\n\`\`\`json\n${truncate(args, MAX_ARGS_CHARS)}\n\`\`\``);
+        this.stream.markdown(`**调用工具 \`${clean(name)}\`**\n\n\`\`\`json\n${truncate(args, MAX_ARGS_CHARS)}\n\`\`\``);
         break;
       }
       case "tool/result": {
         this.flushAll();
         const text = extractToolResultText(event.data);
-        if (text) this.stream.markdown(`**↩︎ 工具结果**\n\n\`\`\`\n${truncate(text, MAX_RESULT_CHARS)}\n\`\`\``);
+        if (text) this.stream.markdown(`**工具结果**\n\n\`\`\`\n${clean(truncate(text, MAX_RESULT_CHARS))}\n\`\`\``);
         break;
       }
       case "step/start": {
@@ -381,7 +386,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
     },
   );
 
-  participant.iconPath = vscode.Uri.joinPath(ctx.extensionUri, "media", "icon.png");
+  participant.iconPath = vscode.Uri.joinPath(ctx.extensionUri, "media", "icon.svg");
   participant.followupProvider = {
     provideFollowups(
       _result: ChatResultLike,
@@ -390,7 +395,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
     ): { prompt: string; label?: string; commandId?: string; title?: string }[] {
       return [
         { prompt: t("followup.continue"), label: t("followup.continue") },
-        { commandId: "dsh.new", title: t("followup.newSession"), prompt: "/new" },
+        { commandId: "dsh.newChat", title: t("followup.newSession"), prompt: "/new" },
       ];
     },
   };
@@ -400,9 +405,9 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
   const registerCommand = (chat as any).registerChatCommand?.bind(chat);
   if (typeof registerCommand === "function") {
     try {
-      disposables.push(registerCommand("dsh", "new", () => ({ title: "新建会话" })));
-      disposables.push(registerCommand("dsh", "session", () => ({ title: "切换到指定会话" })));
-      disposables.push(registerCommand("dsh", "preset", () => ({ title: "设置下一个会话的预设" })));
+      disposables.push(registerCommand("dsh", "new", () => ({ title: t("新建会话") })));
+      disposables.push(registerCommand("dsh", "session", () => ({ title: t("切换到指定会话") })));
+      disposables.push(registerCommand("dsh", "preset", () => ({ title: t("设置下一个会话的预设") })));
     } catch {
       // 旧版本不支持斜杠命令时静默降级
     }

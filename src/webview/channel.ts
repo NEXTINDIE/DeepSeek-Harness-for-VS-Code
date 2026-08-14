@@ -68,7 +68,16 @@ export class ChatChannel {
       ],
     };
     sink.webview.html = this.html(sink.webview);
-    sink.webview.onDidReceiveMessage((msg) => void this.onMessage(msg), undefined, this.disposables);
+    sink.webview.onDidReceiveMessage(
+      (msg) => {
+        void this.onMessage(msg).catch((error) => {
+          // 统一兜底:个别 case 内部未 try 的异步错误不再成为 unhandled rejection
+          console.error("[dsh] webview message failed:", msg?.kind, error);
+        });
+      },
+      undefined,
+      this.disposables,
+    );
     this.disposables.push(
       sink.onDidDispose(() => {
         this.stopStatsPoll();
@@ -104,12 +113,23 @@ export class ChatChannel {
       },
       {
         dispose: store.on("running", (sid: string, running: boolean) => {
-          if (sid !== this.session()) return;
+          if (sid !== this.session()) {
+            // 其它会话停止时,若轮询正在服务当前会话,一并停止(切换会话后不留定时器)
+            if (!running) this.stopStatsPoll();
+            return;
+          }
           this.post({ kind: "running", sessionId: sid, running });
           if (this.mode === "chat") {
             if (running) this.startStatsPoll();
             else this.stopStatsPoll();
           }
+        }),
+      },
+      {
+        dispose: store.on("agentError", (sid: string, message: string) => {
+          if (sid !== this.session()) return;
+          // agent 出错:running 状态已由 store 同步为 false,这里补一条错误提示
+          this.post({ kind: "notice", message: t("msg.agentError", { message }), level: "error" });
         }),
       },
       {
@@ -156,6 +176,7 @@ export class ChatChannel {
       },
       {
         dispose: store.on("currentChanged", () => {
+          this.syncStatsPoll();
           void this.pushFullState();
         }),
       },
@@ -190,11 +211,29 @@ export class ChatChannel {
   private async ensureAndPush() {
     await this.hub.ensureReady();
     const current = this.session();
-    if (current) void this.hub.updateCurrentModel(current);
+    if (current) {
+      void this.hub.updateCurrentModel(current);
+      // 回填历史(幂等):锁定标签页打开旧会话时本地可能为空,否则界面空白且无加载入口
+      await this.hub.ensureHistory(current);
+    }
     if (this.mode === "list") await this.pushWorkspaces();
     // 推送前强制刷新一次投影,保证统计/上下文等数据最新
     await this.hub.refreshSessions();
     await this.pushFullState();
+    // 轮询对账:标签页打开时目标会话可能已在运行(running 事件已错过),按当前态补启
+    this.syncStatsPoll();
+  }
+
+  /** 按当前会话运行态对账轮询(解决"运行中打开标签不轮询/切会话后定时器不停止")。 */
+  private syncStatsPoll() {
+    if (this.mode !== "chat") {
+      this.stopStatsPoll();
+      return;
+    }
+    const current = this.session();
+    const running = current ? (this.hub.store.sessions.get(current)?.running ?? false) : false;
+    if (running) this.startStatsPoll();
+    else this.stopStatsPoll();
   }
 
   /** 统计轮询:会话运行期间每 5 秒刷新 session.list 投影,统计行实时更新(与 Web 端一致)。 */
@@ -312,7 +351,7 @@ export class ChatChannel {
             canSelectFiles: mode !== "folder",
             canSelectFolders: mode !== "file",
             canSelectMany: true,
-            openLabel: mode === "folder" ? "添加文件夹" : mode === "file" ? "添加文件" : "添加到对话",
+            openLabel: mode === "folder" ? t("添加文件夹") : mode === "file" ? t("添加文件") : t("添加到对话"),
             defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
           });
           if (!picked || picked.length === 0) break;
@@ -645,7 +684,7 @@ export class ChatChannel {
         this.post({ kind: "status", status: { ...this.hub.status, serverStarting: true } });
         const result = await this.hub.ensureReady();
         if (!result.ok) {
-          this.post({ kind: "notice", message: result.message ?? "启动失败", level: "error" });
+          this.post({ kind: "notice", message: result.message ?? t("启动失败"), level: "error" });
         }
         await this.pushFullState();
         break;
@@ -717,11 +756,11 @@ export class ChatChannel {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, "dist", "webview", "ui.js"));
     const csp = [
       "default-src 'none'",
-      "img-src ${webview.cspSource} data:",
+      `img-src ${webview.cspSource} data:`,
       "style-src 'unsafe-inline'",
       `script-src 'nonce-${nonce}'`,
-      "worker-src ${webview.cspSource}",
-      "font-src ${webview.cspSource}",
+      `worker-src ${webview.cspSource}`,
+      `font-src ${webview.cspSource}`,
     ].join("; ");
     return `<!DOCTYPE html>
 <html lang="zh-CN">

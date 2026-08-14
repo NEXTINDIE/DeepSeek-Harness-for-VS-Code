@@ -193,16 +193,22 @@ let turnStatusTimer: number | null = null;
 
 const app = document.getElementById("app")!;
 
+/** 去除文本中的 emoji(个人审美:任何来源的文本都不显示 emoji;保留 →、↪、✓ 等排版符号)。 */
+const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{2712}\u{2714}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{23E9}-\u{23FA}\u{2139}\u{2B06}\u{2B07}\u{25B6}\u{25C0}]/gu;
+function clean(text: string): string {
+  return text.replace(EMOJI_RE, "");
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
-  if (text !== undefined) node.textContent = text;
+  if (text !== undefined) node.textContent = clean(text);
   return node;
 }
 
 function markdownHtml(text: string): string {
   try {
-    const raw = marked.parse(text, { async: false, breaks: true }) as string;
+    const raw = marked.parse(clean(text), { async: false, breaks: true }) as string;
     return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
   } catch {
     return "";
@@ -239,10 +245,41 @@ const ICONS = {
   globe: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z|M2 12h20|M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
   send: "M22 2 11 13|M22 2 15 22l-4-9-9-4z",
   stop: "M6 6h12v12H6z",
+
+  // 编辑(铅笔)
+  // 归档(箱子)
+  // 计划/审批(剪贴板)
+  // 目标(靶心)
+  // 完成(对勾)
+  // 删除(垃圾桶)
+  // 警告(三角)
+  // 信息
+  // 附件(回形针)
+  // 向上箭头
+  // 文件
+  // 文件夹
+  // 暂停
+  // 播放
+  // 刷新
+  // 压缩
+  // 对话(气泡)
+  // 网格(插件/技能列表)
+  // 闪电
+  // 学位帽(技能)
+  // 机器人(智能体)
+  // 锁
   // 搜索(放大镜)
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z|M21 21l-4.35-4.35",
   // 分组折叠箭头
   chevron: "M6 9l6 6 6-6",
+  // 任务清单(与 Web 端 todo 面板一致)
+  checklist: "M4 6.5h12.5|M4 12h12.5|M4 17.5h8|M14.5 16l2 2 4-4.5",
+  // 任务完成(圆 + 对勾)
+  todoCheck: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z|M8.4 12.2l2.4 2.4 4.8-5.2",
+  // 任务进行中(圆弧)
+  todoProgress: "M12 3.2a8.8 8.8 0 1 1-7.9 4.9",
+  // 任务待处理(虚线圆,虚线由 CSS stroke-dasharray 提供)
+  todoPending: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -282,13 +319,17 @@ function permissionLabel(value: string, fallback?: string): string {
 const EN_TEXT: Record<string, string> = {
   "向 DeepSeek Harness 发送消息…": "Message DeepSeek Harness…",
   "Enter 发送 · Shift+Enter 换行": "Enter to send · Shift+Enter for newline",
+  "运行中 · Enter 排队 / Ctrl+Enter 插话": "Running · Enter to queue / Ctrl+Enter to steer",
   "运行中 · 消息将排队发送": "Running · message will be queued",
-  "运行中 · ⏹ 停止": "Running · ⏹ stop",
+  "运行中 · 停止": "Running · Stop",
   "新建会话": "New session",
   "会话操作:分叉 / 重命名 / 归档": "Session actions: fork / rename / archive",
   "在浏览器中打开": "Open in browser",
   "— 选择会话 —": "— Select session —",
   "思考深度(推理强度)": "Thinking depth (reasoning effort)",
+  "思考": "Thinking",
+  "预设": "Preset",
+  "权限": "Permission",
   "模型": "Model",
   "Agent 预设": "Agent preset",
   "读写权限(沙箱模式 + 审批策略)": "Read/write permission (sandbox + approval policy)",
@@ -322,19 +363,16 @@ const EN_TEXT: Record<string, string> = {
   "归档会话": "Archive session",
   "归档后该会话将从列表隐藏(仍保留在 DSH 服务器,可在浏览器 GUI 中恢复)。确定归档?": "The session will be hidden from the list (kept on the DSH server, restorable in the browser GUI). Archive it?",
   "归档": "Archive",
-  "✏️ 重命名会话": "✏️ Rename session",
-  "🔀 分叉会话": "🔀 Fork session",
-  "🗄️ 归档会话": "🗄️ Archive session",
-  "📝 计划模式": "📝 Plan mode",
+  "分叉会话": "Fork session",
+  "计划模式": "Plan mode",
   "点击退出计划模式(发送 /plan)": "Click to exit plan mode (sends /plan)",
-  "🎯 目标模式": "🎯 Goal mode",
+  "目标模式": "Goal mode",
   "点击管理目标(修改 / 完成 / 清除)": "Click to manage the goal (edit / complete / clear)",
-  "✏️ 修改目标": "✏️ Edit goal",
+  "修改目标": "Edit goal",
   "修改目标描述(已填入当前目标):": "Edit the goal description (current goal pre-filled):",
   "保存": "Save",
-  "✅ 完成目标": "✅ Complete goal",
-  "🗑️ 清除目标(取消)": "🗑️ Clear goal (cancel)",
-  "计划模式": "Plan mode",
+  "完成目标": "Complete goal",
+  "清除目标(取消)": "Clear goal (cancel)",
   "压缩上下文": "Compact context",
   "设置目标": "Set goal",
   "记录反馈": "Record feedback",
@@ -342,7 +380,7 @@ const EN_TEXT: Record<string, string> = {
   "切换权限(直接应用)": "Switch permission (apply directly)",
   "技能(插入提示词)": "Skills (insert prompt)",
   ".claude 配置": ".claude configuration",
-  "✅ CLAUDE.md · DSH 已自动读取": "✅ CLAUDE.md · auto-loaded by DSH",
+  "CLAUDE.md · DSH 已自动读取": "CLAUDE.md · auto-loaded by DSH",
   "插入 .claude 命令模板": "Insert .claude command template",
   "插入 .claude 技能说明(SKILL.md)": "Insert .claude skill description (SKILL.md)",
   "本轮调用 {n} 个工具": "Called {n} tools this turn",
@@ -356,16 +394,16 @@ const EN_TEXT: Record<string, string> = {
   "{tps} tok/s": "{tps} tok/s",
   "缓存命中 {pct}%": "Cache hit {pct}%",
   "输入 {in} tok · 输出 {out} tok": "Input {in} tok · output {out} tok",
-  "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ No session selected; click ＋ to create one",
-  "⚠️ 当前会话还没有可回退的回合": "⚠️ This session has no turns to rewind",
-  "⚠️ 还没有可选择的回退点": "⚠️ No rewind point available yet",
-  "⚠️ 没有更早的对话点": "⚠️ No earlier conversation point",
-  "📎 附件上下文(已注入模型,点击展开)": "📎 Attachment context (injected into the model, click to expand)",
+  "尚未选择会话,点击 ＋ 新建一个会话": "No session selected; click ＋ to create one",
+  "当前会话还没有可回退的回合": "This session has no turns to rewind",
+  "还没有可选择的回退点": "No rewind point available yet",
+  "没有更早的对话点": "No earlier conversation point",
+  "附件上下文(已注入模型,点击展开)": "Attachment context (injected into the model, click to expand)",
   "激活文件 · ": "Active file · ",
-  "⬆ 加载更早的消息": "⬆ Load earlier messages",
+  "加载更早的消息": "Load earlier messages",
   "选择回退点(在其后开启新分支)": "Pick a rewind point (a new branch starts after it)",
-  "📄 添加文件": "📄 Add file",
-  "📁 添加文件夹": "📁 Add folder",
+  "添加文件": "Add file",
+  "添加文件夹": "Add folder",
   "只读": "Read only",
   "工作区可写": "Workspace write",
   "完全访问(危险)": "Full access (danger)",
@@ -381,29 +419,29 @@ const EN_TEXT: Record<string, string> = {
   "运行中": "running",
   "暂无统计": "No stats yet",
   "已结束": "finished",
-  "ℹ️ 系统提示词": "ℹ️ System note",
+  "系统提示词": "System note",
   "插入 .codex 技能说明(SKILL.md)": "Insert .codex skill description (SKILL.md)",
   "插入 Copilot 工作区指令": "Insert Copilot workspace instructions",
   "插入 Copilot 指令文件": "Insert Copilot instruction file",
   "插入 Copilot 智能体定义": "Insert Copilot agent definition",
   "插入 Copilot 提示词": "Insert Copilot prompt",
-  "✍️ 自定义回答(其他)": "✍️ Custom answer (other)",
+  "自定义回答(其他)": "Custom answer (other)",
   "输入自定义回答…": "Type a custom answer…",
   "提交回答": "Submit answer",
-  "🔧 过程": "🔧 Process",
-  "🎯 目标": "🎯 Goal",
-  "⏸ 暂停目标": "⏸ Pause goal",
-  "▶ 继续目标": "▶ Resume goal",
-  "🗑️ 取消目标": "🗑️ Cancel goal",
-  "修改目标": "Edit goal",
+  "过程": "Process",
+  "目标": "Goal",
   "暂停目标": "Pause goal",
-  "继续目标": "Resume goal",
-  "完成目标": "Complete goal",
+  
   "取消目标": "Cancel goal",
+  "继续目标": "Resume goal",
   "共 {n} 轮": "{n} rounds total",
   "等待推进": "awaiting progression",
   "第 {n} 轮": "round {n}",
-  "☑ 任务 · {a} 进行中 · {b} 待处理": "☑ Tasks · {a} in progress · {b} pending",
+  "任务 · {a} 进行中 · {b} 待处理": "Tasks · {a} in progress · {b} pending",
+  "任务": "To-dos",
+  "{done} 已完成": "{done} completed",
+  "{active} 进行中": "{active} in progress",
+  "{pending} 待处理": "{pending} pending",
   "插件(Cordis)": "Plugins (Cordis)",
   "列出插件状态": "List plugin status",
   "运行插件 <id>": "Run plugin <id>",
@@ -413,11 +451,10 @@ const EN_TEXT: Record<string, string> = {
   "点击管理目标(暂停 / 修改 / 完成 / 取消)": "Manage goal (pause / edit / complete / cancel)",
   "跳过本题": "Skip this question",
   "推荐": "Recommended",
-  "📋 计划审批": "📋 Plan review",
-  "✅ 批准计划并开始执行": "✅ Approve plan and start",
-  "✏️ 继续修改计划": "✏️ Keep editing the plan",
-  "⚠️ 还有问题未回答,请作答或点击跳过本题": "⚠️ Some questions are unanswered; answer or skip them",
-  "运行中 · Enter 排队 / Ctrl+Enter 插话": "Running · Enter to queue / Ctrl+Enter to steer",
+  "计划审批": "Plan review",
+  "批准计划并开始执行": "Approve plan and start",
+  "继续修改计划": "Keep editing the plan",
+  "还有问题未回答,请作答或点击跳过本题": "Some questions are unanswered; answer or skip them",
   "对话列表": "Conversations",
   "新建对话": "New conversation",
   "暂无会话,点击新建对话": "No conversations yet, start a new one",
@@ -426,6 +463,16 @@ const EN_TEXT: Record<string, string> = {
   "未分组会话": "Ungrouped",
   "插话发送": "Send as steer",
   "仅运行中可插话发送": "Steer is only available while running",
+  "{a} 轮 · {b} 步": "{a} turns · {b} steps",
+  "LLM {a} · 工具 {b}": "LLM {a} · tools {b}",
+  "首 token 平均 {a}s": "avg first token {a}s",
+  "缓存命中 {a}%": "cache hit {a}%",
+  "输入 {a} tok · 输出 {b} tok": "in {a} tok · out {b} tok",
+  "文件夹": "folder",
+  "文件": "file",
+  "移除附件": "Remove attachment",
+  "已连接 · {model}": "Connected · {model}",
+  "等待审批:{tool}": "Awaiting approval: {tool}",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -436,7 +483,7 @@ function t(zh: string, params?: Record<string, string | number>): string {
       text = text.split(`{${k}}`).join(String(v));
     }
   }
-  return text;
+  return clean(text);
 }
 
 // ---------- 页面骨架 ----------
@@ -464,9 +511,9 @@ header.append(sessionSelectWrap, btnMore, btnNew, btnBrowser, statusDot, statusT
 // 会话操作菜单
 const sessionMenu = el("div", "session-menu");
 sessionMenu.hidden = true;
-const menuRename = el("button", "session-menu-item", t("✏️ 重命名会话"));
-const menuFork = el("button", "session-menu-item", t("🔀 分叉会话"));
-const menuArchive = el("button", "session-menu-item", t("🗄️ 归档会话"));
+const menuRename = el("button", "session-menu-item", t("重命名会话"));
+const menuFork = el("button", "session-menu-item", t("分叉会话"));
+const menuArchive = el("button", "session-menu-item", t("归档会话"));
 sessionMenu.append(menuRename, menuFork, menuArchive);
 header.append(sessionMenu);
 
@@ -489,10 +536,10 @@ root.append(dialogOverlay);
 /** 显示对话框;input=true 时返回输入内容(空串视为取消),否则确认返回 "yes"、第二确认返回 "alt"、取消返回 null。 */
 function showDialog(opts: { title: string; text: string; input?: boolean; confirmLabel?: string; confirm2Label?: string; value?: string }): Promise<string | null> {
   return new Promise((resolve) => {
-    dialogTitle.textContent = opts.title;
-    dialogText.textContent = opts.text;
-    dialogConfirm.textContent = opts.confirmLabel ?? "确定";
-    dialogConfirm2.textContent = opts.confirm2Label ?? "清除";
+    dialogTitle.textContent = clean(opts.title);
+    dialogText.textContent = clean(opts.text);
+    dialogConfirm.textContent = clean(opts.confirmLabel ?? "确定");
+    dialogConfirm2.textContent = clean(opts.confirm2Label ?? "清除");
     dialogConfirm2.hidden = !opts.confirm2Label || !!opts.input;
     dialogInput.value = opts.value ?? "";
     dialogInput.hidden = !opts.input;
@@ -545,13 +592,14 @@ const composer = el("div", "composer");
 // 附件行:左上角 + 添加文件按钮 + 附件芯片(自动附加激活文件 / 手动选择)
 const attachmentsRow = el("div", "attachments-row");
 
-function toolSelect(label: string, title: string): { wrap: HTMLElement; select: HTMLSelectElement } {
+function toolSelect(label: string, title: string): { wrap: HTMLElement; select: HTMLSelectElement; labelEl: HTMLElement } {
   const wrap = el("label", "tool-item");
   wrap.title = title;
-  wrap.append(el("span", "tool-label", label));
+  const labelEl = el("span", "tool-label", label);
+  wrap.append(labelEl);
   const select = el("select", "tool-select");
   wrap.append(select);
-  return { wrap, select };
+  return { wrap, select, labelEl };
 }
 
 // 思考 / 模型 / 预设:位于输入框右下角
@@ -568,7 +616,7 @@ const inputWrap = el("div", "input-wrap");
 const input = el("textarea", "input");
 input.placeholder = t("向 DeepSeek Harness 发送消息…");
 const sendCol = el("div", "send-col");
-// 发送/停止共用一个按钮:空闲显示 ➤ 发送;运行中且无输入显示 ⏹ 停止;运行中输入文字变回 ➤(消息将排队)
+// 发送/停止共用一个按钮:空闲显示发送;运行中且无输入显示停止;运行中输入文字变回发送(消息将排队)
 const btnSendStop = el("button", "btn-icon-btn send-btn");
 btnSendStop.append(lineIcon(ICONS.send, 16));
 btnSendStop.title = "发送(Enter)";
@@ -606,6 +654,25 @@ composerBottom.append(btnPlus, btnAddAttach, permissionTool.wrap, composerRight,
 const composerTop = el("div", "composer-top");
 composerTop.append(attachmentsRow, presetTool.wrap);
 composer.append(composerTop, inputWrap, composerBottom);
+
+/** init 后按当前语言刷新模块级静态文案(模块加载时 state.lang 还是默认值 zh-cn)。 */
+function applyStaticTexts() {
+  btnNew.title = t("新建会话");
+  btnMore.title = t("会话操作:分叉 / 重命名 / 归档");
+  thinkingTool.labelEl.textContent = t("思考");
+  thinkingTool.wrap.title = t("思考深度(推理强度)");
+  modelTool.labelEl.textContent = t("模型");
+  modelTool.wrap.title = t("模型");
+  presetTool.labelEl.textContent = t("预设");
+  presetTool.wrap.title = t("Agent 预设");
+  permissionTool.labelEl.textContent = t("权限");
+  permissionTool.wrap.title = t("读写权限(沙箱模式 + 审批策略)");
+  input.placeholder = t("向 DeepSeek Harness 发送消息…");
+  btnBackToMain.title = t("回到主线(父会话)");
+  btnPlus.title = t("输入命令(/plan、/compact、.claude 命令…)");
+  btnAddAttach.title = t("添加文件或文件夹到对话");
+  hint.textContent = clean(t("Enter 发送 · Shift+Enter 换行"));
+}
 
 // 添加文件/文件夹选择菜单(挂在 composer 内)
 const attachMenu = el("div", "plus-menu attach-menu");
@@ -652,8 +719,8 @@ btnAddAttach.addEventListener("click", (e) => {
     });
     attachMenu.append(b);
   };
-  item(t("📄 添加文件"), "file");
-  item(t("📁 添加文件夹"), "folder");
+  item(t("添加文件"), "file");
+  item(t("添加文件夹"), "folder");
   attachMenu.hidden = !attachMenu.hidden;
 });
 document.addEventListener("click", (e) => {
@@ -718,25 +785,28 @@ function renderPlusMenu() {
     updateSendButton();
   };
   const item = (icon: string, label: string, action: () => void, hintText?: string) => {
-    const b = el("button", "plus-menu-item", `${icon} ${label}`);
+    const b = el("button", "plus-menu-item");
+    const iconSvg = ICONS[icon as keyof typeof ICONS];
+    if (iconSvg) b.append(lineIcon(iconSvg, 14));
+    b.append(el("span", "menu-item-label", label));
     if (hintText) b.title = hintText;
     b.addEventListener("click", action);
     plusMenu.append(b);
     return b;
   };
-  item("📝", "计划模式", () => insert("/plan"), "插入 /plan 到输入框,回车后进入/退出计划模式");
-  item("🗜️", "压缩上下文", () => insert("/compact"), "插入 /compact 到输入框,回车执行");
-  item("🎯", "设置目标", () => insert("/goal "), "插入 /goal 命令,补全目标描述后回车");
-  item("💬", "记录反馈", () => insert("/feedback "), "插入 /feedback 命令记录会话反馈");
+  item("plan", "计划模式", () => insert("/plan"), "插入 /plan 到输入框,回车后进入/退出计划模式");
+  item("compact", "压缩上下文", () => insert("/compact"), "插入 /compact 到输入框,回车执行");
+  item("target", "设置目标", () => insert("/goal "), "插入 /goal 命令,补全目标描述后回车");
+  item("chat", "记录反馈", () => insert("/feedback "), "插入 /feedback 命令记录会话反馈");
   // 插件(Cordis)管理:由 agent 的 cordis 工具执行,插入指令让 agent 操作
   {
     const group = el("div", "plus-menu-label", t("插件(Cordis)"));
     plusMenu.append(group);
-    item("📦", t("列出插件状态"), () => insert("请列出当前所有动态 Cordis 插件及其运行状态(cordis_inspect)"), "让 agent 用 cordis_inspect 汇报插件清单");
-    item("▶️", t("运行插件 <id>"), () => insert("请运行插件 rbak-1(cordis_run)"), "把 rbak-1 换成目标插件 ID");
-    item("🔄", t("更新插件 <id>"), () => insert("请更新插件 rbak-1 并运行(cordis_define + cordis_run update)"), "把 rbak-1 换成目标插件 ID");
-    item("⏹️", t("停止插件 <id>"), () => insert("请停止插件 rbak-1(cordis_stop)"), "把 rbak-1 换成目标插件 ID");
-    item("🗑️", t("删除插件 <id>"), () => insert("请删除插件 rbak-1(cordis_undefine)"), "把 rbak-1 换成目标插件 ID");
+    item("box", t("列出插件状态"), () => insert("请列出当前所有动态 Cordis 插件及其运行状态(cordis_inspect)"), "让 agent 用 cordis_inspect 汇报插件清单");
+    item("play", t("运行插件 <id>"), () => insert("请运行插件 rbak-1(cordis_run)"), "把 rbak-1 换成目标插件 ID");
+    item("refresh", t("更新插件 <id>"), () => insert("请更新插件 rbak-1 并运行(cordis_define + cordis_run update)"), "把 rbak-1 换成目标插件 ID");
+    item("stop", t("停止插件 <id>"), () => insert("请停止插件 rbak-1(cordis_stop)"), "把 rbak-1 换成目标插件 ID");
+    item("trash", t("删除插件 <id>"), () => insert("请删除插件 rbak-1(cordis_undefine)"), "把 rbak-1 换成目标插件 ID");
   }
   const perms = state.permissions?.options ?? [];
   if (perms.length > 0) {
@@ -744,7 +814,7 @@ function renderPlusMenu() {
     plusMenu.append(group);
     for (const option of perms) {
       const active = state.permissions?.currentValue === option.value;
-      item(active ? "✅" : "🔒", permissionLabel(option.value, option.name), () => {
+      item(active ? "check" : "lock", permissionLabel(option.value, option.name), () => {
         state.permissions = { ...(state.permissions ?? { options: [], currentValue: "" }), currentValue: option.value };
         renderPermissionsSelect();
         vscode.postMessage({ kind: "permission", preset: option.value });
@@ -757,7 +827,7 @@ function renderPlusMenu() {
     const group = el("div", "plus-menu-label", "技能(插入提示词)");
     plusMenu.append(group);
     for (const skill of skills.slice(0, 12)) {
-      item("🧩", skill.name, () => insert(`请使用技能「${skill.name}」处理:`), skill.description || skill.whenToUse || "");
+      item("grid", skill.name, () => insert(`请使用技能「${skill.name}」处理:`), skill.description || skill.whenToUse || "");
     }
   }
   // 智能体/技能配置:.claude(DSH 核心自动读 CLAUDE.md/AGENTS.md)/ .codex / .github(Copilot)
@@ -770,45 +840,45 @@ function renderPlusMenu() {
     const group = el("div", "plus-menu-label", ".claude 配置");
     plusMenu.append(group);
     if (claude!.claudeMd) {
-      const info = el("button", "plus-menu-item", "✅ CLAUDE.md · DSH 已自动读取");
+      const info = el("button", "plus-menu-item", "CLAUDE.md · DSH 已自动读取");
       info.title = "工作区根目录的 CLAUDE.md / AGENTS.md 已由 DeepSeek Harness 核心自动加载到上下文,无需手动处理";
       info.style.cursor = "default";
       plusMenu.append(info);
     }
     for (const cmd of claude!.commands) {
-      item("⚡", `/${cmd.name}`, () => insert(cmd.content), t("插入 .claude 命令模板"));
+      item("zap", `/${cmd.name}`, () => insert(cmd.content), t("插入 .claude 命令模板"));
     }
     for (const skill of claude!.skills) {
-      item("🎓", `技能 ${skill.name}`, () => insert(skill.content), t("插入 .claude 技能说明(SKILL.md)"));
+      item("cap", `技能 ${skill.name}`, () => insert(skill.content), t("插入 .claude 技能说明(SKILL.md)"));
     }
   }
   if (hasCodex) {
     const group = el("div", "plus-menu-label", ".codex 配置");
     plusMenu.append(group);
     if (claude!.codexConfig) {
-      const info = el("button", "plus-menu-item", "✅ .codex/config.toml 已存在");
+      const info = el("button", "plus-menu-item", ".codex/config.toml 已存在");
       info.title = ".codex/config.toml 由 Codex CLI 使用;DSH 不读取该配置,可通过 AGENTS.md(已自动加载)承载共享指令";
       info.style.cursor = "default";
       plusMenu.append(info);
     }
     for (const skill of claude!.codexSkills) {
-      item("🎓", `技能 ${skill.name}`, () => insert(skill.content), t("插入 .codex 技能说明(SKILL.md)"));
+      item("cap", `技能 ${skill.name}`, () => insert(skill.content), t("插入 .codex 技能说明(SKILL.md)"));
     }
   }
   if (hasCopilot) {
     const group = el("div", "plus-menu-label", "GitHub Copilot 配置");
     plusMenu.append(group);
     if (claude!.copilotInstructions !== null) {
-      item("📄", "copilot-instructions.md", () => insert(claude!.copilotInstructions!), t("插入 Copilot 工作区指令"));
+      item("file", "copilot-instructions.md", () => insert(claude!.copilotInstructions!), t("插入 Copilot 工作区指令"));
     }
     for (const file of claude!.copilotInstructionFiles) {
-      item("📄", `指令 ${file.name}`, () => insert(file.content), t("插入 Copilot 指令文件"));
+      item("file", `指令 ${file.name}`, () => insert(file.content), t("插入 Copilot 指令文件"));
     }
     for (const agent of claude!.copilotAgents) {
-      item("🤖", `智能体 ${agent.name}`, () => insert(agent.content), t("插入 Copilot 智能体定义"));
+      item("bot", `智能体 ${agent.name}`, () => insert(agent.content), t("插入 Copilot 智能体定义"));
     }
     for (const prompt of claude!.copilotPrompts) {
-      item("💬", `提示词 ${prompt.name}`, () => insert(prompt.content), t("插入 Copilot 提示词"));
+      item("chat", `提示词 ${prompt.name}`, () => insert(prompt.content), t("插入 Copilot 提示词"));
     }
   }
 }
@@ -883,7 +953,7 @@ function renderNode(node: NodeState): HTMLElement {
       }
       // 系统提示词:默认折叠,左上角标注"系统提示词"
       const details = el("details", "system-note-details");
-      details.append(el("summary", "system-note-summary", t("ℹ️ 系统提示词")));
+      details.append(el("summary", "system-note-summary", t("系统提示词")));
       const body = el("div", "msg-body system-note-body");
       setHtml(body, node.text ?? "");
       details.append(body);
@@ -894,7 +964,7 @@ function renderNode(node: NodeState): HTMLElement {
       // 附件上下文卡片:独立于用户气泡,紧贴在用户消息之前,默认折叠
       const wrap = el("div", "msg attach-card");
       const details = el("details", "attach-context-details");
-      details.append(el("summary", "attach-context-summary", t("📎 附件上下文(已注入模型,点击展开)")));
+      details.append(el("summary", "attach-context-summary", t("附件上下文(已注入模型,点击展开)")));
       const body = el("div", "msg-body attach-context-body");
       setHtml(body, node.text ?? "");
       details.append(body);
@@ -930,7 +1000,7 @@ function renderNode(node: NodeState): HTMLElement {
       for (const block of node.blocks ?? []) {
         if (block.type === "reasoning") {
           const details = el("details", "block-reasoning-details");
-          details.append(el("summary", "block-reasoning-summary", "💭 思考过程"));
+          details.append(el("summary", "block-reasoning-summary", t("思考过程")));
           const body = el("div", "block-body");
           setHtml(body, block.text);
           block.el = body;
@@ -953,14 +1023,14 @@ function renderNode(node: NodeState): HTMLElement {
     case "tool": {
       const wrap = el("details", "msg tool-card");
       const summary = el("summary", "tool-summary");
-      const nameSpan = el("span", "tool-name", (node.done ? "🔧" : "🔧⏳") + " " + (node.name ?? "tool"));
+      const nameSpan = el("span", "tool-name", node.name ?? "tool");
       summary.append(nameSpan);
       const body = el("div", "tool-body");
-      const argsLabel = el("div", "tool-label", "参数");
+      const argsLabel = el("div", "tool-label", t("参数"));
       const argsPre = el("pre", "tool-pre", node.args ?? "");
       body.append(argsLabel, argsPre);
       if (node.result !== undefined) {
-        body.append(el("div", "tool-label", "结果"), el("pre", "tool-pre", node.result));
+        body.append(el("div", "tool-label", t("结果")), el("pre", "tool-pre", node.result));
       }
       wrap.append(summary, body);
       return wrap;
@@ -1015,7 +1085,7 @@ function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState) {
     if (block.type === "reasoning") {
       // 思考过程:可折叠,默认隐藏
       const details = el("details", "block-reasoning-details");
-      details.append(el("summary", "block-reasoning-summary", "💭 思考过程"));
+      details.append(el("summary", "block-reasoning-summary", "思考过程"));
       const body = el("div", "block-body");
       setHtml(body, block.text);
       block.el = body;
@@ -1058,7 +1128,7 @@ function findToolNode(callId: string): NodeState | undefined {
 function updateToolSummary(node: NodeState) {
   if (!node.el) return;
   const span = node.el.querySelector(".tool-name");
-  if (span) span.textContent = (node.done ? "🔧" : "🔧⏳") + " " + (node.name ?? "tool");
+  if (span) span.textContent = clean(node.name ?? "tool");
 }
 
 // ---------- 消息操作条(复制 / ↪分支回退 / 点赞 / 点踩 / 产物) ----------
@@ -1112,7 +1182,7 @@ function renderActions(node: NodeState) {
           .filter((n) => n.kind === "assistant" && typeof n.seq === "number" && (n.seq ?? 0) < (node.seq ?? 0))
           .slice(-8);
         if (candidates.length === 0) {
-          appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: "⚠️ 没有更早的对话点" });
+          appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: "没有更早的对话点" });
           return;
         }
         const picker = el("div", "msg-popover");
@@ -1273,7 +1343,7 @@ function handleEvent(wire: WireEvent) {
       const suffix = suffixParts.join(" · ");
       assistant.roleSuffix = suffix;
       if (assistant.roleEl) {
-        assistant.roleEl.textContent = suffix ? `${modelName} · ${suffix}` : modelName;
+        assistant.roleEl.textContent = clean(suffix ? `${modelName} · ${suffix}` : modelName);
       }
       // 注意:操作条(复制/分支/点赞)不在中间步骤渲染 —— 回合结束(turn/end)时才显示,
       // 避免"回合已经结束"的错觉(与网页版一致)。
@@ -1297,7 +1367,7 @@ function handleEvent(wire: WireEvent) {
         existing.args = data?.arguments ?? existing.args;
         if (existing.el) {
           const pre = existing.el.querySelectorAll(".tool-pre")[0];
-          if (pre) pre.textContent = existing.args ?? "";
+          if (pre) pre.textContent = clean(existing.args ?? "");
           updateToolSummary(existing);
         }
         break;
@@ -1307,7 +1377,7 @@ function handleEvent(wire: WireEvent) {
       if (!group) {
         group = el("details", "tool-group");
         const summary = el("summary", "tool-group-summary");
-        summary.append(lineIcon(ICONS.box, 12), el("span", "tool-group-summary-text", t("🔧 过程")));
+        summary.append(lineIcon(ICONS.box, 12), el("span", "tool-group-summary-text", t("过程")));
         group.append(summary);
         group.append(el("div", "tool-group-body"));
         const turnAssistant = [...state.nodes].reverse().find((n) => n.kind === "assistant" && n.turn === state.currentStreamTurn);
@@ -1409,7 +1479,7 @@ function collapseToolGroup() {
     .join(" · ");
   const textEl = group.querySelector(".tool-group-summary-text");
   if (textEl) {
-    textEl.textContent = t("本轮调用 {n} 个工具", { n: String(nodes.length) }) + (names ? ` · ${names}` : "");
+    textEl.textContent = clean(t("本轮调用 {n} 个工具", { n: String(nodes.length) }) + (names ? ` · ${names}` : ""));
   }
 }
 
@@ -1492,7 +1562,10 @@ function openGoalMenu(anchor: HTMLElement) {
   if (!inner || inner.phase !== "active") return;
   openAnchoredMenu(anchor, (menu) => {
     const add = (icon: string, label: string, action: () => void) => {
-      const row = el("button", "plus-menu-item", `${icon} ${label}`);
+      const row = el("button", "plus-menu-item");
+      const iconSvg = ICONS[icon as keyof typeof ICONS];
+      if (iconSvg) row.append(lineIcon(iconSvg, 14));
+      row.append(el("span", "menu-item-label", label));
       row.addEventListener("click", () => {
         closeActivePopover();
         action();
@@ -1500,7 +1573,7 @@ function openGoalMenu(anchor: HTMLElement) {
       menu.append(row);
     };
     const ref = { id: inner.id, revision: inner.revision };
-    add("✏️", t("修改目标"), async () => {
+    add("edit", t("修改目标"), async () => {
       const objective = await showDialog({
         title: t("修改目标"),
         text: t("修改目标描述(已填入当前目标):"),
@@ -1512,9 +1585,9 @@ function openGoalMenu(anchor: HTMLElement) {
         vscode.postMessage({ kind: "goalEdit", ref, objective: objective.trim() });
       }
     });
-    add("⏸️", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
-    add("✅", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
-    add("🗑️", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
+    add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
+    add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
+    add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
   });
 }
 
@@ -1528,7 +1601,7 @@ function renderModeChips() {
   chipsSignature = sig;
   modeChips.innerHTML = "";
   if (state.planMode) {
-    const chip = el("span", "mode-chip plan-chip", "📝 计划模式");
+    const chip = el("span", "mode-chip plan-chip", "计划模式");
     chip.title = "点击退出计划模式(发送 /plan)";
     const close = el("button", "chip-close", "×");
     chip.append(close);
@@ -1536,10 +1609,10 @@ function renderModeChips() {
     modeChips.append(chip);
   }
   if (inner && inner.phase !== "complete") {
-    // 仅当对话存在实际目标(进行中/暂停/阻塞)时显示 🎯 芯片;已完成或无目标时隐藏
+    // 仅当对话存在实际目标(进行中/暂停/阻塞)时显示目标芯片;已完成或无目标时隐藏
     const phase = inner.phase ?? "active";
     const cls: Record<string, string> = { active: "goal-chip", complete: "goal-chip done", blocked: "goal-chip blocked", paused: "goal-chip paused" };
-    const chip = el("span", "mode-chip " + (cls[phase] ?? "goal-chip"), t("🎯 目标"));
+    const chip = el("span", "mode-chip " + (cls[phase] ?? "goal-chip"), t("目标"));
     chip.title = t("点击管理目标(暂停 / 修改 / 完成 / 取消)");
     const close = el("button", "chip-close", "×");
     chip.append(close);
@@ -1547,7 +1620,10 @@ function renderModeChips() {
       e.stopPropagation();
       openAnchoredMenu(chip, (menu) => {
         const add = (icon: string, label: string, action: () => void) => {
-          const row = el("button", "plus-menu-item", `${icon} ${label}`);
+          const row = el("button", "plus-menu-item");
+      const iconSvg = ICONS[icon as keyof typeof ICONS];
+      if (iconSvg) row.append(lineIcon(iconSvg, 14));
+      row.append(el("span", "menu-item-label", label));
           row.addEventListener("click", () => {
             closeActivePopover();
             action();
@@ -1556,11 +1632,11 @@ function renderModeChips() {
         };
         const ref = { id: inner.id, revision: inner.revision };
         if (phase === "active") {
-          add("⏸️", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
+          add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
         } else if (phase === "paused" || phase === "blocked") {
-          add("▶️", t("继续目标"), () => vscode.postMessage({ kind: "goalResume", ref }));
+          add("play", t("继续目标"), () => vscode.postMessage({ kind: "goalResume", ref }));
         }
-        add("✏️", t("修改目标"), async () => {
+        add("edit", t("修改目标"), async () => {
           const objective = await showDialog({
             title: t("修改目标"),
             text: t("修改目标描述(已填入当前目标):"),
@@ -1573,9 +1649,9 @@ function renderModeChips() {
           }
         });
         if (phase === "active") {
-          add("✅", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
+          add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
         }
-        add("🗑️", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
+        add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
       });
     });
     modeChips.append(chip);
@@ -1603,7 +1679,7 @@ function renderGoal() {
     });
   }
   const head = el("div", "goal-card-head");
-  const title = el("div", "goal-title", "🎯 " + inner.objective);
+  const title = el("div", "goal-title", inner.objective);
   head.append(title);
   if (inner.phase === "active") {
     const more = el("button", "goal-more-btn");
@@ -1675,7 +1751,7 @@ function sessionLabel(s: StoredSession): string {
   const id = s.sessionId.slice(0, 12);
   const cwd = s.cwd ? basename(s.cwd) : "";
   const branch = s.parentSessionId ? "↪ " : "";
-  return `${branch}${s.blank ? "🆕" : "💬"} ${id}${cwd ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${s.agentPreset}` : ""}`;
+  return `${branch}${id}${cwd ? ` · ${cwd}` : ""}${s.agentPreset ? ` · ${s.agentPreset}` : ""}`;
 }
 
 function basename(p: string): string {
@@ -1817,6 +1893,37 @@ function renderContextBar() {
 // ---------- 会话统计行(上下文条上方) ----------
 
 /** 待办事项面板(Codex 风格:任务进度摘要 + 清单)。 */
+/** 待办事项面板(Web 端风格:任务标题 + 计数摘要 + 展开清单)。 */
+function applyQueueItems(items: any[]) {
+  // 差集清理:已从队列移除的项(如插话后转正、被移除)删除对应节点
+  const alive = new Set(items.map((i: any) => i.id));
+  for (const [id, node] of state.queuedIds) {
+    if (!alive.has(id)) {
+      state.queuedIds.delete(id);
+      removeNode(node);
+    }
+  }
+  for (const item of items) {
+    if (item.placement !== "queued") continue;
+    const id: string = item.id;
+    if (state.queuedIds.has(id)) continue;
+    const text = extractText(item.message?.content);
+    const split = splitAttachmentContext(text);
+    if (split.attachContext) {
+      appendNode({ kind: "attach", key: `qat:${id}`, el: null, text: split.attachContext });
+    }
+    const node: NodeState = {
+      kind: "queued",
+      key: `q:${id}`,
+      el: null,
+      queueItemId: id,
+      text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
+    };
+    state.queuedIds.set(id, node);
+    appendNode(node);
+  }
+}
+
 function renderTodos() {
   todoPanel.innerHTML = "";
   const list = state.todos;
@@ -1825,15 +1932,34 @@ function renderTodos() {
     return;
   }
   todoPanel.hidden = false;
-  const inProgress = list.filter((t) => t.status === "in_progress").length;
-  const pending = list.filter((t) => t.status === "pending").length;
+  // 摘要与 Web 端一致:按状态计数,非零段才显示,· 连接(任务 1 进行中 · 2 待处理)
+  const done = list.filter((t) => t.status === "completed").length;
+  const active = list.filter((t) => t.status === "in_progress").length;
+  const pending = list.length - done - active;
+  const parts: string[] = [];
+  if (done > 0) parts.push(t("{done} 已完成", { done: String(done) }));
+  if (active > 0) parts.push(t("{active} 进行中", { active: String(active) }));
+  if (pending > 0) parts.push(t("{pending} 待处理", { pending: String(pending) }));
   const summary = el("summary", "todo-panel-summary");
-  summary.append(lineIcon(ICONS.box, 12), el("span", undefined, t("☑ 任务 · {a} 进行中 · {b} 待处理", { a: String(inProgress), b: String(pending) })));
+  summary.append(lineIcon(ICONS.checklist, 13));
+  summary.append(el("span", "todo-panel-title", t("任务")));
+  summary.append(el("span", "todo-panel-progress", parts.join(" · ")));
+  const chev = el("span", "todo-panel-chevron");
+  chev.append(lineIcon(ICONS.chevron, 12));
+  summary.append(chev);
   todoPanel.append(summary);
   const body = el("div", "todo-panel-body");
   for (const item of list) {
-    const row = el("div", "todo-row" + (item.status === "completed" ? " done" : item.status === "in_progress" ? " active" : ""));
-    row.append(el("span", "todo-status", item.status === "completed" ? "✅" : item.status === "in_progress" ? "⏳" : "○"));
+    const row = el("div", "todo-row" + (item.status === "completed" ? " done" : item.status === "in_progress" ? " active" : " pending"));
+    const glyph = el("span", "todo-status");
+    glyph.append(
+      item.status === "completed"
+        ? lineIcon(ICONS.todoCheck, 13)
+        : item.status === "in_progress"
+          ? lineIcon(ICONS.todoProgress, 13)
+          : lineIcon(ICONS.todoPending, 13),
+    );
+    row.append(glyph);
     row.append(el("span", "todo-content", item.content));
     body.append(row);
   }
@@ -1864,9 +1990,9 @@ function renderStatsLine() {
   const tu = state.stats?.tokenUsage;
   const parts: string[] = [];
   if (st) {
-    if (typeof st.turns === "number") parts.push(`${st.turns} 轮 · ${st.steps ?? 0} 步`);
-    if (typeof st.llmMs === "number") parts.push(`LLM ${fmtDuration(st.llmMs)} · 工具 ${fmtDuration(st.toolMs ?? 0)}`);
-    if (typeof st.ttftMs === "number" && st.ttftSteps > 0) parts.push(`首 token 平均 ${(st.ttftMs / st.ttftSteps / 1000).toFixed(1)}s`);
+    if (typeof st.turns === "number") parts.push(t("{a} 轮 · {b} 步", { a: String(st.turns), b: String(st.steps ?? 0) }));
+    if (typeof st.llmMs === "number") parts.push(t("LLM {a} · 工具 {b}", { a: fmtDuration(st.llmMs), b: fmtDuration(st.toolMs ?? 0) }));
+    if (typeof st.ttftMs === "number" && st.ttftSteps > 0) parts.push(t("首 token 平均 {a}s", { a: (st.ttftMs / st.ttftSteps / 1000).toFixed(1) }));
     if (typeof st.decodeMs === "number" && st.decodeMs > 0 && typeof st.decodeTokens === "number") {
       parts.push(`${Math.round(st.decodeTokens / (st.decodeMs / 1000))} tok/s`);
     }
@@ -1876,11 +2002,11 @@ function renderStatsLine() {
     const cached = tu.cacheReadTokens ?? 0;
     const input = uncached + cached;
     if (input > 0) {
-      if (cached > 0) parts.push(`缓存命中 ${Math.round((cached / input) * 100)}%`);
-      parts.push(`输入 ${fmtTokens(input)} tok · 输出 ${fmtTokens(tu.outputTokens ?? 0)} tok`);
+      if (cached > 0) parts.push(t("缓存命中 {a}%", { a: String(Math.round((cached / input) * 100)) }));
+      parts.push(t("输入 {a} tok · 输出 {b} tok", { a: fmtTokens(input), b: fmtTokens(tu.outputTokens ?? 0) }));
     }
   }
-  statsLine.textContent = parts.length > 0 ? parts.join(" | ") : t("暂无统计");
+  statsLine.textContent = parts.length > 0 ? clean(parts.join(" | ")) : t("暂无统计");
   statsLine.hidden = false;
 }
 
@@ -1892,11 +2018,11 @@ function renderAttachments() {
   const list = state.attachments;
   for (const a of list) {
     const chip = el("span", "attachment-chip" + (a.auto ? " auto" : ""));
-    chip.title = `${a.kind === "folder" ? "文件夹" : "文件"}: ${a.path}`;
+    chip.title = `${a.kind === "folder" ? t("文件夹") : t("文件")}: ${a.path}`;
     chip.append(lineIcon(a.kind === "folder" ? ICONS.box : ICONS.copy, 12));
-    chip.append(el("span", "attachment-label", (a.auto ? "激活文件 · " : "") + a.label));
+    chip.append(el("span", "attachment-label", (a.auto ? t("激活文件 · ") : "") + a.label));
     const close = el("button", "chip-close", "×");
-    close.title = "移除附件";
+    close.title = t("移除附件");
     chip.append(close);
     close.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1939,7 +2065,7 @@ function renderSubagentChips() {
     const label = entry.label ?? entry.id.slice(0, 12);
     const running = entry.activity === "running";
     const chip = el("span", "mode-chip subagent-chip" + (running ? " running-chip" : ""));
-    chip.append(el("span", undefined, `${running ? "⏳" : "🤖"} ${label}`));
+    chip.append(el("span", undefined, label));
     chip.title = `子代理 ${label}(${running ? "运行中" : "已结束"}) · 点击查看最近回复`;
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1976,7 +2102,7 @@ function fmtClock(ms: number): string {
 }
 
 function tickTurnStatus() {
-  turnStatusText.textContent = `${t(turnStatusActivity)} · ${fmtClock(Date.now() - turnStatusStartedAt)}`;
+  turnStatusText.textContent = clean(`${t(turnStatusActivity)} · ${fmtClock(Date.now() - turnStatusStartedAt)}`);
 }
 
 function startTurnStatus(time: number) {
@@ -2017,12 +2143,12 @@ function updateSendButton() {
     btnSendStop.append(lineIcon(ICONS.stop, 15));
     btnSendStop.className = "btn-icon-btn send-btn stop-active";
     btnSendStop.title = t("停止回复");
-    hint.textContent = t("运行中 · ⏹ 停止");
+    hint.textContent = clean(t("运行中 · 停止"));
   } else {
     btnSendStop.append(lineIcon(ICONS.send, 16));
     btnSendStop.className = "btn-icon-btn send-btn";
     btnSendStop.title = state.running ? t("发送(运行中,消息将排队)") : t("发送(Enter)");
-    hint.textContent = state.running ? t("运行中 · Enter 排队 / Ctrl+Enter 插话") : t("Enter 发送 · Shift+Enter 换行");
+    hint.textContent = clean(state.running ? t("运行中 · Enter 排队 / Ctrl+Enter 插话") : t("Enter 发送 · Shift+Enter 换行"));
   }
   btnSendStop.disabled = !state.current;
 }
@@ -2031,16 +2157,16 @@ function updateStatus(status: HubStatus) {
   state.status = status;
   if (status.serverUp && status.muxConnected) {
     statusDot.className = "status-dot ok";
-    statusText.textContent = status.model ? `已连接 · ${status.model}` : "已连接";
+    statusText.textContent = clean(status.model ? t("已连接 · {model}", { model: status.model }) : t("已连接"));
   } else if (status.serverStarting) {
     statusDot.className = "status-dot starting";
-    statusText.textContent = "启动中…";
+    statusText.textContent = clean(t("启动中…"));
   } else if (status.serverUp) {
     statusDot.className = "status-dot starting";
-    statusText.textContent = "连接中…";
+    statusText.textContent = clean(t("连接中…"));
   } else {
     statusDot.className = "status-dot err";
-    statusText.textContent = "未连接 · 点击重试";
+    statusText.textContent = clean(t("未连接 · 点击重试"));
     statusDot.onclick = () => vscode.postMessage({ kind: "startServer" });
     return;
   }
@@ -2055,7 +2181,7 @@ function scrollToBottom() {
 /** 顶部"加载更早的消息"按钮:仅在服务器确认还有更早历史时显示。 */
 function renderLoadMoreButton() {
   if (!state.hasMore || !state.current) return;
-  const loadMore = el("button", "btn btn-load-more", t("⬆ 加载更早的消息"));
+  const loadMore = el("button", "btn btn-load-more", t("加载更早的消息"));
   loadMore.addEventListener("click", () => vscode.postMessage({ kind: "loadMore" }));
   messages.prepend(loadMore);
 }
@@ -2066,11 +2192,11 @@ function renderPending() {
   pendingArea.innerHTML = "";
   for (const approval of state.approvals.values()) {
     const card = el("div", "pending-card pending-approval");
-    card.append(el("div", "pending-title", `⏸️ 等待审批:${approval.toolName}`));
+    card.append(el("div", "pending-title", t("等待审批:{tool}", { tool: approval.toolName })));
     if (approval.reason) card.append(el("div", "pending-detail", approval.reason));
     const row = el("div", "pending-actions");
-    const allow = el("button", "btn btn-allow", "✅ 允许");
-    const reject = el("button", "btn btn-reject", "❌ 拒绝");
+    const allow = el("button", "btn btn-allow", t("允许"));
+    const reject = el("button", "btn btn-reject", t("拒绝"));
     allow.addEventListener("click", () => {
       vscode.postMessage({ kind: "respond", approvalId: approval.approvalId, outcome: "allowed-once" });
       state.approvals.delete(approval.approvalId);
@@ -2109,19 +2235,19 @@ function renderPending() {
       const intent = (item as { intent?: { kind?: string; approve?: string } }).intent;
       if (intent?.kind === "plan-review" && item.detail) {
         const section = el("div", "question-section plan-review-section");
-        section.append(el("div", "pending-title", t("📋 计划审批")));
+        section.append(el("div", "pending-title", t("计划审批")));
         const planBox = el("div", "plan-detail-box");
         setHtml(planBox, item.detail);
         section.append(planBox);
         const approveOption = item.options?.find((o) => o.label === intent.approve);
         const declineOption = item.options?.find((o) => o.label !== intent.approve);
         const actions = el("div", "pending-actions");
-        const approveBtn = el("button", "btn btn-allow", t("✅ 批准计划并开始执行"));
+        const approveBtn = el("button", "btn btn-allow", t("批准计划并开始执行"));
         approveBtn.title = approveOption?.description ?? "";
         approveBtn.addEventListener("click", () => {
           submitQuestion(question.frameRpcId, [{ id: item.id, selected: approveOption ? [approveOption.label] : [] }], true);
         });
-        const declineBtn = el("button", "btn btn-reject", t("✏️ 继续修改计划"));
+        const declineBtn = el("button", "btn btn-reject", t("继续修改计划"));
         declineBtn.title = declineOption?.description ?? "";
         declineBtn.addEventListener("click", () => {
           submitQuestion(question.frameRpcId, [{ id: item.id, selected: declineOption ? [declineOption.label] : [] }], true);
@@ -2161,7 +2287,7 @@ function renderPending() {
       const customRadio = document.createElement("input");
       customRadio.type = "radio";
       customRadio.name = `q-${question.frameRpcId}-${item.id}`;
-      customRow.append(customRadio, el("span", "option-label", t("✍️ 自定义回答(其他)")));
+      customRow.append(customRadio, el("span", "option-label", t("自定义回答(其他)")));
       form.append(customRow);
       const customInput = el("input", "custom-answer-input");
       customInput.placeholder = t("输入自定义回答…");
@@ -2209,7 +2335,7 @@ function renderPending() {
         });
       }
       if (missing) {
-        appendNode({ kind: "note", key: `qn:${Date.now()}`, el: null, text: t("⚠️ 还有问题未回答,请作答或点击跳过本题") });
+        appendNode({ kind: "note", key: `qn:${Date.now()}`, el: null, text: t("还有问题未回答,请作答或点击跳过本题") });
         return;
       }
       if (answers.length > 0) submitQuestion(question.frameRpcId, answers, true);
@@ -2231,6 +2357,10 @@ function parseRecommendedLabel(label: string): { base: string; recommended: bool
 // ---------- 消息处理 ----------
 
 function handleMessage(msg: any) {
+  // 列表模式只关心会话列表相关消息;聊天渲染类消息直接忽略(列表布局没有消息区,渲染到游离树纯属浪费)
+  if (state.mode === "list" && msg.kind !== "init") {
+    if (!["sessions", "workspaces", "running", "status", "lang", "openTab", "newTab"].includes(msg.kind)) return;
+  }
   switch (msg.kind) {
     case "init": {
       stopTurnStatus();
@@ -2238,8 +2368,11 @@ function handleMessage(msg: any) {
       state.current = msg.current ?? null;
       state.mode = msg.mode === "list" ? "list" : "chat";
       state.locked = !!msg.locked;
+      state.lang = msg.lang ?? "zh-cn";
       applyLayout();
       refreshList();
+      // 语言就绪后刷新模块级静态文案(英文界面不再停留在中文)
+      applyStaticTexts();
       state.running = msg.running ?? false;
       state.status = msg.status ?? state.status;
       state.nodes = [];
@@ -2255,7 +2388,6 @@ function handleMessage(msg: any) {
       state.permissions = msg.permissions;
       state.stats = msg.stats;
       state.todos = msg.todos;
-      state.lang = msg.lang ?? "zh-cn";
       state.models = null;
       state.presets = null;
       state.turnStarts = [];
@@ -2269,6 +2401,8 @@ function handleMessage(msg: any) {
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
+      // 恢复排队消息(重连/切会话时队列可能非空)
+      applyQueueItems(msg.queue ?? []);
       renderSessions();
       renderPending();
       renderGoal();
@@ -2334,16 +2468,14 @@ function handleMessage(msg: any) {
       break;
     }
     case "subagentPreview": {
-      const anchor = document.querySelector(`.subagent-chip[title^="子代理 ${msg.childId?.slice(0, 12) ?? ""}"]`);
       const pop = el("div", "msg-popover");
-      pop.append(el("div", "plus-menu-label", "子代理最近回复"));
-      pop.append(el("div", "subagent-preview", msg.preview ?? "(暂无)"));
-      pop.append(el("div", "plus-menu-label", "完整历史请到 DSH 网页版查看"));
+      pop.append(el("div", "plus-menu-label", t("子代理最近回复")));
+      pop.append(el("div", "subagent-preview", msg.preview ?? t("(暂无)")));
+      pop.append(el("div", "plus-menu-label", t("完整历史请到 DSH 网页版查看")));
       conversationBottom.append(pop);
       pop.addEventListener("click", (e) => e.stopPropagation());
       const close = () => pop.remove();
       setTimeout(() => document.addEventListener("click", close, { once: true }), 0);
-      void anchor;
       break;
     }
     case "delta": {
@@ -2377,7 +2509,7 @@ function handleMessage(msg: any) {
       const modelName = state.models?.current?.model ?? "DeepSeek";
       for (const n of state.nodes) {
         if (n.kind === "assistant" && n.roleEl) {
-          n.roleEl.textContent = n.roleSuffix ? `${modelName} · ${n.roleSuffix}` : modelName;
+          n.roleEl.textContent = clean(n.roleSuffix ? `${modelName} · ${n.roleSuffix}` : modelName);
         }
       }
       break;
@@ -2441,39 +2573,18 @@ function handleMessage(msg: any) {
       break;
     }
     case "queue": {
-      const items = msg.items ?? [];
-      // 差集清理:已从队列移除的项(如插话后转正、被移除)删除对应节点
-      const alive = new Set(items.map((i: any) => i.id));
-      for (const [id, node] of state.queuedIds) {
-        if (!alive.has(id)) {
-          state.queuedIds.delete(id);
-          removeNode(node);
-        }
-      }
-      for (const item of items) {
-        if (item.placement !== "queued") continue;
-        const id: string = item.id;
-        if (state.queuedIds.has(id)) continue;
-        const text = extractText(item.message?.content);
-        const split = splitAttachmentContext(text);
-        if (split.attachContext) {
-          appendNode({ kind: "attach", key: `qat:${id}`, el: null, text: split.attachContext });
-        }
-        const node: NodeState = {
-          kind: "queued",
-          key: `q:${id}`,
-          el: null,
-          queueItemId: id,
-          text: isSlashCommandOnly(split.userText) ? `⌘ ${split.userText.trim()}` : split.userText,
-        };
-        state.queuedIds.set(id, node);
-        appendNode(node);
-      }
+      applyQueueItems(msg.items ?? []);
       break;
     }
     case "historyMore": {
       const events = msg.events ?? [];
       state.seqs = new Set();
+      state.turnStarts = [];
+      state.stepStarts = new Map();
+      state.currentStreamTurn = undefined;
+      state.streamedBlockKeys = new Set();
+      state.turnToolGroup = null;
+      state.queuedIds = new Map();
       messages.innerHTML = "";
       state.nodes = [];
       for (const wire of events) handleEvent(wire);
@@ -2495,8 +2606,7 @@ function handleMessage(msg: any) {
       break;
     }
     case "notice": {
-      const icon = msg.level === "info" ? "ℹ️" : "⚠️";
-      appendNode({ kind: "note", key: `notice:${Date.now()}`, el: null, text: `${icon} ${msg.message ?? ""}` });
+      appendNode({ kind: "note", key: `notice:${Date.now()}`, el: null, text: msg.message ?? "" });
       break;
     }
     default:
@@ -2508,7 +2618,7 @@ function sendCurrent(mode: "queue" | "steer" = "queue") {
   const text = input.value.trim();
   if (!text) return;
   if (!state.current) {
-    appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: "⚠️ 尚未选择会话,点击 ＋ 新建一个会话" });
+    appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: "尚未选择会话,点击 ＋ 新建一个会话" });
     return;
   }
   vscode.postMessage({
@@ -2526,6 +2636,7 @@ window.addEventListener("message", (event) => {
   const msg = event.data;
   if (msg && typeof msg === "object") handleMessage(msg);
 });
+
 
 // ---------- 布局模式(侧边栏会话列表 / 编辑器标签页聊天) ----------
 
@@ -2553,14 +2664,14 @@ function buildListApp(): HTMLDivElement {
   btnNewChat.addEventListener("click", () => vscode.postMessage({ kind: "newTab" }));
   head.append(btnNewChat);
   const search = el("input", "list-search");
-  const searchWrap = el("div", "list-search-wrap");
-  searchWrap.append(lineIcon(ICONS.search, 13), search);
   search.placeholder = t("搜索会话");
   search.value = state.search;
   search.addEventListener("input", () => {
     state.search = search.value;
     updateListRows(rows);
   });
+  const searchWrap = el("div", "list-search-wrap");
+  searchWrap.append(lineIcon(ICONS.search, 13), search);
   const rows = el("div", "list-rows");
   wrap.append(head, searchWrap, rows);
   updateListRows(rows);

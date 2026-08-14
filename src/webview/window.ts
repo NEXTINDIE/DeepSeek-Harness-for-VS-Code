@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 import type { DshHub } from "../dsh/hub";
 import { ChatChannel } from "./channel";
 import { folderCwd } from "../dsh/participantSessions";
+import { createTranslator } from "../dsh/i18n";
+
+/** 宿主侧文案翻译(跟随 dsh.language 设置)。 */
+const t = createTranslator();
 
 /**
  * 编辑器区聊天标签页:每个会话一个 WebviewPanel(像 Claude Code 的 VS Code 插件一样,
@@ -36,6 +40,7 @@ export class ChatWindowProvider {
     }
     const existing = this.panels.get(sid);
     if (existing) {
+      // preserveFocus:保持当前焦点(用户可能正在侧边栏连续操作),不强制抢焦点
       existing.panel.reveal(vscode.ViewColumn.Beside, true);
       return existing.panel;
     }
@@ -93,10 +98,10 @@ export class ChatWindowProvider {
     const defaultCwd = folderCwd();
     const mode = await vscode.window.showQuickPick(
       [
-        { label: "默认当前工作区", description: defaultCwd ?? "(无文件夹)", id: "default" },
-        { label: "指定工作区…", id: "pick" },
+        { label: t("默认当前工作区"), description: defaultCwd ?? t("(无文件夹)"), id: "default" },
+        { label: t("指定工作区…"), id: "pick" },
       ],
-      { placeHolder: "新对话的工作目录" },
+      { placeHolder: t("新对话的工作目录") },
     );
     if (!mode) return undefined;
     if (mode.id === "default") return defaultCwd;
@@ -114,16 +119,16 @@ export class ChatWindowProvider {
           description: w.path,
           id: "ws:" + w.workspaceId,
         })),
-        { label: "浏览目录…", id: "browse" },
+        { label: t("浏览目录…"), id: "browse" },
       ],
-      { placeHolder: "选择工作区目录" },
+      { placeHolder: t("选择工作区目录") },
     );
     if (!picked) return undefined;
     if (picked.id === "browse") {
       const uri = await vscode.window.showOpenDialog({
         canSelectFolders: true,
         canSelectFiles: false,
-        openLabel: "选择为工作区",
+        openLabel: t("选择为工作区"),
       });
       return uri?.[0]?.fsPath;
     }

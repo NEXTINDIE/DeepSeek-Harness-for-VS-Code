@@ -47,6 +47,17 @@ type Listener = (...args: any[]) => void;
  * 会话与事件的进程内存储:消费 mux/host 帧,向 UI/参与者分发增量。
  * 事件按 seq 去重;历史通过 session.history 回填。
  */
+/** 投影值相等判断(JSON 序列化比较;投影值均为小对象/数组,开销可忽略)。 */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 export class SessionStore {
   readonly sessions = new Map<string, StoredSession>();
   /** sessionId → seq → event */
@@ -114,7 +125,10 @@ export class SessionStore {
 
   /** 通知会话列表已变化(供外部刷新调用)。 */
   /** session.list 刷新写入统计后通知订阅者(触发 webview 实时渲染)。 */
+  /** 记录会话统计并通知(值未变不推送,避免 5s 轮询全量重建统计行)。 */
   emitStats(sessionId: string, value: unknown) {
+    if (sameValue(this.stats.get(sessionId), value)) return;
+    this.stats.set(sessionId, value as { sessionStats?: unknown; tokenUsage?: unknown });
     this.emit("stats", sessionId, value);
   }
 
@@ -132,20 +146,7 @@ export class SessionStore {
       case "session/subscribed":
         if (!this.maxSeq.has(frame.sessionId)) this.maxSeq.set(frame.sessionId, frame.lastSeq);
         break;
-      case "approval/requested":
-        this.pendingApprovals.set(frame.approvalId, { ...frame, frameRpcId: "" } as PendingApproval);
-        break;
-      case "approval/resolved":
-        this.pendingApprovals.delete(frame.approvalId);
-        this.emit("approvalResolved", frame.approvalId);
-        break;
-      case "question/requested":
-        this.pendingQuestions.set("", { sessionId: frame.sessionId, frameRpcId: "", questions: frame.questions });
-        break;
-      case "question/resolved":
-        this.pendingQuestions.delete(frame.questionRpcId);
-        this.emit("questionResolved", frame.questionRpcId);
-        break;
+      // 注:approval/question 四类帧由 handleMuxEnvelope 统一处理(需要 frameRpcId),这里不再重复
       case "session/queue":
         this.queues.set(frame.sessionId, frame.items);
         this.emit("queue", frame.sessionId, frame.items);
@@ -217,6 +218,8 @@ export class SessionStore {
         const s = this.sessions.get(frame.sessionId);
         if (s) s.running = false;
         this.emit("agentError", frame.sessionId, frame.message);
+        // 同步 running 状态,避免界面一直停在"运行中"
+        this.emit("running", frame.sessionId, false);
         break;
       }
       case "host/remote-event":
@@ -282,35 +285,52 @@ export class SessionStore {
       return;
     }
     if (key === "contextPressure") {
-      this.context.set(sessionId, value as { pressureTokens?: number; projectedTokens?: number; contextWindow?: number });
-      this.emit("context", sessionId, value);
+      this.applyContext(sessionId, value);
       return;
     }
     if (key === "permissions") {
-      this.permissions.set(sessionId, value as { options: { value: string; name: string }[]; currentValue: string });
-      this.emit("permissions", sessionId, value);
+      this.applyPermissions(sessionId, value);
       return;
     }
     if (key === "sessionStats" || key === "tokenUsage") {
       // 空投影(null/undefined)不覆盖已有统计(回合开始时的重置帧不应清空界面)
       if (value == null) return;
-      const current = this.stats.get(sessionId) ?? {};
+      const current = { ...(this.stats.get(sessionId) ?? {}) };
       current[key === "sessionStats" ? "sessionStats" : "tokenUsage"] = value;
-      this.stats.set(sessionId, current);
-      // 发送合并后的完整统计,避免 webview 用部分值互相覆盖
-      this.emit("stats", sessionId, current);
+      this.emitStats(sessionId, current);
       return;
     }
     if (key === "todos") {
-      this.todos.set(sessionId, value as { content: string; status: "pending" | "in_progress" | "completed" }[] | null);
-      this.emit("todos", sessionId, value);
+      this.applyTodos(sessionId, value);
     }
   }
 
-  /** 记录会话的 goal 投影并通知。 */
+  /** 记录会话的 goal 投影并通知(值未变不推送,避免 5s 轮询全量重建 DOM)。 */
   applyGoal(sessionId: string, value: unknown) {
+    if (sameValue(this.goals.get(sessionId), value)) return;
     this.goals.set(sessionId, value);
     this.emit("goal", sessionId, value);
+  }
+
+  /** 记录会话的 contextPressure 投影并通知。 */
+  applyContext(sessionId: string, value: unknown) {
+    if (sameValue(this.context.get(sessionId), value)) return;
+    this.context.set(sessionId, value as { pressureTokens?: number; projectedTokens?: number; contextWindow?: number });
+    this.emit("context", sessionId, value);
+  }
+
+  /** 记录会话的 permissions 投影并通知。 */
+  applyPermissions(sessionId: string, value: unknown) {
+    if (sameValue(this.permissions.get(sessionId), value)) return;
+    this.permissions.set(sessionId, value as { options: { value: string; name: string }[]; currentValue: string });
+    this.emit("permissions", sessionId, value);
+  }
+
+  /** 记录会话的 todos 投影并通知(轮询刷新路径,与 mux 帧路径一致地推送)。 */
+  applyTodos(sessionId: string, value: unknown) {
+    if (sameValue(this.todos.get(sessionId), value)) return;
+    this.todos.set(sessionId, value as { content: string; status: "pending" | "in_progress" | "completed" }[] | null);
+    this.emit("todos", sessionId, value);
   }
 
   // ---------- 查询 ----------

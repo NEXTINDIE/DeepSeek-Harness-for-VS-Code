@@ -184,24 +184,17 @@ export class DshHub {
         const goal = item.projections?.values?.goal;
         if (goal !== undefined) this.store.applyGoal(item.sessionId, goal);
         const context = item.projections?.values?.contextPressure;
-        if (context !== undefined) {
-          this.store.context.set(item.sessionId, context as { pressureTokens?: number; projectedTokens?: number; contextWindow?: number });
-        }
+        if (context !== undefined) this.store.applyContext(item.sessionId, context);
         const permissions = item.projections?.values?.permissions;
-        if (permissions !== undefined) {
-          this.store.permissions.set(item.sessionId, permissions as { options: { value: string; name: string }[]; currentValue: string });
-        }
+        if (permissions !== undefined) this.store.applyPermissions(item.sessionId, permissions);
         const todos = item.projections?.values?.todos;
-        if (todos !== undefined) {
-          this.store.todos.set(item.sessionId, todos as { content: string; status: "pending" | "in_progress" | "completed" }[] | null);
-        }
+        if (todos !== undefined) this.store.applyTodos(item.sessionId, todos);
         const sessionStats = item.projections?.values?.sessionStats;
         const tokenUsage = item.projections?.values?.tokenUsage;
-        if (sessionStats !== undefined || tokenUsage !== undefined) {
-          const current = this.store.stats.get(item.sessionId) ?? {};
+        if (sessionStats != null || tokenUsage != null) {
+          const current = { ...(this.store.stats.get(item.sessionId) ?? {}) };
           if (sessionStats !== undefined) current.sessionStats = sessionStats;
           if (tokenUsage !== undefined) current.tokenUsage = tokenUsage;
-          this.store.stats.set(item.sessionId, current);
           this.store.emitStats(item.sessionId, current);
         }
       }
@@ -237,10 +230,11 @@ export class DshHub {
   /** 打开会话并回填历史。 */
   async openSession(sessionId: string) {
     this.store.selectSession(sessionId);
-    await this.loadInitialHistory(sessionId);
+    await this.ensureHistory(sessionId);
   }
 
-  private async loadInitialHistory(sessionId: string) {
+  /** 回填会话历史(仅当本地为空;幂等,无副作用,锁定标签页打开旧会话时调用)。 */
+  async ensureHistory(sessionId: string) {
     if (this.store.eventsFor(sessionId).length === 0) {
       try {
         const { events, hasMore } = await this.client.sessionHistory({ sessionId, maxMessages: HISTORY_PAGE_MESSAGES });
@@ -257,7 +251,7 @@ export class DshHub {
     if (this.store.isHistoryLoading(sessionId)) return { hasMore: true };
     const beforeSeq = this.store.historyBeforeSeq(sessionId);
     if (beforeSeq === undefined) {
-      await this.loadInitialHistory(sessionId);
+      await this.ensureHistory(sessionId);
       return { hasMore: false };
     }
     this.store.setHistoryLoading(sessionId, true);
