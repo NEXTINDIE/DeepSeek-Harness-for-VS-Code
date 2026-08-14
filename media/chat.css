@@ -194,6 +194,42 @@ body {
   vertical-align: middle;
 }
 
+
+/* ---------- 工作区分组 ---------- */
+.list-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 4px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--dsh-muted);
+}
+
+.list-group-head:hover {
+  color: var(--dsh-fg);
+}
+
+.list-group-head svg {
+  transition: transform 0.12s ease;
+}
+
+.list-group-head svg.collapsed {
+  transform: rotate(-90deg);
+}
+
+.list-group-title {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-group-body {
+  padding-bottom: 4px;
+}
+
 .list-item.active .list-item-running {
   background: var(--vscode-list-activeSelectionForeground, var(--dsh-fg));
 }

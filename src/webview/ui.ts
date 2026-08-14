@@ -122,6 +122,8 @@ const state = {
   mode: "chat" as "chat" | "list",
   locked: false,
   search: "",
+  workspaces: [] as { workspaceId: string; path: string; title: string; sessionIds: string[] }[],
+  collapsed: new Set<string>(),
   running: false,
   status: { serverUp: false, serverStartedByUs: false, serverStarting: false, muxConnected: false, hostConnected: false } as HubStatus,
   nodes: [] as NodeState[],
@@ -237,6 +239,8 @@ const ICONS = {
   stop: "M6 6h12v12H6z",
   // 搜索(放大镜)
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z|M21 21l-4.35-4.35",
+  // 分组折叠箭头
+  chevron: "M6 9l6 6 6-6",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -416,6 +420,7 @@ const EN_TEXT: Record<string, string> = {
   "暂无会话,点击新建对话": "No conversations yet, start a new one",
   "搜索会话": "Search conversations",
   "无匹配会话": "No matching conversations",
+  "未分组会话": "Ungrouped",
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
@@ -2320,6 +2325,11 @@ function handleMessage(msg: any) {
       for (const wire of msg.events ?? []) handleEvent(wire);
       break;
     }
+    case "workspaces": {
+      state.workspaces = msg.workspaces ?? [];
+      refreshList();
+      break;
+    }
     case "sessions": {
       state.sessions = msg.sessions ?? [];
       renderSessions();
@@ -2540,17 +2550,48 @@ function updateListRows(rows: HTMLElement) {
     rows.append(el("div", "list-empty", q ? t("无匹配会话") : t("暂无会话,点击新建对话")));
     return;
   }
-  for (const s of filtered) {
-    const item = el("div", "list-item" + (s.sessionId === state.current ? " active" : ""));
-    const titleRow = el("div", "list-item-title");
-    if (s.running) titleRow.append(el("span", "list-item-running"));
-    titleRow.append(document.createTextNode(s.title || s.sessionId.slice(0, 16)));
-    item.append(
-      titleRow,
-      el("div", "list-item-sub", s.cwd ?? ""),
+  // 按工作区分组(会话归属以 workspace.sessionIds 为准,cwd 兜底)
+  const groups: { id: string; title: string; path?: string; items: typeof filtered }[] = [];
+  const used = new Set<string>();
+  for (const w of state.workspaces) {
+    const items = filtered.filter(
+      (s) =>
+        w.sessionIds.includes(s.sessionId) ||
+        (!!s.cwd && !!w.path && s.cwd.toLowerCase() === w.path.toLowerCase()),
     );
-    item.addEventListener("click", () => vscode.postMessage({ kind: "openTab", sessionId: s.sessionId }));
-    rows.append(item);
+    if (items.length === 0) continue;
+    const title = w.title || (w.path ? w.path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? w.path : w.path);
+    groups.push({ id: w.workspaceId, title, path: w.path, items });
+    for (const s of items) used.add(s.sessionId);
+  }
+  const ungrouped = filtered.filter((s) => !used.has(s.sessionId));
+  if (ungrouped.length > 0) groups.push({ id: "", title: t("未分组会话"), items: ungrouped });
+  for (const g of groups) {
+    const collapsed = state.collapsed.has(g.id);
+    const head = el("div", "list-group-head");
+    const chev = lineIcon(ICONS.chevron, 12);
+    if (collapsed) chev.classList.add("collapsed");
+    const headTitle = el("span", "list-group-title", g.title + " (" + g.items.length + ")");
+    head.append(chev, headTitle);
+    head.addEventListener("click", () => {
+      if (collapsed) state.collapsed.delete(g.id);
+      else state.collapsed.add(g.id);
+      updateListRows(rows);
+    });
+    rows.append(head);
+    if (!collapsed) {
+      const body = el("div", "list-group-body");
+      for (const s of g.items) {
+        const item = el("div", "list-item" + (s.sessionId === state.current ? " active" : ""));
+        const titleRow = el("div", "list-item-title");
+        if (s.running) titleRow.append(el("span", "list-item-running"));
+        titleRow.append(document.createTextNode(s.title || s.sessionId.slice(0, 16)));
+        item.append(titleRow, el("div", "list-item-sub", s.cwd ?? ""));
+        item.addEventListener("click", () => vscode.postMessage({ kind: "openTab", sessionId: s.sessionId }));
+        body.append(item);
+      }
+      rows.append(body);
+    }
   }
 }
 

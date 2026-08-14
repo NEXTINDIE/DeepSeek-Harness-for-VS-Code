@@ -259,6 +259,11 @@ export class DshHub {
     }
   }
 
+  /** 工作区列表(侧边栏按工作区分组会话)。 */
+  listWorkspaces() {
+    return this.client.listWorkspaces();
+  }
+
   async createSession(cwd?: string, agentPreset?: string): Promise<string> {
     const { sessionId } = await this.client.createSession({ ...(cwd ? { cwd } : {}), ...(agentPreset ? { agentPreset } : {}) });
     await this.refreshSessions();

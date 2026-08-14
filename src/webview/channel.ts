@@ -87,7 +87,12 @@ export class ChatChannel {
       { dispose: () => activeEditorSub.dispose() },
       // 语言设置变更:通知前端重载界面
       { dispose: () => configSub.dispose() },
-      { dispose: store.on("sessionsChanged", () => this.post({ kind: "sessions", sessions: this.serializeSessions() })) },
+      {
+        dispose: store.on("sessionsChanged", () => {
+          this.post({ kind: "sessions", sessions: this.serializeSessions() });
+          if (this.mode === "list") void this.pushWorkspaces();
+        }),
+      },
       {
         dispose: store.on("sessionEvent", (sid: string, stored: StoredEvent) => {
           if (sid === this.session()) {
@@ -174,7 +179,18 @@ export class ChatChannel {
     await this.hub.ensureReady();
     const current = this.session();
     if (current) void this.hub.updateCurrentModel(current);
+    if (this.mode === "list") await this.pushWorkspaces();
     await this.pushFullState();
+  }
+
+  /** 列表模式:推送工作区信息(侧边栏按工作区分组会话)。 */
+  private async pushWorkspaces() {
+    try {
+      const { items } = await this.hub.listWorkspaces();
+      this.post({ kind: "workspaces", workspaces: items });
+    } catch {
+      // 忽略:列表仍可按未分组展示
+    }
   }
 
   private serializeSessions(): StoredSession[] {
