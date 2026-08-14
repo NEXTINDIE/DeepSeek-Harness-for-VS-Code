@@ -55,7 +55,8 @@ export class ChatChannel {
         this.post({ kind: "lang", lang: effectiveLanguage(), languagePref: this.languagePref() });
       }
       if (e.affectsConfiguration("dsh.agentConfigDirs")) {
-        // 扫描目录开关变更:重新扫描并推送(前端 / 菜单随开关显示对应分区)
+        // 扫描目录开关变更:重新扫描并推送 + 同步开关状态到设置面板
+        this.post({ kind: "agentDirs", value: this.agentDirsConfig() });
         void this.rescanAgentConfigs();
       }
     });
@@ -218,6 +219,7 @@ export class ChatChannel {
       kind: "init",
       lang: effectiveLanguage(),
       languagePref: this.languagePref(),
+      agentDirs: this.agentDirsConfig(),
       status: this.hub.status,
       sessions: this.serializeSessions(),
       ...this.serializeWorkspaces(),
@@ -941,6 +943,25 @@ export class ChatChannel {
             this.post({ kind: "notice", message: t("notice.languageSet", { lang: msg.language }), level: "info" });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.languageSetFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "setAgentDirs": {
+        // 从设置面板切换智能体配置目录扫描开关(写入 dsh.agentConfigDirs,全局)
+        const value = msg.value;
+        if (value && typeof value === "object") {
+          try {
+            const next = {
+              claude: value.claude !== false,
+              codex: value.codex !== false,
+              githubCopilot: value.githubCopilot !== false,
+            };
+            await vscode.workspace.getConfiguration("dsh").update("agentConfigDirs", next, vscode.ConfigurationTarget.Global);
+            this.post({ kind: "agentDirs", value: next });
+            void this.rescanAgentConfigs();
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.agentDirsSetFailed", { error: String(error) }), level: "error" });
           }
         }
         break;

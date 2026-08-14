@@ -142,5 +142,6 @@
   "info.openBuiltInChat": "打开内置聊天",
   "notice.commandExecuted": "命令已执行: {line}",
   "notice.commandUnmatched": "宿主没有此命令: {line}",
-  "notice.commandUnavailable": "当前部署没有会话内命令通道,命令未执行: {line}"
+  "notice.commandUnavailable": "当前部署没有会话内命令通道,命令未执行: {line}",
+  "notice.agentDirsSetFailed": "更新智能体配置目录开关失败: {error}"
 }

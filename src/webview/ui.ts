@@ -194,6 +194,8 @@ const state = {
   replaying: false,
   /** 用户配置的语言偏好(auto / zh-cn / en) */
   languagePref: "auto" as string,
+  /** 智能体配置目录扫描开关(dsh.agentConfigDirs) */
+  agentDirs: { claude: true, codex: true, githubCopilot: true } as { claude: boolean; codex: boolean; githubCopilot: boolean },
   /** 每步开始时间,用于计算每条回答的思考耗时 */
   stepStarts: new Map<string, number>(),
   /** 当前流式回合,用于回合边界切分节点 */
@@ -721,6 +723,48 @@ const EN_TEXT: Record<string, string> = {
   "＋ 其余 {n} 个文件": "+ {n} more files",
   "收起": "Collapse",
   "在资源管理器中显示": "Reveal in File Explorer",
+  // ---- 设置命名空间与字段本地化 ----
+  "引导设置": "Onboarding",
+  "网页搜索(DeepSeek)": "Web search (DeepSeek)",
+  "DeepSeek 供应商": "DeepSeek provider",
+  "其他模型供应商": "Other model providers",
+  "界面主题": "UI theme",
+  "网页端语言": "Web language",
+  "对话行为": "Conversation behavior",
+  "Agent 预设(默认)": "Agent presets (default)",
+  "Agent 循环": "Agent loop",
+  "Shell 执行": "Shell execution",
+  "欢迎提示版本": "Welcome notice version",
+  "API Key": "API Key",
+  "API Key 环境变量": "API key env var",
+  "Base URL": "Base URL",
+  "API 版本": "API version",
+  "最大 Token 数": "Max tokens",
+  "最大使用次数": "Max uses",
+  "偏好": "Preference",
+  "忙碌时回车行为": "Busy Enter behavior",
+  "最大并行工具调用": "Max parallel tool calls",
+  "工作目录": "Working directory",
+  "超时(毫秒)": "Timeout (ms)",
+  "最大超时(毫秒)": "Max timeout (ms)",
+  "最大输出字节": "Max output bytes",
+  "最大溢出字节": "Max spill bytes",
+  "宽限(毫秒)": "Grace (ms)",
+  "pwsh 路径": "pwsh path",
+  "初始延迟(毫秒)": "Initial delay (ms)",
+  "最大延迟(毫秒)": "Max delay (ms)",
+  "抖动比例": "Jitter ratio",
+  "模式": "Mode",
+  "最大重试次数": "Max retries",
+  "可重试错误码": "Retryable codes",
+  "退避": "Backoff",
+  "供应商": "Providers",
+  // ---- 智能体配置目录 ----
+  "智能体配置目录": "Agent config directories",
+  "扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md": "Scan .claude (commands, skills) and report CLAUDE.md / AGENTS.md",
+  "扫描 .codex(config.toml、技能)": "Scan .codex (config.toml, skills)",
+  "扫描 .github Copilot 文件(指令、智能体、提示词)": "Scan .github Copilot files (instructions, agents, prompts)",
+  "控制 / 菜单中扫描列出的目录族;全部勾选则全部扫描。": "Controls which directory families are scanned and listed in the / menu; check all to scan all.",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
@@ -2987,6 +3031,7 @@ function handleMessage(msg: any) {
       state.todos = msg.todos;
       state.lang = msg.lang ?? "zh-cn";
       state.languagePref = msg.languagePref ?? "auto";
+      state.agentDirs = msg.agentDirs ?? { claude: true, codex: true, githubCopilot: true };
       state.models = null;
       state.presets = null;
       state.workspaces = msg.workspaces ?? [];
@@ -3271,6 +3316,11 @@ function handleMessage(msg: any) {
         label: t("默认权限设置"),
         onClick: () => panels.openSettings(),
       });
+      break;
+    }
+    case "agentDirs": {
+      state.agentDirs = msg.value ?? state.agentDirs;
+      panels.refreshSettings();
       break;
     }
     default:

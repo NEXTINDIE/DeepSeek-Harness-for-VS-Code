@@ -142,5 +142,6 @@
   "info.openBuiltInChat": "Open built-in chat",
   "notice.commandExecuted": "Command executed: {line}",
   "notice.commandUnmatched": "The host offers no such command: {line}",
-  "notice.commandUnavailable": "No in-session command channel is available in this deployment; the command was not executed: {line}"
+  "notice.commandUnavailable": "No in-session command channel is available in this deployment; the command was not executed: {line}",
+  "notice.agentDirsSetFailed": "Failed to update agent config directory switches: {error}"
 }

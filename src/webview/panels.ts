@@ -66,6 +66,7 @@ export interface PanelsContext {
     } | null;
     lang: string;
     languagePref: string;
+    agentDirs: { claude: boolean; codex: boolean; githubCopilot: boolean };
   };
   post: (msg: Record<string, unknown>) => void;
   el: (tag: string, cls?: string, text?: string) => HTMLElement;
@@ -703,6 +704,65 @@ export function createPanels(ctx: PanelsContext) {
     return "general";
   }
 
+  /** 命名空间友好名称(中文源语言,经 t() 多语言化);未知命名空间回退原始 id。 */
+  const NAMESPACE_TITLES: Record<string, string> = {
+    "ui-onboarding": "引导设置",
+    "web-search-deepseek": "网页搜索(DeepSeek)",
+    "llm-deepseek": "DeepSeek 供应商",
+    "llm-pi-ai": "其他模型供应商",
+    "ui-theme": "界面主题",
+    "locale": "网页端语言",
+    "ui-conversation": "对话行为",
+    "agent-presets": "Agent 预设(默认)",
+    "agent-loop": "Agent 循环",
+    shell: "Shell 执行",
+    permission: "默认权限预设",
+  };
+
+  function nsTitle(ns: string): string {
+    return t(NAMESPACE_TITLES[ns] ?? ns);
+  }
+
+  /** 已知字段名本地化;未知字段自动驼峰拆词(如 welcomeNoticeVersion → Welcome Notice Version)。 */
+  const FIELD_LABELS: Record<string, string> = {
+    welcomeNoticeVersion: "欢迎提示版本",
+    apiKey: "API Key",
+    apiKeyEnv: "API Key 环境变量",
+    baseURL: "Base URL",
+    model: "模型",
+    apiVersion: "API 版本",
+    maxTokens: "最大 Token 数",
+    maxUses: "最大使用次数",
+    defaultPreset: "默认权限预设",
+    preference: "偏好",
+    busyEnter: "忙碌时回车行为",
+    maxParallelToolCalls: "最大并行工具调用",
+    cwd: "工作目录",
+    timeoutMs: "超时(毫秒)",
+    maxTimeoutMs: "最大超时(毫秒)",
+    maxOutputBytes: "最大输出字节",
+    maxSpillBytes: "最大溢出字节",
+    graceMs: "宽限(毫秒)",
+    pwshPath: "pwsh 路径",
+    default: "默认",
+    initialDelayMs: "初始延迟(毫秒)",
+    maxDelayMs: "最大延迟(毫秒)",
+    jitterRatio: "抖动比例",
+    mode: "模式",
+    maxRetries: "最大重试次数",
+    retryableCodes: "可重试错误码",
+    backoff: "退避",
+    providers: "供应商",
+    api: "API 端点",
+  };
+
+  function fieldLabel(name: string): string {
+    if (FIELD_LABELS[name] !== undefined) return t(FIELD_LABELS[name]);
+    // 驼峰拆词:maxParallelToolCalls → Max Parallel Tool Calls
+    const prettified = name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+    return prettified === name ? name : prettified;
+  }
+
   function renderGeneralTab(body: HTMLElement) {
     // 语言切换(便于快速验证多语言;写入 dsh.language 设置)
     const langSection = ctx.el("div", "settings-section");
@@ -736,6 +796,34 @@ export function createPanels(ctx: PanelsContext) {
     langSection.append(langRow);
     langSection.append(ctx.el("div", "ws-note", t("切换后界面就地重渲染;默认跟随 VS Code 显示语言。")));
     body.append(langSection);
+
+    // 智能体配置目录扫描开关(与 VS Code 设置 dsh.agentConfigDirs 同步)
+    const dirsSection = ctx.el("div", "settings-section");
+    dirsSection.append(ctx.el("div", "settings-section-title", t("智能体配置目录")));
+    const dirsRow = ctx.el("div", "settings-perm-row");
+    const dirOptions: { id: "claude" | "codex" | "githubCopilot"; label: string }[] = [
+      { id: "claude", label: ".claude" },
+      { id: "codex", label: ".codex" },
+      { id: "githubCopilot", label: "GitHub Copilot" },
+    ];
+    for (const opt of dirOptions) {
+      const on = state.agentDirs?.[opt.id] !== false;
+      const b = ctx.el("button", "settings-tab" + (on ? " active" : ""), `${on ? "✅" : "☐"} ${opt.label}`) as HTMLButtonElement;
+      b.title = opt.id === "claude" ? t("扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md") : opt.id === "codex" ? t("扫描 .codex(config.toml、技能)") : t("扫描 .github Copilot 文件(指令、智能体、提示词)");
+      b.addEventListener("click", () => {
+        const next = {
+          claude: state.agentDirs?.claude !== false,
+          codex: state.agentDirs?.codex !== false,
+          githubCopilot: state.agentDirs?.githubCopilot !== false,
+        };
+        next[opt.id] = !on;
+        post({ kind: "setAgentDirs", value: next });
+      });
+      dirsRow.append(b);
+    }
+    dirsSection.append(dirsRow);
+    dirsSection.append(ctx.el("div", "ws-note", t("控制 / 菜单中扫描列出的目录族;全部勾选则全部扫描。")));
+    body.append(dirsSection);
 
     const desc = state.settingsDescribe;
     if (!desc) {
@@ -930,7 +1018,9 @@ export function createPanels(ctx: PanelsContext) {
   function renderNamespaceSection(ns: PanelNamespace): HTMLElement {
     const section = ctx.el("div", "settings-section");
     const titleRow = ctx.el("div", "settings-section-title");
-    titleRow.append(ctx.el("span", undefined, ns.ns));
+    // 标题用本地化友好名称,原始 id 以小字徽标保留(便于排查)
+    titleRow.append(ctx.el("span", undefined, nsTitle(ns.ns)));
+    titleRow.append(ctx.el("span", "settings-badge-soft", ns.ns));
     if (ns.applies === "restart") titleRow.append(ctx.el("span", "settings-badge", t("需重启")));
     titleRow.append(ctx.el("span", "settings-badge-soft", `rev ${ns.revision}`));
     section.append(titleRow);
@@ -969,7 +1059,8 @@ export function createPanels(ctx: PanelsContext) {
       const meta = node.meta ?? {};
       const overridden = isUserOverridden(path);
       const wrap = ctx.el("div", "settings-field-row");
-      const label = ctx.el("span", "settings-field-label", fieldName);
+      // 字段名本地化:已知字段走词典,未知字段驼峰拆词
+      const label = ctx.el("span", "settings-field-label", fieldLabel(fieldName));
       label.title = path.join(".");
       if (meta.description) label.title = `${path.join(".")} — ${String(meta.description)}`;
       wrap.style.paddingLeft = `${Math.min(depth, 4) * 14}px`;
@@ -1091,7 +1182,7 @@ export function createPanels(ctx: PanelsContext) {
       if (nodeType === "object" && node.dict) {
         const group = ctx.el("details", "settings-group") as HTMLDetailsElement;
         group.open = depth < 2;
-        const summary = ctx.el("summary", undefined, fieldName);
+        const summary = ctx.el("summary", undefined, fieldLabel(fieldName));
         group.append(summary);
         for (const [childName, childRef] of Object.entries(node.dict)) {
           renderField(group, [...path, childName], childName, childRef, depth + 1);
