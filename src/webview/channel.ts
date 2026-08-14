@@ -268,6 +268,8 @@ export class ChatChannel {
           try {
             const text = await this.composeWithAttachments(msg.text, msg.attachments);
             await this.hub.send(current, text);
+            // 发送后立即刷新投影,统计行不会被回合开始时的空帧清空
+            void this.hub.refreshSessions();
           } catch {
             // 错误已通过 notice 提示
           }

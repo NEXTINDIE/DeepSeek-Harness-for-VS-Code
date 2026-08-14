@@ -2370,13 +2370,16 @@ function handleMessage(msg: any) {
     }
     case "context": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
-      state.context = msg.value;
+      if (msg.value) state.context = msg.value;
       renderContextBar();
       break;
     }
     case "stats": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
-      state.stats = msg.value;
+      // 合并部分更新(null 保留旧值),避免部分投影帧互相覆盖导致统计消失
+      if (msg.value && typeof msg.value === "object") {
+        state.stats = { ...(state.stats ?? {}), ...msg.value };
+      }
       renderStatsLine();
       break;
     }
