@@ -25,12 +25,18 @@ body {
   font-size: var(--vscode-font-size, 13px);
 }
 
-#app,
+/* 对话区整体作为居中的限宽列(与 Web 端一致的阅读宽度;块级 margin auto 保证任何环境下居中) */
+#app {
+  height: 100%;
+}
+
 .app-root {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  width: min(100% - 16px, 760px);
+  margin: 0 auto;
 }
 
 /* ---------- 侧边栏会话列表 ---------- */
@@ -458,14 +464,7 @@ body {
   gap: 8px;
 }
 
-/* 对话内容最大宽度:与 Web 端一致的阅读宽度,超宽窗口下居中 */
-.messages,
-.composer {
-  width: 100%;
-  max-width: 760px;
-  margin-left: auto;
-  margin-right: auto;
-}
+
 
 .btn-load-more {
   align-self: center;
