@@ -38,5 +38,11 @@
   "config.language.ko": "Coréen",
   "config.language.de": "Allemand",
   "config.language.fr": "Français",
-  "config.language.es": "Espagnol"
+  "config.language.es": "Espagnol",
+  "config.language.zh-tw": "Chinois (traditionnel)",
+  "config.language.pt": "Portugais",
+  "config.language.th": "Thaï",
+  "config.language.id": "Indonésien",
+  "config.language.tr": "Turc",
+  "config.language.ar": "Arabe"
 }

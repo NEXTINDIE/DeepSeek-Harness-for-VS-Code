@@ -276,8 +276,9 @@ export function createPanels(ctx: PanelsContext) {
     if (!wsPanel) return;
     const body = wsPanel.body;
     body.innerHTML = "";
+    const archived = new Set(state.archivedSessionIds);
 
-    // 搜索模式:平铺结果
+    // 搜索模式:平铺结果(归档与子代理会话从搜索结果隐藏)
     if (wsSearch) {
       if (wsSearchError) {
         const warn = ctx.el("div", "ws-note", `⚠️ ${wsSearchError}`);
@@ -287,11 +288,16 @@ export function createPanels(ctx: PanelsContext) {
         body.append(ctx.el("div", "ws-note", t("搜索中…")));
         return;
       }
-      if (wsResults.length === 0) {
+      const visibleResults = wsResults.filter((item) => {
+        if (archived.has(item.sessionId)) return false;
+        const s = state.sessions.find((x) => x.sessionId === item.sessionId);
+        return s?.origin !== "subagent";
+      });
+      if (visibleResults.length === 0) {
         body.append(ctx.el("div", "ws-note", t("没有匹配的会话")));
         return;
       }
-      for (const item of wsResults) {
+      for (const item of visibleResults) {
         const s = state.sessions.find((x) => x.sessionId === item.sessionId);
         const row = ctx.el("button", "ws-row ws-result");
         const icon = ctx.el("span", "ws-icon", s ? (s.blank ? "🆕" : "💬") : "💬");
@@ -308,7 +314,6 @@ export function createPanels(ctx: PanelsContext) {
       return;
     }
 
-    const archived = new Set(state.archivedSessionIds);
     const accounted = new Set<string>();
     const ordered = state.workspaceOrder.slice();
     const wsList = [...state.workspaces].sort((a, b) => {
@@ -352,10 +357,11 @@ export function createPanels(ctx: PanelsContext) {
       head.append(actions);
       group.append(head);
 
-      // 组内会话行(按工作区顺序)
+      // 组内会话行(按工作区顺序;归档与子代理会话从分组表面隐藏)
       for (const sid of w.sessionIds) {
         const s = state.sessions.find((x) => x.sessionId === sid);
         if (archived.has(sid)) continue;
+        if (s?.origin === "subagent") continue;
         group.append(sessionRow(w, s, sid));
       }
       body.append(group);
@@ -375,14 +381,14 @@ export function createPanels(ctx: PanelsContext) {
       body.append(group);
     }
 
-    // 归档会话(仅供打开)
+    // 归档会话(默认折叠,仅供查看;与网页端一致:归档会话从所有常规列表隐藏)
     const archivedList = state.sessions.filter((s) => archived.has(s.sessionId));
     if (archivedList.length > 0) {
-      const group = ctx.el("div", "ws-group");
-      const head = ctx.el("div", "ws-group-head");
-      head.append(ctx.el("span", "ws-group-title", t("🗄️ 已归档")));
-      head.append(ctx.el("span", "ws-count", String(archivedList.length)));
-      group.append(head);
+      const group = ctx.el("details", "ws-group ws-archived-group");
+      const summary = ctx.el("summary", "ws-group-head");
+      summary.append(ctx.el("span", "ws-group-title", t("🗄️ 已归档")));
+      summary.append(ctx.el("span", "ws-count", String(archivedList.length)));
+      group.append(summary);
       for (const s of archivedList) {
         const row = ctx.el("button", "ws-row ws-row-archived");
         const st = statusIconFor(s, ctx);
@@ -392,8 +398,9 @@ export function createPanels(ctx: PanelsContext) {
         main.append(ctx.el("span", "ws-title", sessionRowTitle(ctx, s)));
         row.append(status, main);
         row.append(textBtn(ctx, t("打开"), t("归档会话仍保留在服务器,可继续查看"), () => ctx.selectSession(s.sessionId), "mini-btn"));
-        body.append(row);
+        group.append(row);
       }
+      body.append(group);
     }
   }
 
@@ -704,12 +711,18 @@ export function createPanels(ctx: PanelsContext) {
     const options: { id: string; label: string }[] = [
       { id: "auto", label: t("跟随 VS Code") },
       { id: "zh-cn", label: "简体中文" },
+      { id: "zh-tw", label: "繁體中文" },
       { id: "en", label: "English" },
       { id: "ja", label: "日本語" },
       { id: "ko", label: "한국어" },
       { id: "de", label: "Deutsch" },
       { id: "fr", label: "Français" },
       { id: "es", label: "Español" },
+      { id: "pt", label: "Português" },
+      { id: "th", label: "ไทย" },
+      { id: "id", label: "Bahasa Indonesia" },
+      { id: "tr", label: "Türkçe" },
+      { id: "ar", label: "العربية" },
     ];
     for (const opt of options) {
       const b = ctx.el("button", "settings-tab" + (state.languagePref === opt.id ? " active" : ""), opt.label) as HTMLButtonElement;

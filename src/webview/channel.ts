@@ -535,7 +535,10 @@ export class ChatChannel {
         if (current) {
           try {
             await this.hub.archiveSession(current);
-            const remaining = this.hub.store.listSessions();
+            // 归档后选择下一个常规会话(跳过归档与子代理会话)
+            const remaining = this.hub.store
+              .listSessions()
+              .filter((s) => !this.hub.store.archivedSessionIds.has(s.sessionId) && s.origin !== "subagent");
             const next = remaining[0]?.sessionId;
             if (next && next !== current) {
               this.hub.store.selectSession(next);
@@ -1042,9 +1045,11 @@ export class ChatChannel {
       "worker-src ${webview.cspSource}",
       "font-src ${webview.cspSource}",
     ].join("; ");
-    const htmlLang = effectiveLanguage() === "zh-cn" ? "zh-CN" : effectiveLanguage();
+    const lang = effectiveLanguage();
+    const htmlLang = lang === "zh-cn" ? "zh-CN" : lang === "zh-tw" ? "zh-TW" : lang;
+    const htmlDir = lang === "ar" ? "rtl" : "ltr";
     return `<!DOCTYPE html>
-<html lang="${htmlLang}">
+<html lang="${htmlLang}" dir="${htmlDir}">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="${csp}">

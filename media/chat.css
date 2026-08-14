@@ -1745,6 +1745,16 @@ body {
 
 .ws-group { display: flex; flex-direction: column; }
 
+.ws-archived-group > summary.ws-group-head {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.ws-archived-group > summary.ws-group-head::-webkit-details-marker {
+  display: none;
+}
+
 .ws-group + .ws-group {
   margin-top: 2px;
 }

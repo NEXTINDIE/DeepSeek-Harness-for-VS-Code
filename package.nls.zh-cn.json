@@ -38,5 +38,11 @@
   "config.language.ko": "韩语 (한국어)",
   "config.language.de": "德语 (Deutsch)",
   "config.language.fr": "法语 (Français)",
-  "config.language.es": "西班牙语 (Español)"
+  "config.language.es": "西班牙语 (Español)",
+  "config.language.zh-tw": "繁体中文",
+  "config.language.pt": "葡萄牙语 (Português)",
+  "config.language.th": "泰语 (ไทย)",
+  "config.language.id": "印尼语 (Bahasa Indonesia)",
+  "config.language.tr": "土耳其语 (Türkçe)",
+  "config.language.ar": "阿拉伯语 (العربية)"
 }

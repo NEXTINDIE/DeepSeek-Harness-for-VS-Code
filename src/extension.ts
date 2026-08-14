@@ -191,7 +191,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.commands.registerCommand("dsh.selectSession", async () => {
       const ready = await hub.ensureReady();
       if (!ready.ok) return;
-      const sessions = hub.store.listSessions();
+      // 与网页端一致:归档会话与子代理会话不列入常规选择列表
+      const sessions = hub.store
+        .listSessions()
+        .filter((s) => !hub.store.archivedSessionIds.has(s.sessionId) && s.origin !== "subagent");
       if (sessions.length === 0) {
         void vscode.window.showInformationMessage(t("msg.noSessions"));
         return;

@@ -2,11 +2,17 @@ import "./safety";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { createPanels, type PanelsContext } from "./panels";
+import zhTwTexts from "./texts/zh-tw.json";
 import jaTexts from "./texts/ja.json";
 import koTexts from "./texts/ko.json";
 import deTexts from "./texts/de.json";
 import frTexts from "./texts/fr.json";
 import esTexts from "./texts/es.json";
+import ptTexts from "./texts/pt.json";
+import thTexts from "./texts/th.json";
+import idTexts from "./texts/id.json";
+import trTexts from "./texts/tr.json";
+import arTexts from "./texts/ar.json";
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void; getState(): any; setState(state: any): void };
 
@@ -678,19 +684,26 @@ const EN_TEXT: Record<string, string> = {
   "(暂无)": "(none yet)",
 };
 
-/** 多语言词典:中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
+/** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
 const UI_TEXTS: Record<string, Record<string, string>> = {
+  "zh-tw": zhTwTexts as Record<string, string>,
   en: EN_TEXT,
   ja: jaTexts as Record<string, string>,
   ko: koTexts as Record<string, string>,
   de: deTexts as Record<string, string>,
   fr: frTexts as Record<string, string>,
   es: esTexts as Record<string, string>,
+  pt: ptTexts as Record<string, string>,
+  th: thTexts as Record<string, string>,
+  id: idTexts as Record<string, string>,
+  tr: trTexts as Record<string, string>,
+  ar: arTexts as Record<string, string>,
 };
 
 function t(zh: string, params?: Record<string, string | number>): string {
   const lang = (state.lang ?? "zh-cn").toLowerCase();
-  const dict = lang.startsWith("zh") ? undefined : UI_TEXTS[lang] ?? EN_TEXT;
+  // zh-cn / zh 使用中文源文本;zh-tw 及其他语言查各自词典,缺失回退英文再回退中文。
+  const dict = UI_TEXTS[lang] ?? (lang.startsWith("zh") ? undefined : EN_TEXT);
   let text = dict === undefined ? zh : dict[zh] ?? EN_TEXT[zh] ?? zh;
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -2013,11 +2026,16 @@ function renderGoal() {
 
 function renderSessions() {
   const current = state.current;
+  const archived = new Set(state.archivedSessionIds);
   sessionSelect.innerHTML = "";
   const empty = el("option", undefined, t("— 选择会话 —"));
   empty.value = "";
   sessionSelect.append(empty);
-  for (const s of state.sessions) {
+  // 与网页端一致:归档会话与子代理会话从常规列表隐藏(归档可到工作区面板"已归档"区查看)
+  const visible = state.sessions.filter(
+    (s) => s.sessionId === current || (!archived.has(s.sessionId) && s.origin !== "subagent"),
+  );
+  for (const s of visible) {
     const pendingMark = s.pending
       ? s.pending.kind === "approval"
         ? "🛡️ "
