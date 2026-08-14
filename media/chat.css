@@ -25,7 +25,7 @@ body {
   font-size: var(--vscode-font-size, 13px);
 }
 
-/* 对话区整体作为居中的限宽列(与 Web 端一致的阅读宽度;块级 margin auto 保证任何环境下居中) */
+/* 对话区整体通栏;消息展示区宽列、输入区窄列,各自独立限宽居中 */
 #app {
   height: 100%;
 }
@@ -35,8 +35,24 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  width: 100%;
+}
+
+/* 消息展示区(DS 输出):宽列 */
+.messages,
+.goal-area,
+.conversation-bottom {
+  width: min(100% - 32px, 1200px);
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
+}
+
+/* 输入区:保持 760px 阅读宽度 */
+.composer {
   width: min(100% - 16px, 760px);
-  margin: 0 auto;
+  margin: 4px auto 8px;
+  align-self: center;
 }
 
 /* ---------- 侧边栏会话列表 ---------- */
