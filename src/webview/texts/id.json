@@ -321,5 +321,13 @@
   "去聊天里说": "Bahas di chat",
   "拒绝": "Tolak",
   "确认执行": "Setujui",
-  "输入修改意见,回车发送": "Ketik masukan, Enter untuk mengirim"
+  "输入修改意见,回车发送": "Ketik masukan, Enter untuk mengirim",
+  "插入 .dsh 技能说明(SKILL.md)": "Sisipkan deskripsi skill .dsh (SKILL.md)",
+  "插入 .dsh 智能体定义": "Sisipkan definisi agen .dsh",
+  "记忆 {name}": "Memori {name}",
+  "插入 .dsh 记忆内容": "Sisipkan konten memori .dsh",
+  "点击退出计划模式(发送 /plan off)": "Klik untuk keluar dari mode rencana (mengirim /plan off)",
+  "插入 /plan 到输入框,回车后进入计划模式": "Sisipkan /plan; Enter memasuki mode rencana",
+  "插入 /plan off 到输入框,回车后退出计划模式": "Sisipkan /plan off; Enter keluar dari mode rencana",
+  "退出计划模式": "Keluar dari mode rencana"
 }

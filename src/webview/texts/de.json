@@ -321,5 +321,13 @@
   "去聊天里说": "Im Chat besprechen",
   "拒绝": "Ablehnen",
   "确认执行": "Bestätigen",
-  "输入修改意见,回车发送": "Feedback eingeben, mit Enter senden"
+  "输入修改意见,回车发送": "Feedback eingeben, mit Enter senden",
+  "插入 .dsh 技能说明(SKILL.md)": ".dsh-Skillbeschreibung einfügen (SKILL.md)",
+  "插入 .dsh 智能体定义": ".dsh-Agentdefinition einfügen",
+  "记忆 {name}": "Gedächtnis {name}",
+  "插入 .dsh 记忆内容": ".dsh-Speicherinhalt einfügen",
+  "点击退出计划模式(发送 /plan off)": "Klicken zum Beenden des Planungsmodus (sendet /plan off)",
+  "插入 /plan 到输入框,回车后进入计划模式": "/plan einfügen; Enter startet den Planungsmodus",
+  "插入 /plan off 到输入框,回车后退出计划模式": "/plan off einfügen; Enter beendet den Planungsmodus",
+  "退出计划模式": "Planungsmodus beenden"
 }

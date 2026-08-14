@@ -11,7 +11,8 @@ out/
 *.vsix
 Releases/
 
-# --- DSH agent session snapshots (local data, never push) ---
+# --- DSH workspace state & agent config (local data, never push) ---
+.dsh/
 .dsh-snapshots/
 
 # --- IDE / editor settings ---

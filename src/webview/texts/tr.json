@@ -321,5 +321,13 @@
   "去聊天里说": "Sohbette konuş",
   "拒绝": "Reddet",
   "确认执行": "Onayla",
-  "输入修改意见,回车发送": "Geri bildirimi yazın, göndermek için Enter"
+  "输入修改意见,回车发送": "Geri bildirimi yazın, göndermek için Enter",
+  "插入 .dsh 技能说明(SKILL.md)": ".dsh beceri açıklamasını ekle (SKILL.md)",
+  "插入 .dsh 智能体定义": ".dsh ajan tanımını ekle",
+  "记忆 {name}": "Bellek {name}",
+  "插入 .dsh 记忆内容": ".dsh bellek içeriğini ekle",
+  "点击退出计划模式(发送 /plan off)": "Plan modundan çıkmak için tıkla (/plan off gönderir)",
+  "插入 /plan 到输入框,回车后进入计划模式": "/plan ekle; Enter plan moduna girer",
+  "插入 /plan off 到输入框,回车后退出计划模式": "/plan off ekle; Enter plan modundan çıkar",
+  "退出计划模式": "Plan modundan çık"
 }

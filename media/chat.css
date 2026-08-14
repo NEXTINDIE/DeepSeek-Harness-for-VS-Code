@@ -377,6 +377,23 @@ body {
   border-color: var(--dsh-border);
 }
 
+/* ---------- 运行中指示:沙漏 ⏳ 旋转动画 ---------- */
+.running-emoji {
+  display: inline-block;
+  animation: dsh-spin 1.3s linear infinite;
+}
+
+.tool-status-running {
+  display: inline-block;
+  animation: dsh-spin 1.2s linear infinite;
+}
+
+@keyframes dsh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn {
   background: var(--dsh-btn-bg);
   color: var(--dsh-btn-fg);

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { createTranslator, effectiveLanguage, SUPPORTED_LANGUAGES } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
@@ -9,6 +9,16 @@ import type { PromptContentPart } from "../dsh/types";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
+
+/** 文件名清理:替换非法字符、压缩空白、去首尾符号并截断。 */
+function sanitizeFileName(name: string): string {
+  const cleaned = name
+    .replace(/[\\/:*?"<>|\r\n\t]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/^[.\- ]+|[.\- ]+$/g, "")
+    .trim();
+  return (cleaned || "plan").slice(0, 48);
+}
 
 /** 计划文件路径持久化键(globalState)。 */
 const PLAN_FILES_KEY = "dsh.planFiles";
@@ -188,6 +198,15 @@ export class ChatChannel {
     try {
       const uri = await this.planUriFor(sessionId);
       await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf8"));
+      // 迁移:旧版 .txt 计划文件按新 .md 路径覆盖后清理旧文件
+      const prev = this.planFiles.get(sessionId);
+      if (prev && prev !== uri.fsPath) {
+        try {
+          await vscode.workspace.fs.delete(vscode.Uri.file(prev), { useTrash: false });
+        } catch {
+          // 旧文件清理失败不影响新计划
+        }
+      }
       this.planFiles.set(sessionId, uri.fsPath);
       void this.ctx.globalState.update(PLAN_FILES_KEY, Object.fromEntries(this.planFiles));
       // 通知前端把计划文件计入本轮产物(📦 产物卡)
@@ -196,8 +215,8 @@ export class ChatChannel {
       const open = vscode.window.visibleTextEditors.some((e) => e.document.uri.toString() === uri.toString());
       if (!open) {
         const doc = await vscode.workspace.openTextDocument(uri);
-        // 预览模式打开(与 Claude Code 计划窗口一致:只读预览体验,不抢聊天焦点)
-        await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+        // 预览模式,在当前编辑器组打开为子 tab(不再新开编辑器组/窗口)
+        await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });
       }
     } catch (error) {
       console.error("[dsh] plan document write/open failed:", error);
@@ -210,20 +229,29 @@ export class ChatChannel {
     if (cwd) {
       const dir = vscode.Uri.joinPath(vscode.Uri.file(cwd), ".dsh", "plans");
       await vscode.workspace.fs.createDirectory(dir);
-      return vscode.Uri.joinPath(dir, `plan-review-${sessionId}.txt`);
+      return vscode.Uri.joinPath(dir, this.planNameFor(sessionId));
     }
     const dir = vscode.Uri.joinPath(this.ctx.globalStorageUri, "dsh-plans");
     await vscode.workspace.fs.createDirectory(dir);
-    return vscode.Uri.joinPath(dir, `plan-review-${sessionId}.txt`);
+    return vscode.Uri.joinPath(dir, this.planNameFor(sessionId));
   }
 
-  /** 重新打开某会话的计划文本(重启 VS Code 后选择该会话时调用),预览模式。 */
+  /** 计划文件的可读命名:优先会话标题(清理非法字符),否则短 id;跨会话同名时追加短 id 防覆盖。 */
+  private planNameFor(sessionId: string): string {
+    const title = (this.hub.store.sessions.get(sessionId)?.title ?? "").trim();
+    const base = title ? sanitizeFileName(title) : sessionId.slice(0, 8);
+    const name = `plan-${base}.md`;
+    const taken = [...this.planFiles.entries()].some(([sid, path]) => sid !== sessionId && basename(path) === name);
+    return taken ? `plan-${base}-${sessionId.slice(0, 8)}.md` : name;
+  }
+
+  /** 重新打开某会话的计划文本(重启 VS Code 后选择该会话时调用),当前编辑器组预览 tab。 */
   private async openPlanFile(path: string) {
     try {
       const uri = vscode.Uri.file(path);
       await vscode.workspace.fs.stat(uri);
       const doc = await vscode.workspace.openTextDocument(uri);
-      await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+      await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });
     } catch {
       // 文件缺失/不可读时静默,不打断会话切换
     }
@@ -533,7 +561,7 @@ export class ChatChannel {
       case "getClaudeConfig": {
         // 扫描工作区的智能体/技能配置目录:.claude / .codex / .github(Copilot)
         // 各目录族由 dsh.agentConfigDirs 勾选控制,全部勾选则全部扫描(默认全开)
-        const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [] };
+        const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [], dshSkills: [], dshAgents: [], dshMemory: [] };
         try {
           const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
           const value = folder ? await scanAgentConfigs(folder, this.agentDirsConfig()) : empty;
@@ -1292,7 +1320,7 @@ function isAbsolutePath(p: string): boolean {
   return isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p);
 }
 
-/** 扫描工作区的智能体/技能配置:.claude(命令与技能)、.codex(技能与配置)、.github(Copilot 指令/智能体/提示词)。 */
+/** 扫描工作区的智能体/技能配置:.claude(命令与技能)、.codex(技能与配置)、.github(Copilot 指令/智能体/提示词)、.dsh(自身约定:agent / skills / memory)。 */
 async function scanAgentConfigs(
   folder: vscode.Uri,
   dirs: { claude: boolean; codex: boolean; githubCopilot: boolean },
@@ -1306,6 +1334,9 @@ async function scanAgentConfigs(
   copilotInstructionFiles: { name: string; content: string }[];
   copilotAgents: { name: string; content: string }[];
   copilotPrompts: { name: string; content: string }[];
+  dshSkills: { name: string; content: string }[];
+  dshAgents: { name: string; content: string }[];
+  dshMemory: { name: string; content: string }[];
 }> {
   const result = {
     claudeMd: false,
@@ -1317,6 +1348,9 @@ async function scanAgentConfigs(
     copilotInstructionFiles: [] as { name: string; content: string }[],
     copilotAgents: [] as { name: string; content: string }[],
     copilotPrompts: [] as { name: string; content: string }[],
+    dshSkills: [] as { name: string; content: string }[],
+    dshAgents: [] as { name: string; content: string }[],
+    dshMemory: [] as { name: string; content: string }[],
   };
   const exists = async (uri: vscode.Uri) => {
     try {
@@ -1393,6 +1427,11 @@ async function scanAgentConfigs(
     result.copilotAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "agents"));
     result.copilotPrompts = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "prompts"), ".prompt.md");
   }
+
+  // .dsh 自身约定(始终扫描,与计划文件同级):项目级智能体 .dsh/agent/*.md、技能 .dsh/skills/*/SKILL.md、记忆 .dsh/memory/*.md
+  result.dshSkills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".dsh", "skills"));
+  result.dshAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".dsh", "agent"));
+  result.dshMemory = await scanMdFiles(vscode.Uri.joinPath(folder, ".dsh", "memory"));
 
   return result;
 }

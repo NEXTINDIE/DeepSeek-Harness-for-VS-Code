@@ -321,5 +321,13 @@
   "去聊天里说": "Discutir no chat",
   "拒绝": "Recusar",
   "确认执行": "Aprovar",
-  "输入修改意见,回车发送": "Digite o feedback, Enter para enviar"
+  "输入修改意见,回车发送": "Digite o feedback, Enter para enviar",
+  "插入 .dsh 技能说明(SKILL.md)": "Inserir descrição de habilidade .dsh (SKILL.md)",
+  "插入 .dsh 智能体定义": "Inserir definição de agente .dsh",
+  "记忆 {name}": "Memória {name}",
+  "插入 .dsh 记忆内容": "Inserir conteúdo de memória .dsh",
+  "点击退出计划模式(发送 /plan off)": "Clique para sair do modo plano (envia /plan off)",
+  "插入 /plan 到输入框,回车后进入计划模式": "Inserir /plan; Enter ativa o modo plano",
+  "插入 /plan off 到输入框,回车后退出计划模式": "Inserir /plan off; Enter sai do modo plano",
+  "退出计划模式": "Sair do modo plano"
 }

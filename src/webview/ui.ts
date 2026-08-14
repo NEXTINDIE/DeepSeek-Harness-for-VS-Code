@@ -218,7 +218,7 @@ const state = {
   streamedBlockKeys: new Set<string>(),
   /** 本回合的过程(工具调用)折叠组 */
   turnToolGroup: null as HTMLElement | null,
-  /** 工作区智能体/技能配置(.claude / .codex / .github Copilot) */
+  /** 工作区智能体/技能配置(.claude / .codex / .github Copilot / .dsh) */
   claudeConfig: null as {
     claudeMd: boolean;
     commands: { name: string; content: string }[];
@@ -229,6 +229,9 @@ const state = {
     copilotInstructionFiles: { name: string; content: string }[];
     copilotAgents: { name: string; content: string }[];
     copilotPrompts: { name: string; content: string }[];
+    dshSkills: { name: string; content: string }[];
+    dshAgents: { name: string; content: string }[];
+    dshMemory: { name: string; content: string }[];
   } | null,
   /** 工作区与归档集合(workspace.list 基线 + host 帧) */
   workspaces: [] as WorkspaceItem[],
@@ -503,7 +506,7 @@ const EN_TEXT: Record<string, string> = {
   "🔀 分叉会话": "🔀 Fork session",
   "🗄️ 归档会话": "🗄️ Archive session",
   "📝 计划模式": "📝 Plan mode",
-  "点击退出计划模式(发送 /plan)": "Click to exit plan mode (sends /plan)",
+  "点击退出计划模式(发送 /plan off)": "Click to exit plan mode (sends /plan off)",
   "🎯 目标模式": "🎯 Goal mode",
   "点击管理目标(修改 / 完成 / 清除)": "Click to manage the goal (edit / complete / clear)",
   "✏️ 修改目标": "✏️ Edit goal",
@@ -563,6 +566,10 @@ const EN_TEXT: Record<string, string> = {
   "插入 Copilot 指令文件": "Insert Copilot instruction file",
   "插入 Copilot 智能体定义": "Insert Copilot agent definition",
   "插入 Copilot 提示词": "Insert Copilot prompt",
+  "插入 .dsh 技能说明(SKILL.md)": "Insert .dsh skill description (SKILL.md)",
+  "插入 .dsh 智能体定义": "Insert .dsh agent definition",
+  "记忆 {name}": "Memory {name}",
+  "插入 .dsh 记忆内容": "Insert .dsh memory content",
   "提问": "Question",
   "放弃整组问题": "Dismiss all questions",
   "第 {i} 题 / 共 {n} 题": "Question {i} of {n}",
@@ -733,7 +740,9 @@ const EN_TEXT: Record<string, string> = {
   "跟随 VS Code 显示语言": "Follow the VS Code display language",
   "切换后界面就地重渲染;默认跟随 VS Code 显示语言。": "The UI re-renders in place after switching; by default it follows the VS Code display language.",
   // ---- / 命令菜单(补齐新增提示) ----
-  "插入 /plan 到输入框,回车后进入/退出计划模式": "Insert /plan into the input; press Enter to enter/exit plan mode",
+  "插入 /plan 到输入框,回车后进入计划模式": "Insert /plan into the input; press Enter to enter plan mode",
+  "插入 /plan off 到输入框,回车后退出计划模式": "Insert /plan off into the input; press Enter to leave plan mode",
+  "退出计划模式": "Exit plan mode",
   "插入 /compact 到输入框,回车执行": "Insert /compact into the input; press Enter to run",
   "插入 /goal 命令,补全目标描述后回车": "Insert /goal, complete the objective, then press Enter",
   "插入 /feedback 命令记录会话反馈": "Insert /feedback to record session feedback",
@@ -1165,7 +1174,14 @@ btnAddAttach.addEventListener("click", (e) => {
 document.addEventListener("click", (e) => {
   if (!attachMenu.hidden && e.target !== btnAddAttach && !attachMenu.contains(e.target as Node)) attachMenu.hidden = true;
 });
-btnNew.addEventListener("click", () => vscode.postMessage({ kind: "new" }));
+btnNew.addEventListener("click", () => {
+  // 新建会话:立即清掉旧会话的计划/目标状态,避免过渡期点击芯片把 /plan 误发给新会话
+  state.planMode = false;
+  state.goal = null;
+  renderGoal();
+  renderModeChips();
+  vscode.postMessage({ kind: "new" });
+});
 btnBrowser.addEventListener("click", () => vscode.postMessage({ kind: "openBrowser" }));
 btnWorkspaces.addEventListener("click", () => panels.openWorkspaces());
 btnJobs.addEventListener("click", () => panels.openJobs());
@@ -1244,7 +1260,12 @@ function renderPlusMenu() {
     plusMenu.append(b);
     return b;
   };
-  item("📝", t("计划模式"), () => insert("/plan"), t("插入 /plan 到输入框,回车后进入/退出计划模式"));
+  // 计划模式:进入与退出是两条不同命令(/plan 进入,/plan off 退出 —— 与宿主命令语义一致)
+  if (state.planMode) {
+    item("📝", t("退出计划模式"), () => insert("/plan off"), t("插入 /plan off 到输入框,回车后退出计划模式"));
+  } else {
+    item("📝", t("计划模式"), () => insert("/plan"), t("插入 /plan 到输入框,回车后进入计划模式"));
+  }
   item("🗜️", t("压缩上下文"), () => insert("/compact"), t("插入 /compact 到输入框,回车执行"));
   item("🎯", t("设置目标"), () => insert("/goal "), t("插入 /goal 命令,补全目标描述后回车"));
   item("💬", t("记录反馈"), () => insert("/feedback "), t("插入 /feedback 命令记录会话反馈"));
@@ -1304,12 +1325,26 @@ function renderPlusMenu() {
     renderSkillRows(false);
     plusMenu.append(list);
   }
-  // 智能体/技能配置:.claude(DSH 核心自动读 CLAUDE.md/AGENTS.md)/ .codex / .github(Copilot)
+  // 智能体/技能配置:.claude(DSH 核心自动读 CLAUDE.md/AGENTS.md)/ .codex / .github(Copilot)/ .dsh(自身约定)
   const claude = state.claudeConfig;
   const hasClaude = claude && (claude.claudeMd || claude.commands.length > 0 || claude.skills.length > 0);
   const hasCodex = claude && (claude.codexConfig || claude.codexSkills.length > 0);
   const hasCopilot =
     claude && (claude.copilotInstructions !== null || claude.copilotInstructionFiles.length > 0 || claude.copilotAgents.length > 0 || claude.copilotPrompts.length > 0);
+  const hasDsh = claude && (claude.dshSkills.length > 0 || claude.dshAgents.length > 0 || claude.dshMemory.length > 0);
+  if (hasDsh) {
+    const group = el("div", "plus-menu-label", ".dsh");
+    plusMenu.append(group);
+    for (const skill of claude!.dshSkills) {
+      item("🧩", t("技能 {name}", { name: skill.name }), () => insert(skill.content), t("插入 .dsh 技能说明(SKILL.md)"));
+    }
+    for (const agent of claude!.dshAgents) {
+      item("🤖", t("智能体 {name}", { name: agent.name }), () => insert(agent.content), t("插入 .dsh 智能体定义"));
+    }
+    for (const memory of claude!.dshMemory) {
+      item("🧠", t("记忆 {name}", { name: memory.name }), () => insert(memory.content), t("插入 .dsh 记忆内容"));
+    }
+  }
   if (hasClaude) {
     const group = el("div", "plus-menu-label", ".claude");
     plusMenu.append(group);
@@ -2233,10 +2268,11 @@ function renderModeChips() {
   modeChips.innerHTML = "";
   if (state.planMode) {
     const chip = el("span", "mode-chip plan-chip", t("📝 计划模式"));
-    chip.title = t("点击退出计划模式(发送 /plan)");
+    chip.title = t("点击退出计划模式(发送 /plan off)");
     const close = el("button", "chip-close", "×");
     chip.append(close);
-    chip.addEventListener("click", () => vscode.postMessage({ kind: "command", line: "/plan" }));
+    // /plan 不带参数是"进入"计划模式;退出必须发 /plan off(与宿主命令语义一致)
+    chip.addEventListener("click", () => vscode.postMessage({ kind: "command", line: "/plan off" }));
     modeChips.append(chip);
   }
   if (inner && inner.phase !== "complete") {
@@ -2392,6 +2428,11 @@ function renderGoal() {
 
 // ---------- 会话 / 状态 / 工具行 ----------
 
+/** 运行中指示(旋转动画的 ⏳ 沙漏)。 */
+function runningEmoji(): HTMLElement {
+  return el("span", "running-emoji", "⏳");
+}
+
 /** 会话状态徽标(待审批 / 计划待审 / 等待回答 / 运行中)。 */
 function pendingBadge(pending: { kind: "approval" | "question" | "plan-review" }): HTMLElement {
   if (pending.kind === "approval") return el("span", "session-badge badge-approval", `🛡️ ${t("等待审批")}`);
@@ -2413,7 +2454,11 @@ function renderSessions() {
   sessionBtnLabel.title = cur ? (cur.title || sessionLabel(cur)) : "";
   sessionBtnBadges.innerHTML = "";
   if (cur?.pending) sessionBtnBadges.append(pendingBadge(cur.pending));
-  else if (cur?.running) sessionBtnBadges.append(el("span", "session-badge badge-running", "⏳"));
+  else if (cur?.running) {
+    const badge = el("span", "session-badge badge-running");
+    badge.append(runningEmoji());
+    sessionBtnBadges.append(badge);
+  }
   const anyPending = visible.some((s) => s.pending);
   const anyUnread = visible.some((s) => s.unread);
   sessionBtnDot.hidden = !anyPending && !anyUnread;
@@ -2436,10 +2481,21 @@ function renderSessions() {
     if (subBits.length) main.append(el("span", "session-row-sub", subBits.join(" · ")));
     row.append(main);
     if (s.pending) row.append(pendingBadge(s.pending));
-    else if (s.running) row.append(el("span", "session-badge badge-running", "⏳"));
+    else if (s.running) {
+      const badge = el("span", "session-badge badge-running");
+      badge.append(runningEmoji());
+      row.append(badge);
+    }
     row.addEventListener("click", () => {
       sessionList.hidden = true;
-      if (s.sessionId !== current) vscode.postMessage({ kind: "select", sessionId: s.sessionId });
+      if (s.sessionId !== current) {
+        // 切换会话:立即清掉旧会话的计划/目标状态,避免过渡期点击芯片误发命令到新会话
+        state.planMode = false;
+        state.goal = null;
+        renderGoal();
+        renderModeChips();
+        vscode.postMessage({ kind: "select", sessionId: s.sessionId });
+      }
     });
     sessionList.append(row);
   }
@@ -2641,7 +2697,11 @@ function renderTodos() {
   const body = el("div", "todo-panel-body");
   for (const item of list) {
     const row = el("div", "todo-row" + (item.status === "completed" ? " done" : item.status === "in_progress" ? " active" : ""));
-    row.append(el("span", "todo-status", item.status === "completed" ? "✅" : item.status === "in_progress" ? "⏳" : "○"));
+    const statusEl = el("span", "todo-status");
+    if (item.status === "completed") statusEl.textContent = "✅";
+    else if (item.status === "in_progress") statusEl.append(runningEmoji());
+    else statusEl.textContent = "○";
+    row.append(statusEl);
     row.append(el("span", "todo-content", item.content));
     body.append(row);
   }
@@ -2886,7 +2946,8 @@ function openSubagentCatalog() {
       for (const entry of entries) {
         const label = entry.label ?? entry.id.slice(0, 12);
         const running = entry.activity === "running";
-        const row = el("button", "plus-menu-item", `${running ? "⏳" : "🤖"} ${label}`);
+        const row = el("button", "plus-menu-item");
+        row.append(running ? runningEmoji() : el("span", undefined, "🤖"), el("span", undefined, " " + label));
         row.title = entry.mode === "one-shot" ? t("one-shot 子代理 · 点击查看记录") : t("continuable 子代理 · 点击打开对话(可追问 / 打断)");
         const sub = el("span", "subagent-catalog-sub");
         sub.textContent = entry.mode === "one-shot" ? "one-shot" : running ? t("运行中") : t("已结束");
@@ -3561,6 +3622,9 @@ function handleMessage(msg: any) {
         copilotInstructionFiles: [],
         copilotAgents: [],
         copilotPrompts: [],
+        dshSkills: [],
+        dshAgents: [],
+        dshMemory: [],
       };
       break;
     }
