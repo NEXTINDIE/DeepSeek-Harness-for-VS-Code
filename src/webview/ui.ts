@@ -590,10 +590,9 @@ btnAddAttach.append(lineIcon(ICONS.plus, 12));
 const permissionTool = toolSelect(t("权限"), t("读写权限(沙箱模式 + 审批策略)"));
 const permissionSelect = permissionTool.select;
 const hint = el("div", "hint", t("Enter 发送 · Shift+Enter 换行"));
-composerBottom.append(btnPlus, permissionTool.wrap, composerRight, hint);
+composerBottom.append(btnPlus, btnAddAttach, permissionTool.wrap, composerRight, hint);
 // 对话框顶部行:左上角 ＋ 添加文件 + 芯片;右上角 预设胶囊(仅新会话显示)
 const composerTop = el("div", "composer-top");
-attachmentsRow.append(btnAddAttach);
 composerTop.append(attachmentsRow, presetTool.wrap);
 composer.append(composerTop, inputWrap, composerBottom);
 

@@ -458,6 +458,15 @@ body {
   gap: 8px;
 }
 
+/* 对话内容最大宽度:与 Web 端一致的阅读宽度,超宽窗口下居中 */
+.messages,
+.composer {
+  width: 100%;
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .btn-load-more {
   align-self: center;
   background: transparent;
@@ -800,8 +809,8 @@ body {
 }
 
 .attach-add-btn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 1px dashed var(--dsh-muted);
   background: transparent;
@@ -1185,12 +1194,17 @@ body {
 .tool-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  min-height: 24px;
   border: 1px solid var(--dsh-border);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   background: var(--dsh-bg);
   cursor: pointer;
+}
+
+.tool-item:hover {
+  border-color: var(--dsh-accent);
 }
 
 .tool-item[hidden] {
@@ -1198,7 +1212,7 @@ body {
 }
 
 .tool-label {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--dsh-muted);
   white-space: nowrap;
 }
@@ -1209,7 +1223,9 @@ body {
   border: none;
   outline: none;
   font-size: 12px;
-  max-width: 150px;
+  max-width: 170px;
+  padding: 0;
+  height: auto;
   cursor: pointer;
 }
 
