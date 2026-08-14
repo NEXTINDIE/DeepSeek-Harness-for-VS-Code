@@ -1,6 +1,6 @@
 {
   "displayName": "DeepSeek Harness untuk VS Code",
-  "description": "Gunakan DeepSeek Harness langsung di VS Code: panel chat sidebar sekunder, peserta chat bawaan @dsh, kontrol model/preset/izin/berpikir, lampiran, tujuan, dan subagen.",
+  "description": "Gunakan DeepSeek Harness langsung di VS Code: panel chat sidebar sekunder, peserta chat bawaan @dsh, kontrol model/preset/izin/berpikir, lampiran, tujuan, subagen, dan rollback Git per giliran.",
   "cmd.openChat.title": "DSH: Buka Chat Bawaan (@dsh)",
   "cmd.openChatWindow.title": "DSH: Buka Jendela Chat Mandiri",
   "cmd.openSidebar.title": "DSH: Fokus pada Tampilan Chat Sidebar",

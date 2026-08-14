@@ -329,5 +329,12 @@
   "点击退出计划模式(发送 /plan off)": "Plan modundan çıkmak için tıkla (/plan off gönderir)",
   "插入 /plan 到输入框,回车后进入计划模式": "/plan ekle; Enter plan moduna girer",
   "插入 /plan off 到输入框,回车后退出计划模式": "/plan off ekle; Enter plan modundan çıkar",
-  "退出计划模式": "Plan modundan çık"
+  "退出计划模式": "Plan modundan çık",
+  "插入 /名称 调用技能(宿主自动展开技能正文)": "/ad ekleyerek çağır (host içeriği otomatik genişletir)",
+  "在 VS Code 中打开智能体定义文件": "Ajan tanım dosyasını VS Code'da aç",
+  "在 VS Code 中打开记忆文件": "Bellek dosyasını VS Code'da aç",
+  "智能体": "Ajanlar",
+  "系统提示词": "Sistem istemi",
+  "已注入模型 · 点击展开": "Modele enjekte edildi · genişletmek için tıkla",
+  "Git 回退到本回合之前": "Git: bu turdan önceki duruma geri dön"
 }

@@ -144,5 +144,13 @@
   "notice.commandUnmatched": "The host offers no such command: {line}",
   "notice.commandUnavailable": "No in-session command channel is available in this deployment; the command was not executed: {line}",
   "notice.agentDirsSetFailed": "Failed to update agent config directory switches: {error}",
-  "plan.reviewHeader": "# Plan Review\n\n> **Ready for review**\n> Select text to add comments on the plan. Submit feedback in the DSH plan review card (type and press Enter)."
+  "plan.reviewHeader": "# Plan Review\n\n> **Ready for review**\n> Select text to add comments on the plan. Submit feedback in the DSH plan review card (type and press Enter).",
+  "rollback.confirmMessage": "Restore the workspace to the state before turn {turn}? Uncommitted changes made after that point will be reverted (a safety snapshot is taken first).",
+  "rollback.confirmYes": "Rollback",
+  "rollback.done": "Workspace restored to the state before turn {turn}",
+  "rollback.noRecord": "No turn-level rollback snapshots for this session (requires the DSH server-side plugin)",
+  "rollback.noCheckpoint": "No rollback checkpoint for turn {turn}",
+  "rollback.noGit": "Not a Git repository: {cwd}",
+  "rollback.snapshotFailed": "Cannot take a safety snapshot, rollback aborted: {error}",
+  "rollback.restoreFailed": "Rollback failed; the workspace was restored to its previous state: {error}"
 }

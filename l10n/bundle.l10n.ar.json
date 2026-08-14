@@ -139,5 +139,13 @@
   "info.swHint3": "2. جرّب أولًا: لوحة الأوامر ← Developer: Reload Window؛",
   "info.swHint4": "3. ثم جرّب: المساعدة ← التحقق من وجود تحديثات وقم بالترقية إلى أحدث إصدار من VS Code؛",
   "info.swHint5": "4. الحل الأخير: أغلق VS Code تمامًا، واحذف %APPDATA%\\Code\\Service Worker\\CacheStorage و %APPDATA%\\Code\\Cache\\Cache_Data، ثم أعد التشغيل؛ إذا فشل ذلك، أعد تثبيت VS Code من code.visualstudio.com.",
-  "info.openBuiltInChat": "فتح الدردشة المدمجة"
+  "info.openBuiltInChat": "فتح الدردشة المدمجة",
+  "rollback.confirmMessage": "استعادة مساحة العمل إلى الحالة قبل الجولة {turn}؟ سيتم التراجع عن التغييرات غير المثبتة بعد تلك النقطة (يتم أخذ لقطة أمان أولاً).",
+  "rollback.confirmYes": "استعادة",
+  "rollback.done": "تمت استعادة مساحة العمل إلى الحالة قبل الجولة {turn}",
+  "rollback.noRecord": "لا توجد لقطات تراجع لكل جولة لهذه الجلسة (يتطلب ملحق خادم DSH)",
+  "rollback.noCheckpoint": "لا توجد نقطة تراجع للجولة {turn}",
+  "rollback.noGit": "ليس مستودع Git: {cwd}",
+  "rollback.snapshotFailed": "تعذر إنشاء لقطة الأمان، تم إلغاء التراجع: {error}",
+  "rollback.restoreFailed": "فشل التراجع؛ تمت استعادة مساحة العمل إلى حالتها السابقة: {error}"
 }

@@ -1,6 +1,6 @@
 {
   "displayName": "DeepSeek Harness para VS Code",
-  "description": "Usa DeepSeek Harness directamente en VS Code: panel de chat en la barra lateral secundaria, participante de chat integrado @dsh, controles de modelo/preset/permisos/razonamiento, adjuntos, objetivos y subagentes.",
+  "description": "Usa DeepSeek Harness directamente en VS Code: panel de chat en la barra lateral secundaria, participante de chat integrado @dsh, controles de modelo/preset/permisos/razonamiento, adjuntos, objetivos, subagentes y reversión Git por turno.",
   "cmd.openChat.title": "DSH: Abrir chat integrado (@dsh)",
   "cmd.openChatWindow.title": "DSH: Abrir ventana de chat independiente",
   "cmd.openSidebar.title": "DSH: Enfocar la vista de chat de la barra lateral",

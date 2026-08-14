@@ -1,6 +1,6 @@
 {
   "displayName": "VS Code için DeepSeek Harness",
-  "description": "DeepSeek Harness'ı doğrudan VS Code'da kullanın: ikincil kenar çubuğu sohbet paneli, @dsh yerleşik sohbet katılımcısı, model/ön ayar/izin/düşünme kontrolleri, ekler, hedefler ve alt ajanlar.",
+  "description": "DeepSeek Harness'ı doğrudan VS Code'da kullanın: ikincil kenar çubuğu sohbet paneli, @dsh yerleşik sohbet katılımcısı, model/ön ayar/izin/düşünme kontrolleri, ekler, hedefler, alt ajanlar ve tur bazlı Git geri alma.",
   "cmd.openChat.title": "DSH: Yerleşik Sohbeti Aç (@dsh)",
   "cmd.openChatWindow.title": "DSH: Bağımsız Sohbet Penceresini Aç",
   "cmd.openSidebar.title": "DSH: Kenar Çubuğu Sohbet Görünümüne Odaklan",

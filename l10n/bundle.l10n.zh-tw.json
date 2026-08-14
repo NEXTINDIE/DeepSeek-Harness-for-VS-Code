@@ -139,5 +139,13 @@
   "info.swHint3": "2. 先嘗試:命令選擇區 → Developer: Reload Window;",
   "info.swHint4": "3. 然後嘗試:說明 → 檢查更新,並升級至最新版 VS Code;",
   "info.swHint5": "4. 最後手段:完全結束 VS Code,刪除 %APPDATA%\\Code\\Service Worker\\CacheStorage 和 %APPDATA%\\Code\\Cache\\Cache_Data,然後重新啟動;如果仍然失敗,請從 code.visualstudio.com 重新安裝 VS Code。",
-  "info.openBuiltInChat": "開啟內建聊天"
+  "info.openBuiltInChat": "開啟內建聊天",
+  "rollback.confirmMessage": "把工作區還原到第 {turn} 回合之前的狀態?該點之後的未提交變更將被還原(還原前會先做一次安全快照)。",
+  "rollback.confirmYes": "回退",
+  "rollback.done": "工作區已還原到第 {turn} 回合之前的狀態",
+  "rollback.noRecord": "此工作階段沒有可用的回合級回退快照(需要 DSH 伺服器端外掛)",
+  "rollback.noCheckpoint": "沒有第 {turn} 回合的回退快照",
+  "rollback.noGit": "不是 Git 存放庫:{cwd}",
+  "rollback.snapshotFailed": "無法建立安全快照,已中止回退:{error}",
+  "rollback.restoreFailed": "回退失敗,工作區已還原到回退前的狀態:{error}"
 }

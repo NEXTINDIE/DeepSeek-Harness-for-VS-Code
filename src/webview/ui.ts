@@ -186,6 +186,8 @@ const state = {
   permissions: undefined as { options: { value: string; name: string; description?: string }[]; currentValue: string } | undefined,
   /** 各轮 turn/start 的 seq,用于"回退到上一轮" */
   turnStarts: [] as number[],
+  /** 回合级 Git 回退快照(服务端插件写入 .dsh/rollback,宿主推送可用清单) */
+  rollback: undefined as { sessionId: string; available: boolean; checkpoints: { turn: number; time: number }[] } | undefined,
   /** 计划模式状态(plan/mode 事件) */
   planMode: false,
   /** 本轮工具节点(回合结束时折叠为摘要) */
@@ -230,8 +232,8 @@ const state = {
     copilotAgents: { name: string; content: string }[];
     copilotPrompts: { name: string; content: string }[];
     dshSkills: { name: string; content: string }[];
-    dshAgents: { name: string; content: string }[];
-    dshMemory: { name: string; content: string }[];
+    dshAgents: { name: string; description?: string; content: string; path?: string }[];
+    dshMemory: { name: string; content: string; path?: string }[];
   } | null,
   /** 工作区与归档集合(workspace.list 基线 + host 帧) */
   workspaces: [] as WorkspaceItem[],
@@ -350,6 +352,8 @@ const ICONS = {
   help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3|M12 17h.01",
   // 勾选(多选复选框选中态)
   check: "M20 6 9 17l-5-5",
+  // 信息(圆圈 i,系统提示词卡片)
+  info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M12 16v-4|M12 8h.01",
 };
 
 /** 创建简约线条 SVG 图标;paths 用 | 分隔多个 path d。 */
@@ -491,6 +495,7 @@ const EN_TEXT: Record<string, string> = {
   "差的回答(记录反馈)": "Bad answer (record feedback)",
   "分支 / 回退": "Branch / rewind",
   "回退到此处": "Rewind to here",
+  "Git 回退到本回合之前": "Git rollback to before this turn",
   "从此处新建分支": "Branch from here",
   "分支并回退到更早位置": "Branch and rewind to an earlier point",
   "回到主线(父会话)": "Back to main line (parent session)",
@@ -567,6 +572,9 @@ const EN_TEXT: Record<string, string> = {
   "插入 Copilot 智能体定义": "Insert Copilot agent definition",
   "插入 Copilot 提示词": "Insert Copilot prompt",
   "插入 .dsh 技能说明(SKILL.md)": "Insert .dsh skill description (SKILL.md)",
+  "插入 /名称 调用技能(宿主自动展开技能正文)": "Insert /name to invoke (the host expands the skill body)",
+  "在 VS Code 中打开智能体定义文件": "Open the agent definition file in VS Code",
+  "在 VS Code 中打开记忆文件": "Open the memory file in VS Code",
   "插入 .dsh 智能体定义": "Insert .dsh agent definition",
   "记忆 {name}": "Memory {name}",
   "插入 .dsh 记忆内容": "Insert .dsh memory content",
@@ -582,6 +590,9 @@ const EN_TEXT: Record<string, string> = {
   "确认执行": "Approve",
   "会话": "Sessions",
   "暂无会话": "No sessions",
+  "智能体": "Agents",
+  "系统提示词": "System prompt",
+  "已注入模型 · 点击展开": "Injected into the model · click to expand",
   "提交回答": "Submit answer",
   "🔧 过程": "🔧 Process",
   "🎯 目标": "🎯 Goal",
@@ -1136,17 +1147,125 @@ app.append(root);
 
 // ---------- 事件 ----------
 
+// ---------- @ 智能体提及(输入 @ 自动展示可用智能体,选择后插入 @名称 ) ----------
+
+/** 提及弹层(挂在输入框内,绝对定位在输入区上方)。 */
+const mentionMenu = el("div", "mention-menu");
+mentionMenu.hidden = true;
+composer.append(mentionMenu);
+
+/** 当前提及状态:替换起点、查询串、候选与选中下标。 */
+let mentionState: { start: number; query: string; items: { name: string; description?: string }[]; selected: number } | null = null;
+
+/** 可用智能体 = .dsh/agent + .github/agents(Copilot),按 front matter 名称去重。 */
+function availableAgents(): { name: string; description?: string }[] {
+  const cfg = state.claudeConfig;
+  const out: { name: string; description?: string }[] = [];
+  const seen = new Set<string>();
+  for (const a of cfg?.dshAgents ?? []) {
+    if (seen.has(a.name)) continue;
+    seen.add(a.name);
+    out.push({ name: a.name, description: a.description });
+  }
+  for (const a of cfg?.copilotAgents ?? []) {
+    if (seen.has(a.name)) continue;
+    seen.add(a.name);
+    out.push({ name: a.name });
+  }
+  return out;
+}
+
+function closeMention() {
+  mentionState = null;
+  mentionMenu.hidden = true;
+}
+
+function renderMentionMenu() {
+  if (!mentionState) return;
+  mentionMenu.innerHTML = "";
+  mentionMenu.append(el("div", "plus-menu-label", t("智能体")));
+  mentionState.items.forEach((item, i) => {
+    const row = el("button", "plus-menu-item" + (i === mentionState!.selected ? " mention-selected" : ""));
+    const main = el("span", "mention-item-main");
+    main.append(el("span", "mention-item-name", `@${item.name}`));
+    if (item.description) main.append(el("span", "mention-item-desc", item.description));
+    row.append("🤖 ", main);
+    // 防止点击弹层时输入框先失焦(blur 会先关闭弹层)
+    row.addEventListener("mousedown", (e) => e.preventDefault());
+    row.addEventListener("click", () => selectMention(item.name));
+    mentionMenu.append(row);
+  });
+  mentionMenu.hidden = false;
+}
+
+/** 用所选智能体替换当前部分 @token。 */
+function selectMention(name: string) {
+  if (!mentionState) return;
+  const pos = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, mentionState.start) + `@${name} ` + input.value.slice(pos);
+  closeMention();
+  input.focus();
+  autoResize();
+  updateSendButton();
+}
+
+/** 按光标前的 @partial 更新提及候选。 */
+function updateMention() {
+  const pos = input.selectionStart ?? input.value.length;
+  const before = input.value.slice(0, pos);
+  const m = before.match(/@([A-Za-z0-9][\w.-]*)$/);
+  if (!m) {
+    closeMention();
+    return;
+  }
+  const query = m[1].toLowerCase();
+  const items = availableAgents().filter((a) => a.name.toLowerCase().includes(query)).slice(0, 8);
+  if (items.length === 0) {
+    closeMention();
+    return;
+  }
+  mentionState = { start: pos - m[0].length, query: m[1], items, selected: 0 };
+  renderMentionMenu();
+}
+
 input.rows = 1;
 input.addEventListener("input", () => {
   autoResize();
   updateSendButton();
+  updateMention();
 });
 input.addEventListener("keydown", (e) => {
+  // 提及弹层打开时:方向键导航、Enter 选择、Esc 关闭(不触发发送)
+  if (mentionState) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      mentionState.selected = Math.min(mentionState.items.length - 1, mentionState.selected + 1);
+      renderMentionMenu();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      mentionState.selected = Math.max(0, mentionState.selected - 1);
+      renderMentionMenu();
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMention();
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      selectMention(mentionState.items[mentionState.selected].name);
+      return;
+    }
+  }
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     sendCurrent();
   }
 });
+input.addEventListener("blur", () => closeMention());
 btnSendStop.addEventListener("click", () => {
   const hasText = input.value.trim().length > 0 || state.images.length > 0;
   if (state.running && !hasText) {
@@ -1335,14 +1454,23 @@ function renderPlusMenu() {
   if (hasDsh) {
     const group = el("div", "plus-menu-label", ".dsh");
     plusMenu.append(group);
+    // .dsh/skills:宿主原生技能,插入 /名称 调用 token(宿主在 pre-step 边界自动展开正文,与网页端一致)
     for (const skill of claude!.dshSkills) {
-      item("🧩", t("技能 {name}", { name: skill.name }), () => insert(skill.content), t("插入 .dsh 技能说明(SKILL.md)"));
+      item("🧩", t("技能 {name}", { name: skill.name }), () => insert(`/${skill.name} `), t("插入 /名称 调用技能(宿主自动展开技能正文)"));
     }
+    // .dsh/agent:项目级智能体定义,点击在 VS Code 中打开文件(不把全文塞进输入框)
     for (const agent of claude!.dshAgents) {
-      item("🤖", t("智能体 {name}", { name: agent.name }), () => insert(agent.content), t("插入 .dsh 智能体定义"));
+      const path = (agent as { path?: string }).path;
+      item("🤖", t("智能体 {name}", { name: agent.name }), () => {
+        if (path) vscode.postMessage({ kind: "openFile", path });
+      }, t("在 VS Code 中打开智能体定义文件"));
     }
+    // .dsh/memory:记忆文件,点击在 VS Code 中打开
     for (const memory of claude!.dshMemory) {
-      item("🧠", t("记忆 {name}", { name: memory.name }), () => insert(memory.content), t("插入 .dsh 记忆内容"));
+      const path = (memory as { path?: string }).path;
+      item("🧠", t("记忆 {name}", { name: memory.name }), () => {
+        if (path) vscode.postMessage({ kind: "openFile", path });
+      }, t("在 VS Code 中打开记忆文件"));
     }
   }
   if (hasClaude) {
@@ -1472,9 +1600,14 @@ function renderNode(node: NodeState): HTMLElement {
         wrap.append(body);
         return wrap;
       }
-      // 系统提示词:默认折叠,左上角标注"系统提示词"
+      // 系统提示词卡片:图标 + 标题 + 注入标签 + 右侧折叠箭头,正文默认收起、可滚动
+      wrap.classList.add("system-note");
       const details = el("details", "system-note-details");
-      details.append(el("summary", "system-note-summary", t("ℹ️ 系统提示词")));
+      const summary = el("summary", "system-note-summary");
+      summary.append(lineIcon(ICONS.info, 13));
+      summary.append(el("span", "system-note-title", t("系统提示词")));
+      summary.append(el("span", "system-note-tag", t("已注入模型 · 点击展开")));
+      details.append(summary);
       const body = el("div", "msg-body system-note-body");
       setHtml(body, node.text ?? "");
       details.append(body);
@@ -1779,6 +1912,18 @@ function renderActions(node: NodeState) {
     const text = node.plainText ?? node.blocks?.map((b) => b.text).join("\n") ?? "";
     void navigator.clipboard?.writeText(text);
   });
+
+  // ↩ Git 回退到本回合之前(服务端插件在回合开始时快照工作区,宿主本地执行恢复)
+  if (
+    typeof node.turn === "number" &&
+    state.rollback?.available &&
+    state.rollback.sessionId === state.current &&
+    state.rollback.checkpoints.some((c) => c.turn === node.turn)
+  ) {
+    actionBtn(ICONS.rewind, t("Git 回退到本回合之前"), () => {
+      vscode.postMessage({ kind: "rollbackApply", sessionId: state.current, turn: node.turn });
+    });
+  }
 
   // ↪ 分支 / 回退:单图标,点击显示 3 个方法
   if (typeof node.seq === "number") {
@@ -3538,6 +3683,7 @@ function handleMessage(msg: any) {
       state.rawEvents = [];
       state.settingsDescribe = null;
       state.turnStarts = [];
+      state.rollback = undefined;
       state.planMode = false;
       state.stepStarts = new Map();
       state.currentStreamTurn = undefined;
@@ -3694,6 +3840,24 @@ function handleMessage(msg: any) {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       state.stats = msg.value;
       renderStatsLine();
+      break;
+    }
+    case "rollback": {
+      // 回合级 Git 回退快照清单:更新状态并刷新已渲染消息的操作条(回退按钮出现/消失)
+      if (typeof msg.sessionId === "string") {
+        state.rollback = {
+          sessionId: msg.sessionId,
+          available: !!msg.available,
+          checkpoints: Array.isArray(msg.checkpoints)
+            ? msg.checkpoints.filter((c: any) => c && typeof c.turn === "number")
+            : [],
+        };
+        if (msg.sessionId === state.current) {
+          for (const n of state.nodes) {
+            if (n.kind === "assistant" && n.actionsEl && typeof n.turn === "number") renderActions(n);
+          }
+        }
+      }
       break;
     }
     case "planFile": {

@@ -1,6 +1,6 @@
 {
   "displayName": "VS Code용 DeepSeek Harness",
-  "description": "VS Code에서 DeepSeek Harness를 바로 사용하세요: 보조 사이드바 채팅 패널, 기본 제공 채팅 참여자 @dsh, 모델/프리셋/권한/사고 깊이 컨트롤, 첨부 파일, 목표 및 하위 에이전트를 제공합니다.",
+  "description": "VS Code에서 DeepSeek Harness를 바로 사용하세요: 보조 사이드바 채팅 패널, 기본 제공 채팅 참여자 @dsh, 모델/프리셋/권한/사고 깊이 컨트롤, 첨부 파일, 목표, 하위 에이전트, 턴 단위 Git 롤백을 제공합니다.",
   "cmd.openChat.title": "DSH: 기본 채팅 열기 (@dsh)",
   "cmd.openChatWindow.title": "DSH: 독립 채팅 창 열기",
   "cmd.openSidebar.title": "DSH: 사이드바 채팅 보기에 포커스",

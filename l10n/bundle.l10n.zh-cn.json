@@ -144,5 +144,13 @@
   "notice.commandUnmatched": "宿主没有此命令: {line}",
   "notice.commandUnavailable": "当前部署没有会话内命令通道,命令未执行: {line}",
   "notice.agentDirsSetFailed": "更新智能体配置目录开关失败: {error}",
-  "plan.reviewHeader": "# 计划审批\n\n> **计划待审**\n> 选中计划文本即可添加评论;修改意见请在 DSH 面板的计划审批输入框中输入并回车。"
+  "plan.reviewHeader": "# 计划审批\n\n> **计划待审**\n> 选中计划文本即可添加评论;修改意见请在 DSH 面板的计划审批输入框中输入并回车。",
+  "rollback.confirmMessage": "把工作区恢复到第 {turn} 回合之前的状态?该点之后的未提交改动将被还原(恢复前会先做一次安全快照)。",
+  "rollback.confirmYes": "回退",
+  "rollback.done": "工作区已恢复到第 {turn} 回合之前的状态",
+  "rollback.noRecord": "该会话没有可用的回合级回退快照(需要 DSH 服务端插件)",
+  "rollback.noCheckpoint": "没有第 {turn} 回合的回退快照",
+  "rollback.noGit": "不是 Git 仓库:{cwd}",
+  "rollback.snapshotFailed": "无法创建安全快照,已中止回退:{error}",
+  "rollback.restoreFailed": "回退失败,工作区已还原到回退前的状态:{error}"
 }

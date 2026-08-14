@@ -139,5 +139,13 @@
   "info.swHint3": "2. Önce şunu deneyin: Komut Paleti → Developer: Reload Window;",
   "info.swHint4": "3. Sonra şunu deneyin: Yardım → Güncellemeleri Denetle ve en son VS Code sürümüne yükseltin;",
   "info.swHint5": "4. Son çare: VS Code'u tamamen kapatın, %APPDATA%\\Code\\Service Worker\\CacheStorage ve %APPDATA%\\Code\\Cache\\Cache_Data klasörlerini silin, ardından yeniden başlatın; bu da olmazsa VS Code'u code.visualstudio.com adresinden yeniden yükleyin.",
-  "info.openBuiltInChat": "Yerleşik sohbeti aç"
+  "info.openBuiltInChat": "Yerleşik sohbeti aç",
+  "rollback.confirmMessage": "Çalışma alanı {turn}. turdan önceki duruma geri yüklensin mi? Bu noktadan sonraki commit edilmemiş değişiklikler geri alınacaktır (önce bir güvenlik anlık görüntüsü alınır).",
+  "rollback.confirmYes": "Geri al",
+  "rollback.done": "Çalışma alanı {turn}. turdan önceki duruma geri yüklendi",
+  "rollback.noRecord": "Bu oturum için tur bazlı geri alma anlık görüntüsü yok (DSH sunucu eklentisi gerekli)",
+  "rollback.noCheckpoint": "{turn}. tur için geri alma noktası yok",
+  "rollback.noGit": "Bir Git deposu değil: {cwd}",
+  "rollback.snapshotFailed": "Güvenlik anlık görüntüsü alınamadı, geri alma iptal edildi: {error}",
+  "rollback.restoreFailed": "Geri alma başarısız oldu; çalışma alanı önceki duruma geri yüklendi: {error}"
 }

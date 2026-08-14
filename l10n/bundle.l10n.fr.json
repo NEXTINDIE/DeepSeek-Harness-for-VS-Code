@@ -139,5 +139,13 @@
   "info.swHint3": "2. Essayez d'abord : Palette de commandes → Developer: Reload Window ;",
   "info.swHint4": "3. Essayez ensuite : Aide → Rechercher des mises à jour et installez la dernière version de VS Code ;",
   "info.swHint5": "4. En dernier recours : quittez complètement VS Code, supprimez %APPDATA%\\Code\\Service Worker\\CacheStorage et %APPDATA%\\Code\\Cache\\Cache_Data, puis redémarrez ; si cela échoue, réinstallez VS Code depuis code.visualstudio.com.",
-  "info.openBuiltInChat": "Ouvrir le chat intégré"
+  "info.openBuiltInChat": "Ouvrir le chat intégré",
+  "rollback.confirmMessage": "Restaurer l'espace de travail à l'état antérieur au tour {turn} ? Les modifications non validées ultérieures seront annulées (un instantané de sécurité est créé au préalable).",
+  "rollback.confirmYes": "Restaurer",
+  "rollback.done": "Espace de travail restauré à l'état antérieur au tour {turn}",
+  "rollback.noRecord": "Aucun instantané de restauration par tour pour cette session (plugin serveur DSH requis)",
+  "rollback.noCheckpoint": "Aucun point de restauration pour le tour {turn}",
+  "rollback.noGit": "Ce n'est pas un dépôt Git : {cwd}",
+  "rollback.snapshotFailed": "Impossible de créer l'instantané de sécurité, restauration annulée : {error}",
+  "rollback.restoreFailed": "Échec de la restauration ; l'espace de travail a été rétabli à son état précédent : {error}"
 }

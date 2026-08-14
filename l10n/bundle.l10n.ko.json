@@ -139,5 +139,13 @@
   "info.swHint3": "2. 먼저 시도: 명령 팔레트 → Developer: Reload Window;",
   "info.swHint4": "3. 그다음 시도: Help → 업데이트 확인 후 최신 VS Code로 업그레이드;",
   "info.swHint5": "4. 최후의 수단: VS Code를 완전히 종료하고 %APPDATA%\\Code\\Service Worker\\CacheStorage와 %APPDATA%\\Code\\Cache\\Cache_Data를 삭제한 후 다시 시작하세요. 그래도 안 되면 code.visualstudio.com에서 VS Code를 다시 설치하세요.",
-  "info.openBuiltInChat": "기본 채팅 열기"
+  "info.openBuiltInChat": "기본 채팅 열기",
+  "rollback.confirmMessage": "워크스페이스를 {turn} 턴 이전 상태로 복원할까요? 그 이후의 커밋되지 않은 변경 사항은 되돌려집니다(복원 전 안전 스냅샷을 먼저 만듭니다).",
+  "rollback.confirmYes": "복원",
+  "rollback.done": "워크스페이스를 {turn} 턴 이전 상태로 복원했습니다",
+  "rollback.noRecord": "이 세션에는 턴 단위 롤백 스냅샷이 없습니다(DSH 서버 플러그인 필요)",
+  "rollback.noCheckpoint": "{turn} 턴의 롤백 스냅샷이 없습니다",
+  "rollback.noGit": "Git 저장소가 아닙니다: {cwd}",
+  "rollback.snapshotFailed": "안전 스냅샷을 만들 수 없어 롤백을 중단했습니다: {error}",
+  "rollback.restoreFailed": "롤백 실패, 워크스페이스를 롤백 전 상태로 복원했습니다: {error}"
 }

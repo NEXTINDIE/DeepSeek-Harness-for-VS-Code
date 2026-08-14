@@ -139,5 +139,13 @@
   "info.swHint3": "2. ลองก่อน: Command Palette → Developer: Reload Window;",
   "info.swHint4": "3. จากนั้นลอง: Help → Check for Updates แล้วอัปเกรดเป็น VS Code เวอร์ชันล่าสุด;",
   "info.swHint5": "4. ทางเลือกสุดท้าย: ออกจาก VS Code ให้สมบูรณ์ ลบ %APPDATA%\\Code\\Service Worker\\CacheStorage และ %APPDATA%\\Code\\Cache\\Cache_Data แล้วเริ่มใหม่; หากยังไม่ได้ผล ให้ติดตั้ง VS Code ใหม่จาก code.visualstudio.com",
-  "info.openBuiltInChat": "เปิดแชทในตัว"
+  "info.openBuiltInChat": "เปิดแชทในตัว",
+  "rollback.confirmMessage": "กู้คืนพื้นที่ทำงานเป็นสถานะก่อนเทิร์น {turn} หรือไม่ การเปลี่ยนแปลงที่ยังไม่ได้คอมมิตหลังจากนั้นจะถูกย้อนกลับ (จะสร้างสแนปช็อตความปลอดภัยก่อน)",
+  "rollback.confirmYes": "ย้อนกลับ",
+  "rollback.done": "กู้คืนพื้นที่ทำงานเป็นสถานะก่อนเทิร์น {turn} แล้ว",
+  "rollback.noRecord": "ไม่มีสแนปช็อตย้อนกลับรายเทิร์นสำหรับเซสชันนี้ (ต้องใช้ปลั๊กอินฝั่งเซิร์ฟเวอร์ DSH)",
+  "rollback.noCheckpoint": "ไม่มีจุดย้อนกลับสำหรับเทิร์น {turn}",
+  "rollback.noGit": "ไม่ใช่ที่เก็บ Git: {cwd}",
+  "rollback.snapshotFailed": "สร้างสแนปช็อตความปลอดภัยไม่ได้ ยกเลิกการย้อนกลับ: {error}",
+  "rollback.restoreFailed": "การย้อนกลับล้มเหลว พื้นที่ทำงานถูกกู้คืนเป็นสถานะก่อนหน้า: {error}"
 }

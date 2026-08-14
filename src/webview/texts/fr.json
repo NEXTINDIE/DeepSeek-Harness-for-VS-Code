@@ -329,5 +329,12 @@
   "点击退出计划模式(发送 /plan off)": "Cliquer pour quitter le mode plan (envoie /plan off)",
   "插入 /plan 到输入框,回车后进入计划模式": "Insérer /plan ; Entrée active le mode plan",
   "插入 /plan off 到输入框,回车后退出计划模式": "Insérer /plan off ; Entrée quitte le mode plan",
-  "退出计划模式": "Quitter le mode plan"
+  "退出计划模式": "Quitter le mode plan",
+  "插入 /名称 调用技能(宿主自动展开技能正文)": "Insérer /nom pour invoquer (l'hôte déploie le corps de la compétence)",
+  "在 VS Code 中打开智能体定义文件": "Ouvrir le fichier de définition d'agent dans VS Code",
+  "在 VS Code 中打开记忆文件": "Ouvrir le fichier mémoire dans VS Code",
+  "智能体": "Agents",
+  "系统提示词": "Invite système",
+  "已注入模型 · 点击展开": "Injecté dans le modèle · cliquer pour déplier",
+  "Git 回退到本回合之前": "Git : restaurer l'état avant ce tour"
 }

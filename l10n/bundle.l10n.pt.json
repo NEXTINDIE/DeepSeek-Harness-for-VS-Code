@@ -139,5 +139,13 @@
   "info.swHint3": "2. Primeiro tente: Paleta de Comandos → Developer: Reload Window;",
   "info.swHint4": "3. Depois tente: Ajuda → Verificar Atualizações e atualize para a versão mais recente do VS Code;",
   "info.swHint5": "4. Último recurso: feche completamente o VS Code, exclua %APPDATA%\\Code\\Service Worker\\CacheStorage e %APPDATA%\\Code\\Cache\\Cache_Data e reinicie; se não funcionar, reinstale o VS Code a partir de code.visualstudio.com.",
-  "info.openBuiltInChat": "Abrir chat integrado"
+  "info.openBuiltInChat": "Abrir chat integrado",
+  "rollback.confirmMessage": "Restaurar o espaço de trabalho para o estado anterior ao turno {turn}? As alterações não confirmadas posteriores serão revertidas (um instantâneo de segurança é criado antes).",
+  "rollback.confirmYes": "Restaurar",
+  "rollback.done": "Espaço de trabalho restaurado para o estado anterior ao turno {turn}",
+  "rollback.noRecord": "Nenhum instantâneo de reversão por turno para esta sessão (requer o plugin de servidor do DSH)",
+  "rollback.noCheckpoint": "Nenhum ponto de restauração para o turno {turn}",
+  "rollback.noGit": "Não é um repositório Git: {cwd}",
+  "rollback.snapshotFailed": "Não foi possível criar o instantâneo de segurança, reversão cancelada: {error}",
+  "rollback.restoreFailed": "Falha na reversão; o espaço de trabalho foi restaurado ao estado anterior: {error}"
 }

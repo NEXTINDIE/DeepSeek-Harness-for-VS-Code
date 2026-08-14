@@ -139,5 +139,13 @@
   "info.swHint3": "2. まずは: コマンドパレット → Developer: Reload Window を実行してください。",
   "info.swHint4": "3. 次に: ヘルプ → 更新プログラムの確認から最新の VS Code にアップグレードしてください。",
   "info.swHint5": "4. 最終手段: VS Code を完全に終了し、%APPDATA%\\Code\\Service Worker\\CacheStorage と %APPDATA%\\Code\\Cache\\Cache_Data を削除してから再起動してください。それでも解決しない場合は code.visualstudio.com から VS Code を再インストールしてください。",
-  "info.openBuiltInChat": "組み込みチャットを開く"
+  "info.openBuiltInChat": "組み込みチャットを開く",
+  "rollback.confirmMessage": "ワークスペースを第 {turn} ターン以前の状態に復元しますか?それ以降のコミットされていない変更は元に戻されます(事前に安全スナップショットを作成します)。",
+  "rollback.confirmYes": "復元",
+  "rollback.done": "ワークスペースを第 {turn} ターン以前の状態に復元しました",
+  "rollback.noRecord": "このセッションにはターン単位のロールバックスナップショットがありません(DSH サーバープラグインが必要です)",
+  "rollback.noCheckpoint": "第 {turn} ターンのロールバックスナップショットがありません",
+  "rollback.noGit": "Git リポジトリではありません:{cwd}",
+  "rollback.snapshotFailed": "安全スナップショットを作成できないため、ロールバックを中止しました:{error}",
+  "rollback.restoreFailed": "ロールバックに失敗し、ワークスペースを元の状態に復元しました:{error}"
 }

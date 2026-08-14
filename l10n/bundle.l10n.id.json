@@ -139,5 +139,13 @@
   "info.swHint3": "2. Coba dulu: Command Palette → Developer: Reload Window;",
   "info.swHint4": "3. Lalu coba: Help → Check for Updates dan tingkatkan ke VS Code terbaru;",
   "info.swHint5": "4. Upaya terakhir: keluar sepenuhnya dari VS Code, hapus %APPDATA%\\Code\\Service Worker\\CacheStorage dan %APPDATA%\\Code\\Cache\\Cache_Data, lalu mulai ulang; jika tetap gagal, instal ulang VS Code dari code.visualstudio.com.",
-  "info.openBuiltInChat": "Buka chat bawaan"
+  "info.openBuiltInChat": "Buka chat bawaan",
+  "rollback.confirmMessage": "Pulihkan ruang kerja ke kondisi sebelum giliran {turn}? Perubahan yang belum di-commit setelah titik itu akan dikembalikan (snapshot pengaman dibuat terlebih dahulu).",
+  "rollback.confirmYes": "Pulihkan",
+  "rollback.done": "Ruang kerja dipulihkan ke kondisi sebelum giliran {turn}",
+  "rollback.noRecord": "Tidak ada snapshot rollback per giliran untuk sesi ini (memerlukan plugin server DSH)",
+  "rollback.noCheckpoint": "Tidak ada titik rollback untuk giliran {turn}",
+  "rollback.noGit": "Bukan repositori Git: {cwd}",
+  "rollback.snapshotFailed": "Tidak dapat membuat snapshot pengaman, rollback dibatalkan: {error}",
+  "rollback.restoreFailed": "Rollback gagal; ruang kerja dikembalikan ke kondisi sebelumnya: {error}"
 }

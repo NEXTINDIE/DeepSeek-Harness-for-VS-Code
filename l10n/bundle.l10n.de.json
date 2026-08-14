@@ -139,5 +139,13 @@
   "info.swHint3": "2. Zuerst versuchen: Befehlspalette → Developer: Reload Window;",
   "info.swHint4": "3. Dann versuchen: Hilfe → Nach Updates suchen und auf die neueste VS Code-Version aktualisieren;",
   "info.swHint5": "4. Letzte Option: VS Code vollständig beenden, %APPDATA%\\Code\\Service Worker\\CacheStorage und %APPDATA%\\Code\\Cache\\Cache_Data löschen und dann neu starten; falls das fehlschlägt, VS Code von code.visualstudio.com neu installieren.",
-  "info.openBuiltInChat": "Integrierten Chat öffnen"
+  "info.openBuiltInChat": "Integrierten Chat öffnen",
+  "rollback.confirmMessage": "Arbeitsbereich auf den Stand vor Runde {turn} zurücksetzen? Nicht committete Änderungen danach werden verworfen (zuvor wird ein Sicherungs-Snapshot erstellt).",
+  "rollback.confirmYes": "Zurücksetzen",
+  "rollback.done": "Arbeitsbereich auf den Stand vor Runde {turn} zurückgesetzt",
+  "rollback.noRecord": "Keine rundenbezogenen Rollback-Snapshots für diese Sitzung (DSH-Server-Plugin erforderlich)",
+  "rollback.noCheckpoint": "Kein Rollback-Checkpoint für Runde {turn}",
+  "rollback.noGit": "Kein Git-Repository: {cwd}",
+  "rollback.snapshotFailed": "Sicherungs-Snapshot fehlgeschlagen, Rollback abgebrochen: {error}",
+  "rollback.restoreFailed": "Rollback fehlgeschlagen; Arbeitsbereich auf den vorherigen Stand zurückgesetzt: {error}"
 }

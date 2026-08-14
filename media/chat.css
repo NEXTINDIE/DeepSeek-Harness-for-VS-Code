@@ -1982,6 +1982,55 @@ body {
   display: none;
 }
 
+/* ---------- @ 智能体提及弹层(输入 @ 自动展示,选择插入 @名称) ---------- */
+.mention-menu {
+  position: absolute;
+  z-index: 130;
+  left: 14px;
+  bottom: calc(100% + 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 240px;
+  max-width: 90%;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  background: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--dsh-border);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.mention-menu[hidden] {
+  display: none;
+}
+
+.mention-selected {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.mention-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.mention-item-name {
+  font-weight: 600;
+}
+
+.mention-item-desc {
+  font-size: 11px;
+  color: var(--dsh-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
 /* 技能区内部再限高:菜单整体可滚动,技能列表自身不超过 180px */
 .plus-menu-skills {
   max-height: 180px;
@@ -1993,43 +2042,77 @@ body {
   min-width: 140px;
 }
 
-/* ---------- 系统提示词折叠块 ---------- */
-.system-note-details {
-  border: 1px dashed var(--dsh-border);
-  border-radius: 8px;
-  padding: 4px 8px;
+/* ---------- 系统提示词卡片(新对话注入的系统提示词快照) ---------- */
+.msg-note.system-note {
+  align-self: stretch;
+  border: none;
   background: transparent;
+  padding: 0;
+  color: var(--dsh-fg);
+}
+
+.system-note-details {
+  border: 1px solid var(--dsh-border);
+  border-radius: 10px;
+  background: rgba(0, 127, 212, 0.05);
+  overflow: hidden;
 }
 
 .system-note-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  color: var(--dsh-fg);
   cursor: pointer;
-  font-size: 11px;
-  color: var(--dsh-muted);
   user-select: none;
   list-style: none;
+}
+
+.system-note-summary svg {
+  color: var(--dsh-accent);
+  flex: none;
 }
 
 .system-note-summary::-webkit-details-marker {
   display: none;
 }
 
-.system-note-summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 4px;
+.system-note-title {
+  font-weight: 600;
+}
+
+.system-note-tag {
+  font-size: 10px;
+  color: var(--dsh-muted);
+  border: 1px solid var(--dsh-border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.system-note-summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--dsh-muted);
+  font-size: 10px;
   transition: transform 0.15s ease;
 }
 
-.system-note-details[open] .system-note-summary::before {
-  transform: rotate(90deg);
+.system-note-details:not([open]) .system-note-summary::after {
+  transform: rotate(-90deg);
 }
 
 .system-note-body {
+  border-top: 1px solid var(--dsh-border);
+  padding: 8px 10px;
   font-size: 12px;
-  margin-top: 4px;
-  max-height: 260px;
+  line-height: 1.55;
+  max-height: 300px;
   overflow-y: auto;
-  opacity: 0.85;
+  opacity: 0.9;
+  background: var(--dsh-bg);
 }
 
 .cmd-note {

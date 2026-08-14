@@ -1,6 +1,6 @@
 {
   "displayName": "DeepSeek Harness for VS Code",
-  "description": "VS Code で DeepSeek Harness を直接利用できます:セカンダリーサイドバーのチャットパネル、組み込みチャット参加者 @dsh、モデル / プリセット / 権限 / 思考の制御、添付ファイル、ゴール、子エージェント。",
+  "description": "VS Code で DeepSeek Harness を直接利用できます:セカンダリーサイドバーのチャットパネル、組み込みチャット参加者 @dsh、モデル / プリセット / 権限 / 思考の制御、添付ファイル、ゴール、子エージェント、ターン単位の Git ロールバック。",
   "cmd.openChat.title": "DSH: 組み込みチャットを開く (@dsh)",
   "cmd.openChatWindow.title": "DSH: スタンドアロンのチャットウィンドウを開く",
   "cmd.openSidebar.title": "DSH: サイドバーのチャットビューにフォーカス",

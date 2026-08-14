@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
+import { loadRollbackRecord, restoreToTurn } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { PromptContentPart } from "../dsh/types";
 
@@ -18,6 +19,36 @@ function sanitizeFileName(name: string): string {
     .replace(/^[.\- ]+|[.\- ]+$/g, "")
     .trim();
   return (cleaned || "plan").slice(0, 48);
+}
+
+/** 转义正则元字符(用于按名替换 @提及)。 */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 解析智能体定义文件的 front matter(行业约定:Claude Code / Codex / Copilot agents 同款)。
+ * ---
+ * name: xxx
+ * description: xxx
+ * ---
+ * 正文
+ * 无 front matter 时回退文件名。
+ */
+function parseAgentFrontMatter(raw: string, fallbackName: string): { name: string; description?: string; body: string } {
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m) return { name: fallbackName, body: raw.trim() };
+  const fields: Record<string, string> = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^([\w.-]+)\s*:\s*(.*)$/);
+    if (kv) fields[kv[1]] = kv[2].trim().replace(/^["']|["']$/g, "");
+  }
+  const name = (fields.name ?? fallbackName).trim() || fallbackName;
+  return {
+    name,
+    ...(fields.description ? { description: fields.description } : {}),
+    body: raw.slice(m[0].length).trim(),
+  };
 }
 
 /** 计划文件路径持久化键(globalState)。 */
@@ -40,6 +71,9 @@ export class ChatChannel {
   private disposables: vscode.Disposable[] = [];
   /** 会话 → 计划文本文件路径(写入工作区 .dsh/plans 或全局存储;随 globalState 持久化) */
   private planFiles = new Map<string, string>();
+  /** 回合级 Git 回退:.dsh/rollback 文件监控器与去抖定时器 */
+  private rollbackWatchers: vscode.Disposable[] = [];
+  private rollbackRefreshTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly hub: DshHub,
@@ -160,7 +194,25 @@ export class ChatChannel {
         }),
       },
       { dispose: this.hub.onStatus((status) => this.post({ kind: "status", status })) },
+      {
+        dispose: () => {
+          for (const w of this.rollbackWatchers) w.dispose();
+          this.rollbackWatchers = [];
+          for (const timer of this.rollbackRefreshTimers.values()) clearTimeout(timer);
+          this.rollbackRefreshTimers.clear();
+        },
+      },
+      {
+        dispose: store.on("sessionEvent", (sid: string, stored: StoredEvent) => {
+          // 新回合开始 = 服务端插件会写入新快照记录;去抖刷新让回退按钮及时出现
+          if (stored.event.type === "turn/start" && sid === store.currentSessionId) {
+            this.scheduleRollbackRefresh(sid);
+          }
+        }),
+      },
     );
+
+    this.setupRollbackWatchers();
 
     void this.ensureAndPush();
     this.postActiveFile();
@@ -338,6 +390,59 @@ export class ChatChannel {
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
       planFile: current ? this.planFiles.get(current) : undefined,
     });
+    // 回合级 Git 回退快照状态(异步读盘,单独推送)
+    if (current) void this.refreshRollback(current);
+  }
+
+  // ---------- 回合级 Git 回退(服务端插件快照 + 本地执行恢复) ----------
+
+  /** 建立工作区 .dsh/rollback 记录文件监控(服务端插件按回合写入)。 */
+  private setupRollbackWatchers() {
+    const watchers: vscode.FileSystemWatcher[] = [];
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, "**/.dsh/rollback/*.json"));
+      const onChange = () => {
+        const current = this.hub.store.currentSessionId;
+        if (current) this.scheduleRollbackRefresh(current);
+      };
+      watcher.onDidCreate(onChange);
+      watcher.onDidChange(onChange);
+      watcher.onDidDelete(onChange);
+      watchers.push(watcher);
+    }
+    this.rollbackWatchers = watchers;
+  }
+
+  /** 去抖刷新:服务端一次快照会连续写多条记录,合并为一次读取。 */
+  private scheduleRollbackRefresh(sessionId: string) {
+    const existing = this.rollbackRefreshTimers.get(sessionId);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      this.rollbackRefreshTimers.delete(sessionId);
+      void this.refreshRollback(sessionId);
+    }, 400);
+    this.rollbackRefreshTimers.set(sessionId, timer);
+  }
+
+  /** 读取会话的回合快照记录并推送给前端(消息操作条据此显示回退按钮)。 */
+  private async refreshRollback(sessionId: string) {
+    const session = this.hub.store.sessions.get(sessionId);
+    const cwd = session?.cwd ?? folderCwd();
+    if (!cwd) {
+      this.post({ kind: "rollback", sessionId, available: false, checkpoints: [] });
+      return;
+    }
+    const record = await loadRollbackRecord(cwd, sessionId);
+    if (!record || record.turns.length === 0) {
+      this.post({ kind: "rollback", sessionId, available: false, checkpoints: [] });
+      return;
+    }
+    this.post({
+      kind: "rollback",
+      sessionId,
+      available: true,
+      checkpoints: record.turns.map((t) => ({ turn: t.turn, time: t.time })),
+    });
   }
 
   private async onMessage(msg: { kind: string; [key: string]: any }) {
@@ -350,6 +455,9 @@ export class ChatChannel {
       case "send": {
         if (current && typeof msg.text === "string" && msg.text.trim()) {
           try {
+            // @智能体名 提及:注入智能体定义上下文(折叠为附件上下文),并从可见文本中移除 @token
+            const mention = await this.composeAgentMentions(msg.text);
+            const baseText = mention ? mention.text : msg.text;
             const images: { data: string; mediaType: string; name?: string }[] = Array.isArray(msg.images) ? msg.images.slice(0, 8) : [];
             if (images.length > 0) {
               // 带图片的消息:直接以内容块发送(官方 session.prompt image 通道)
@@ -359,11 +467,11 @@ export class ChatChannel {
                 data: img.data,
                 ...(img.name ? { name: img.name } : {}),
               }));
-              const text = await this.composeWithAttachments(msg.text, msg.attachments);
+              const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
               content.push({ type: "text", text });
               await this.hub.sendParts(current, content);
             } else {
-              const raw = msg.text.trim();
+              const raw = baseText.trim();
               // 斜杠 token 路由(与网页端裁决一致):
               // - 已知宿主命令 → 命令通道(commands.execute,不产生模型回合);
               // - 其他 token(技能 /name 等)→ 普通 prompt,由宿主 pre-step 边界注入技能正文。
@@ -372,11 +480,11 @@ export class ChatChannel {
                 if (await this.hub.isKnownCommand(current, cmdName)) {
                   await this.runCommandAndNotify(current, raw);
                 } else {
-                  const text = await this.composeWithAttachments(msg.text, msg.attachments);
+                  const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
                   await this.hub.send(current, text);
                 }
               } else {
-                const text = await this.composeWithAttachments(msg.text, msg.attachments);
+                const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
                 await this.hub.send(current, text);
               }
             }
@@ -858,6 +966,46 @@ export class ChatChannel {
         }
         break;
       }
+      case "rollbackApply": {
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        const turn = typeof msg.turn === "number" ? msg.turn : NaN;
+        if (!sid || !Number.isFinite(turn)) break;
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        if (!cwd) {
+          this.post({ kind: "notice", message: t("rollback.noRecord"), level: "warning" });
+          break;
+        }
+        const record = await loadRollbackRecord(cwd, sid);
+        if (!record || record.turns.length === 0) {
+          this.post({ kind: "notice", message: t("rollback.noRecord"), level: "warning" });
+          break;
+        }
+        if (!record.turns.some((x) => x.turn === turn)) {
+          this.post({ kind: "notice", message: t("rollback.noCheckpoint", { turn }), level: "warning" });
+          break;
+        }
+        const answer = await vscode.window.showWarningMessage(
+          t("rollback.confirmMessage", { turn }),
+          { modal: true },
+          t("rollback.confirmYes"),
+        );
+        if (answer !== t("rollback.confirmYes")) break;
+        const result = await restoreToTurn(cwd, record, turn);
+        if (result.ok) {
+          this.post({ kind: "notice", message: t("rollback.done", { turn }), level: "info" });
+        } else if (result.code === "no-checkpoint") {
+          this.post({ kind: "notice", message: t("rollback.noCheckpoint", { turn }), level: "warning" });
+        } else if (result.code === "not-git") {
+          this.post({ kind: "notice", message: t("rollback.noGit", { cwd: result.detail ?? cwd }), level: "error" });
+        } else if (result.code === "snapshot-failed") {
+          this.post({ kind: "notice", message: t("rollback.snapshotFailed", { error: result.detail ?? "" }), level: "error" });
+        } else {
+          this.post({ kind: "notice", message: t("rollback.restoreFailed", { error: result.detail ?? "" }), level: "error" });
+        }
+        void this.refreshRollback(sid);
+        break;
+      }
       case "loadMore":
         if (current) {
           const { hasMore } = await this.hub.loadMoreHistory(current);
@@ -1220,9 +1368,39 @@ export class ChatChannel {
   }
 
   /** 把附件(文件内容 / 文件夹清单)拼进消息上下文。 */
-  private async composeWithAttachments(text: string, attachments?: { kind: "file" | "folder"; path: string }[]): Promise<string> {    const list = (attachments ?? []).slice(0, 10);
-    if (list.length === 0) return text;
+  /** 展开消息中的 @智能体名 提及:匹配项目智能体(.dsh/agent + .github/agents),返回注入正文与清理后的消息。 */
+  private async composeAgentMentions(text: string): Promise<{ agentParts: string; text: string } | undefined> {
+    const tokens = [...text.matchAll(/@([A-Za-z0-9][\w.-]*)/g)].map((m) => m[1]);
+    if (tokens.length === 0) return undefined;
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!folder) return undefined;
+    let known: { name: string; content: string }[] = [];
+    try {
+      const cfg = await scanAgentConfigs(folder, this.agentDirsConfig());
+      known = [
+        ...cfg.dshAgents,
+        ...cfg.copilotAgents.map((a) => ({ name: a.name, content: a.content })),
+      ];
+    } catch {
+      known = [];
+    }
     const parts: string[] = [];
+    let cleaned = text;
+    for (const name of tokens) {
+      const agent = known.find((a) => a.name === name);
+      if (!agent) continue;
+      cleaned = cleaned.replace(new RegExp(`@${escapeRegExp(name)}`, "g"), "");
+      parts.push(`**智能体 ${agent.name}**\n${agent.content}`);
+    }
+    if (parts.length === 0) return undefined;
+    return { agentParts: parts.join("\n\n"), text: cleaned.trim() };
+  }
+
+  private async composeWithAttachments(text: string, attachments?: { kind: "file" | "folder"; path: string }[], agentParts?: string): Promise<string> {
+    const list = (attachments ?? []).slice(0, 10);
+    if (list.length === 0 && !agentParts) return text;
+    const parts: string[] = [];
+    if (agentParts) parts.push(agentParts);
     let total = 0;
     const MAX_TOTAL = 150_000;
     const MAX_FILE = 100_000;
@@ -1335,8 +1513,8 @@ async function scanAgentConfigs(
   copilotAgents: { name: string; content: string }[];
   copilotPrompts: { name: string; content: string }[];
   dshSkills: { name: string; content: string }[];
-  dshAgents: { name: string; content: string }[];
-  dshMemory: { name: string; content: string }[];
+  dshAgents: { name: string; description?: string; content: string; path: string }[];
+  dshMemory: { name: string; content: string; path: string }[];
 }> {
   const result = {
     claudeMd: false,
@@ -1349,8 +1527,8 @@ async function scanAgentConfigs(
     copilotAgents: [] as { name: string; content: string }[],
     copilotPrompts: [] as { name: string; content: string }[],
     dshSkills: [] as { name: string; content: string }[],
-    dshAgents: [] as { name: string; content: string }[],
-    dshMemory: [] as { name: string; content: string }[],
+    dshAgents: [] as { name: string; description?: string; content: string; path: string }[],
+    dshMemory: [] as { name: string; content: string; path: string }[],
   };
   const exists = async (uri: vscode.Uri) => {
     try {
@@ -1385,15 +1563,35 @@ async function scanAgentConfigs(
     }
     return out;
   };
-  const scanMdFiles = async (dir: vscode.Uri, suffix = ".md", cap = 20_000): Promise<{ name: string; content: string }[]> => {
-    const out: { name: string; content: string }[] = [];
+  // 智能体定义扫描(.dsh/agent/*.md):按行业约定解析 front matter(name/description),正文供 @提及注入
+  const scanAgentFiles = async (dir: vscode.Uri, cap = 20_000): Promise<{ name: string; description?: string; content: string; path: string }[]> => {
+    const out: { name: string; description?: string; content: string; path: string }[] = [];
+    if (!(await exists(dir))) return out;
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(dir);
+      for (const [fileName, type] of entries.slice(0, 30)) {
+        if (type !== vscode.FileType.File || !fileName.endsWith(".md")) continue;
+        const fileUri = vscode.Uri.joinPath(dir, fileName);
+        const raw = await readText(fileUri, cap);
+        if (!raw) continue;
+        const parsed = parseAgentFrontMatter(raw, fileName.replace(/\.md$/, ""));
+        out.push({ name: parsed.name, ...(parsed.description ? { description: parsed.description } : {}), content: parsed.body, path: fileUri.fsPath });
+      }
+    } catch {
+      // 忽略
+    }
+    return out;
+  };
+  const scanMdFiles = async (dir: vscode.Uri, suffix = ".md", cap = 20_000): Promise<{ name: string; content: string; path: string }[]> => {
+    const out: { name: string; content: string; path: string }[] = [];
     if (!(await exists(dir))) return out;
     try {
       const entries = await vscode.workspace.fs.readDirectory(dir);
       for (const [name, type] of entries.slice(0, 30)) {
         if (type !== vscode.FileType.File || !name.endsWith(suffix)) continue;
-        const content = await readText(vscode.Uri.joinPath(dir, name), cap);
-        if (content) out.push({ name: name.replace(new RegExp(`${suffix.replace(".", "\\.")}$`), ""), content });
+        const fileUri = vscode.Uri.joinPath(dir, name);
+        const content = await readText(fileUri, cap);
+        if (content) out.push({ name: name.replace(new RegExp(`${suffix.replace(".", "\\.")}$`), ""), content, path: fileUri.fsPath });
       }
     } catch {
       // 忽略
@@ -1430,7 +1628,7 @@ async function scanAgentConfigs(
 
   // .dsh 自身约定(始终扫描,与计划文件同级):项目级智能体 .dsh/agent/*.md、技能 .dsh/skills/*/SKILL.md、记忆 .dsh/memory/*.md
   result.dshSkills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".dsh", "skills"));
-  result.dshAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".dsh", "agent"));
+  result.dshAgents = await scanAgentFiles(vscode.Uri.joinPath(folder, ".dsh", "agent"));
   result.dshMemory = await scanMdFiles(vscode.Uri.joinPath(folder, ".dsh", "memory"));
 
   return result;
