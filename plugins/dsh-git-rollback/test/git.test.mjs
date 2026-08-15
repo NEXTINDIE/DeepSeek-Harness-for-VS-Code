@@ -72,7 +72,7 @@ test("检查点链:快照内容、用户暂存区不污染、无改动跳过", a
   }
 });
 
-test("回退:目标选择、保存点、未跟踪精确清理、ignored 不触碰、HEAD 移动但数据可达", async () => {
+test("回退:目标选择、保存点、未跟踪精确清理、ignored 不触碰、HEAD 与分支历史零污染", async () => {
   const { dir, run } = makeRepo();
   try {
     writeFileSync(join(dir, "a.txt"), "v1");
@@ -99,25 +99,30 @@ test("回退:目标选择、保存点、未跟踪精确清理、ignored 不触�
     assert.ok(existsSync(join(dir, "keep.txt"))); // 快照时已存在的用户未跟踪保留
     assert.ok(!existsSync(join(dir, "junk.txt"))); // 回合 2 新建的未跟踪被精确删除
     assert.equal(readFileSync(join(dir, "ignored.txt"), "utf8"), "ignored-updated"); // ignored 永不触碰
-    // 分支指针已移动(reset --hard 语义),但用户提交与保存点仍可达
     const rec = readRecord(dir, SID);
     const roll = rec.rolls[rec.rolls.length - 1];
     assert.equal(roll.turn, 2);
     assert.equal(roll.removed, 1);
     assert.ok(roll.redo.startsWith(""));
-    const cat = run(["cat-file", "-e", headBefore + "^{commit}"]);
-    assert.equal(cat, ""); // 用户提交对象仍在
+    // 零污染:HEAD 分毫未动,分支历史里没有任何 dsh-checkpoint 提交,用户提交原封不动
+    assert.equal(run(["rev-parse", "HEAD"]), headBefore);
+    const log = run(["log", "--oneline", "HEAD"]);
+    assert.ok(log.includes("user commit after checkpoint 1"));
+    assert.ok(!log.includes("dsh-checkpoint"));
+    assert.notEqual(run(["rev-parse", "--abbrev-ref", "HEAD"]), "HEAD"); // 未处于 detached
     // 保存点树含回退前全部内容
     const redoTree = run(["ls-tree", "-r", "--name-only", roll.redo]);
     assert.ok(redoTree.includes("junk.txt") && redoTree.includes("a.txt"));
 
-    // /redo:恢复到回退前
+    // /redo:恢复到回退前(同样零污染)
     writeFileSync(join(dir, "after-rollback.txt"), "post-rollback-untracked");
     const redo = await performRedo(GIT, dir, SID, OPTS);
     assert.equal(redo.kind, "success", JSON.stringify(redo));
     assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "turn2-edit");
     assert.ok(existsSync(join(dir, "junk.txt")));
     assert.ok(!existsSync(join(dir, "after-rollback.txt"))); // 回退后新建的未跟踪被清理
+    assert.equal(run(["rev-parse", "HEAD"]), headBefore); // redo 同样不动 HEAD
+    assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

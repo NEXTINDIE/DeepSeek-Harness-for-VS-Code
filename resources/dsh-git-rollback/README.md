@@ -41,12 +41,15 @@ dsh plugin --profile web add dsh-git-rollback
   首检查点父 = 当时 HEAD,unborn 仓库为根提交;GPG 关闭;缺 git 身份用插件身份兜底)
   → `update-ref refs/dsh/checkpoints/<sessionId>` → `read-tree` 精确还原索引(**不污染用户暂存区**)。
   无改动回合跳过。
-- **回退**:保存点(`refs/dsh/saves/<sessionId>`,当前完整状态含未跟踪)→ `reset --hard` 目标检查点
-  → 精确删除「当前未跟踪 ∖ 检查点清单」的新文件(ignored 永不触碰;清单超 1000 条截断并提示手动处理)。
-  任何提交/文件都不丢失:用户提交在保存点父链与 reflog 中,`/redo` 原样恢复。
+- **回退**:保存点(`refs/dsh/saves/<sessionId>`,当前完整状态含未跟踪)→ **内容级恢复**:
+  `read-tree --reset -u` 目标检查点(工作区+索引 = 检查点树)→ `clean -fd` 删除检查点之后新建的
+  未跟踪文件(ignored 永不触碰;检查点树里"当时未跟踪"的文件受索引保护)→ `reset --quiet` 还原索引到
+  HEAD。**HEAD 与分支历史完全不动**:`git log` / `git branch` 永远看不到任何 dsh 提交,
+  你自己的提交原封不动留在分支上;回退前的完整状态(含未跟踪)在保存点提交树内,`/redo` 原样恢复。
 - **持久化**:记录文件 `<cwd>/.dsh/rollback/<sessionId>.json`(重启后仍在;v1 自动迁移)+
   隐藏引用 `refs/dsh/*`(git gc 不可回收;提交信息嵌入回合号,记录文件丢失时可按链重建)。
-- **零污染**:`git branch` / `git log` 看不到任何 dsh 痕迹;`git show-ref` 可见
+- **零污染**:快照与回退都只触碰隐藏引用 `refs/dsh/*` 与工作区内容;
+  `git branch` / `git log` 看不到任何 dsh 提交;`git show-ref` 可见
   `refs/dsh/checkpoints/<sid>` 与 `refs/dsh/saves/<sid>`。
 
 > 说明:计划中的会话日志自定义事件(ignorable)在 rc.6 构建没有注册面(见 dsh-session 的

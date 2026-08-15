@@ -2,12 +2,14 @@
  * 回退引擎:非破坏性的 /rollback [N] 与 /redo。
  *
  * /rollback:保存点(add -A → commit-tree -p HEAD → refs/dsh/saves/<sid>)→
- *   reset --hard 目标检查点 → 精确清理「当前未跟踪 ∖ 检查点清单」的文件
- *   (ignored 永不触碰;清单截断时跳过清理并提示)。
- * /redo:reset --hard 保存点 + 对称清理。任何提交/文件状态都不丢失:
- *   用户提交仍在保存点父链与 reflog;回退前的未跟踪文件在保存点提交树内。
+ *   内容级恢复(read-tree --reset -u 目标检查点,工作区+索引=检查点树)→
+ *   clean -fd 删除检查点之后新建的未跟踪文件(ignored 永不触碰)→
+ *   reset --quiet 还原索引到 HEAD。**HEAD 与分支历史完全不动**:
+ *   git log / git branch 永远看不到任何 dsh 提交,你自己的提交原封不动留在分支上。
+ * /redo:同样以内容级恢复回保存点。任何提交/文件状态都不丢失:回退前的
+ *   完整状态(含未跟踪)在保存点提交树内,分支指针从未移动。
  */
-import { gitExec, readRecord, rmPath, saveRef, shortHash, untrackedList, writeRecord } from "./git.js";
+import { gitExec, readRecord, saveRef, shortHash, untrackedList, writeRecord } from "./git.js";
 import { MAX_ROLLS } from "./types.js";
 /** 解析 /rollback 的回合号参数:空 = 最近一回合。 */
 export function parseTurnArg(rawInput) {
@@ -18,6 +20,25 @@ export function parseTurnArg(rawInput) {
         return { error: `无效的回合号:「${raw}」` };
     const n = Number.parseInt(raw, 10);
     return Number.isSafeInteger(n) ? n : { error: `无效的回合号:「${raw}」` };
+}
+/**
+ * 内容级恢复:把工作区+索引恢复成 commit 的树,HEAD/分支引用不动。
+ * read-tree 遇未跟踪文件阻碍时先 clean -fd 再重试;最后 reset --quiet 把索引还原回 HEAD
+ * (检查点树里"当时未跟踪、现已被还原"的文件重新显示为未跟踪,不污染暂存区)。
+ */
+async function restoreTreeContent(gitBin, cwd, commit) {
+    const first = await gitExec(gitBin, cwd, ["read-tree", "--reset", "-u", commit]);
+    if (!first.ok) {
+        await gitExec(gitBin, cwd, ["clean", "-fd"]);
+        const retry = await gitExec(gitBin, cwd, ["read-tree", "--reset", "-u", commit]);
+        if (!retry.ok)
+            return { ok: false, reason: `read-tree: ${retry.stderr || first.stderr || "failed"}` };
+    }
+    const clean = await gitExec(gitBin, cwd, ["clean", "-fd"]);
+    const reset = await gitExec(gitBin, cwd, ["reset", "--quiet"]);
+    if (!clean.ok || !reset.ok)
+        return { ok: false, reason: `clean/reset: ${clean.stderr || reset.stderr || ""}`.trim() };
+    return { ok: true };
 }
 export async function performRollback(gitBin, cwd, sid, rawInput, opts) {
     const parsed = parseTurnArg(rawInput);
@@ -73,21 +94,14 @@ export async function performRollback(gitBin, cwd, sid, rawInput, opts) {
     }
     await gitExec(gitBin, cwd, ["update-ref", saveRef(opts.refPrefix, sid), saveCommit]);
     const currentUntracked = await untrackedList(gitBin, cwd);
-    // 2) reset --hard 到目标检查点
-    const reset = await gitExec(gitBin, cwd, ["reset", "--hard", entry.commit]);
-    if (!reset.ok)
-        return { kind: "error", text: `回退失败:${reset.stderr || "reset --hard failed"}` };
-    // 3) 精确清理:删除回退前存在、但不在检查点清单里的未跟踪文件
-    let removed = 0;
-    if (!entry.truncated) {
-        const manifest = new Set(entry.untracked ?? []);
-        for (const f of currentUntracked.files) {
-            if (manifest.has(f))
-                continue;
-            await rmPath(cwd, f);
-            removed += 1;
-        }
-    }
+    // 2) 内容级恢复:read-tree 使索引=检查点树(保护检查点内未跟踪文件),
+    //    clean -fd 自动精确删除检查点之后新建的未跟踪文件;HEAD/分支历史不动。
+    //    因此无需再按清单逐文件删除(旧 reset --hard 方案才需要)。
+    const restored = await restoreTreeContent(gitBin, cwd, entry.commit);
+    if (!restored.ok)
+        return { kind: "error", text: `回退失败:${restored.reason}` };
+    const manifest = new Set(entry.untracked ?? []);
+    const removed = entry.truncated ? -1 : currentUntracked.files.filter((f) => !manifest.has(f)).length;
     const roll = {
         turn,
         to: entry.commit,
@@ -102,12 +116,13 @@ export async function performRollback(gitBin, cwd, sid, rawInput, opts) {
         record.rolls = record.rolls.slice(-MAX_ROLLS);
     record.updatedAt = Date.now();
     writeRecord(cwd, sid, record);
-    const truncNote = entry.truncated ? "\n(该检查点的未跟踪清单超限被截断,已跳过精确清理,请手动检查工作区)" : "";
+    const removedText = removed < 0 ? "已按检查点清理新建的未跟踪文件" : `删除回合后新建的未跟踪文件 ${removed} 个`;
+    const truncNote = entry.truncated ? "\n(该检查点的未跟踪清单超限被截断,清理以索引为准,请手动确认)" : "";
     return {
         kind: "success",
         text: `已回退到回合 ${turn} 之前(检查点 ${shortHash(entry.commit)})。\n` +
-            `删除回合后新建的未跟踪文件 ${removed} 个;你的既有提交与改动已存入保存点 ${shortHash(saveCommit)}。\n` +
-            `/redo 可恢复;/checkpoints 查看全部检查点。${truncNote}`,
+            `${removedText};你的既有提交与改动已存入保存点 ${shortHash(saveCommit)}。\n` +
+            `HEAD 与分支历史保持不变;/redo 可恢复;/checkpoints 查看全部检查点。${truncNote}`,
     };
 }
 export async function performRedo(gitBin, cwd, sid, opts) {
@@ -119,23 +134,16 @@ export async function performRedo(gitBin, cwd, sid, opts) {
     if (!verify.ok)
         return { kind: "error", text: "保存点已不可达(可能被 git gc),无法重做" };
     const currentUntracked = await untrackedList(gitBin, cwd);
-    const reset = await gitExec(gitBin, cwd, ["reset", "--hard", roll.redo]);
-    if (!reset.ok)
-        return { kind: "error", text: `重做失败:${reset.stderr || "reset --hard failed"}` };
+    const restored = await restoreTreeContent(gitBin, cwd, roll.redo);
+    if (!restored.ok)
+        return { kind: "error", text: `重做失败:${restored.reason}` };
     const manifest = new Set(roll.untracked ?? []);
-    let removed = 0;
-    if (!roll.truncated) {
-        for (const f of currentUntracked.files) {
-            if (manifest.has(f))
-                continue;
-            await rmPath(cwd, f);
-            removed += 1;
-        }
-    }
+    const removed = roll.truncated ? -1 : currentUntracked.files.filter((f) => !manifest.has(f)).length;
     roll.redoneAt = Date.now();
     record.updatedAt = Date.now();
     writeRecord(cwd, sid, record);
-    return { kind: "success", text: `已恢复到回退前的状态(保存点 ${shortHash(roll.redo)}),删除回退后新建的未跟踪文件 ${removed} 个。` };
+    const removedText = removed < 0 ? "已按保存点清理新建的未跟踪文件" : `删除回退后新建的未跟踪文件 ${removed} 个`;
+    return { kind: "success", text: `已恢复到回退前的状态(保存点 ${shortHash(roll.redo)}),${removedText};HEAD 与分支历史保持不变。` };
 }
 export async function listCheckpoints(gitBin, cwd, sid, opts) {
     const top = await gitExec(gitBin, cwd, ["rev-parse", "--show-toplevel"]);
