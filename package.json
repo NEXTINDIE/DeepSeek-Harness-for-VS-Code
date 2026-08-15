@@ -2,14 +2,15 @@
   "name": "dsh-vscode",
   "displayName": "DeepSeek Harness for VS Code",
   "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant, model/preset/permission/thinking controls, attachments, goals, subagents, and turn-level Git rollback.",
-  "version": "0.12.55",
+  "version": "0.12.56",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deepseek-ai/deepseek-harness.git"
+    "url": "https://github.com/NEXTINDIE/DeepSeek-Harness-for-VS-Code"
   },
+  "homepage": "https://github.com/NEXTINDIE/DeepSeek-Harness-for-VS-Code",
   "engines": {
     "vscode": "^1.90.0"
   },

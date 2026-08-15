@@ -6,9 +6,9 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.12.55
+[中文版](#chinese) | Publisher: Jager · Latest: 0.12.56
 
-Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
+Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
 
 ![DeepSeek Harness for VS Code](https://raw.githubusercontent.com/NEXTINDIE/DeepSeek-Harness-for-VS-Code/main/media/home.jpg)
 
@@ -86,7 +86,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 ## Turn-level Git rollback setup
 
 - **Automatic (default)**: the extension ships the `dsh-git-rollback` server plugin and installs it into your DSH web profile (`~/.dsh/profiles/web`) on activation (idempotent, version-tracked). If your DSH server was already running, the extension offers a one-click restart when it detects the plugin is not loaded yet.
-- **Manual (web GUI users / other profiles)**: from the terminal, `dsh plugin --profile web add <path-to>/dsh-git-rollback` (or the npm-published package name once released), then restart `dsh web`.
+- **Manual (web GUI users / other profiles)**: from the terminal, `dsh plugin --profile web add dsh-git-rollback` (published on npm), then restart `dsh web`.
 - Requirements: a Git repository as the session workspace; snapshots are taken at every turn start (turn/start) and survive server restarts via `.dsh/rollback` records + hidden refs (`refs/dsh/checkpoints/<sessionId>`). Disable the auto-install with `dsh.installRollbackPlugin: false`.
 
 ## Troubleshooting
@@ -124,9 +124,9 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.12.55
+[English version](#) | 发布者:Jager · 最新版本:0.12.56
 
-在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية,跟随 VS Code 显示语言或手动切换)。
+在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية,跟随 VS Code 显示语言或手动切换)。
 
 ## 功能总览
 
@@ -224,7 +224,7 @@ npm run watch
 ## 回合级 Git 回退的安装
 
 - **自动(默认)**:扩展随包携带 `dsh-git-rollback` 服务端插件,激活时幂等安装到你的 DSH web profile(`~/.dsh/profiles/web`,带版本标记增量更新)。若 DSH 服务器已在运行,扩展检测到插件未加载时会提示一键重启(仅限本扩展启动的服务器)。
-- **手动(web 界面用户 / 其他 profile)**:终端执行 `dsh plugin --profile web add <路径>/dsh-git-rollback`(发布到 npm 后可直接 `dsh plugin --profile web add dsh-git-rollback`),然后重启 `dsh web`。
+- **手动(web 界面用户 / 其他 profile)**:终端执行 `dsh plugin --profile web add dsh-git-rollback`(已发布到 npm),然后重启 `dsh web`。
 - 前提:会话工作区是 git 仓库;每个回合开始(turn/start)自动快照,重启服务器后检查点依然可用(记录在 `.dsh/rollback` + 隐藏引用 `refs/dsh/checkpoints/<会话ID>`)。可设置 `dsh.installRollbackPlugin: false` 关闭自动安装。
 
 ## 故障排查
