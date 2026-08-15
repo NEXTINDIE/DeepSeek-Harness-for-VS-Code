@@ -3203,10 +3203,9 @@ function renderSessions() {
     return c === f || c.startsWith(f + "/");
   };
   const filtered = !state.showAllSessions && folder !== null;
-  const visible = state.sessions.filter(
-    (s) =>
-      (s.sessionId === current || (!archived.has(s.sessionId) && s.origin !== "subagent")) && (!filtered || inFolder(s)),
-  );
+  // 严格目录隔离:过滤开启时仅显示当前工作目录的会话(不含其他目录的"当前会话");
+  // 显示全部时仍隐藏归档与子代理会话。
+  const visible = state.sessions.filter((s) => !archived.has(s.sessionId) && s.origin !== "subagent" && (!filtered || inFolder(s)));
 
   // ---- 触发按钮:当前会话 + 状态徽标 + 通知点(有未读/待处理会话时) ----
   const cur = state.sessions.find((s) => s.sessionId === current);

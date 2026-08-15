@@ -881,18 +881,26 @@ export class ChatChannel {
         if (current) {
           try {
             await this.hub.archiveSession(current);
-            // 归档后选择下一个常规会话(跳过归档与子代理会话)
+            // 归档后选择下一个常规会话 —— 仅限当前工作目录内(严格目录隔离,绝不激活其他目录的会话)
+            const folder = this.workspaceFolder();
+            const norm = (p: string) => p.replace(/[\\/]+$/, "").replace(/\\/g, "/").toLowerCase();
+            const f = folder ? norm(folder) : null;
+            const inFolder = (cwd?: string) => {
+              if (!f) return true; // 未打开文件夹:不限制
+              if (!cwd) return false;
+              const c = norm(cwd);
+              return c === f || c.startsWith(f + "/");
+            };
             const remaining = this.hub.store
               .listSessions()
-              .filter((s) => !this.hub.store.archivedSessionIds.has(s.sessionId) && s.origin !== "subagent");
+              .filter((s) => !this.hub.store.archivedSessionIds.has(s.sessionId) && s.origin !== "subagent" && inFolder(s.cwd));
             const next = remaining[0]?.sessionId;
             if (next && next !== current) {
               this.hub.store.selectSession(next);
-              await this.pushFullState();
             } else {
               this.hub.store.selectSession(undefined);
-              await this.pushFullState();
             }
+            await this.pushFullState();
             this.post({ kind: "sessions", sessions: this.serializeSessions() });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.archiveFailed", { error: String(error) }), level: "error" });
