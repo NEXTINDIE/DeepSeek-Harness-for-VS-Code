@@ -2156,12 +2156,16 @@ function updateToolSummary(node: NodeState) {
   }
 }
 
-/** 弹出菜单在消息滚动区内向下溢出时向上翻转(靠近底部的消息)。 */
+/** 弹出菜单在消息滚动区内向下溢出时向上翻转(靠近底部的消息);测量失败绝不影响弹窗本身。 */
 function flipPopoverUp(pop: HTMLElement) {
-  const container = messages.getBoundingClientRect();
-  const rect = pop.getBoundingClientRect();
-  if (rect.bottom > container.bottom - 8 && rect.height < container.height) {
-    pop.classList.add("popover-up");
+  try {
+    const container = messages.getBoundingClientRect();
+    const rect = pop.getBoundingClientRect();
+    if (rect.bottom > container.bottom - 8 && rect.height < container.height) {
+      pop.classList.add("popover-up");
+    }
+  } catch {
+    // 忽略:保持默认向下展开
   }
 }
 

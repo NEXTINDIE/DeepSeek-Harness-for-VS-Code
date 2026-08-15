@@ -772,6 +772,7 @@ body {
 }
 
 .msg {
+  position: relative;
   border-radius: 10px;
   padding: 8px 12px;
   max-width: 100%;
