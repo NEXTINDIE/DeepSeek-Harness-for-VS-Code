@@ -148,5 +148,9 @@
   "rollback.noGit": "Kein Git-Repository: {cwd}",
   "rollback.snapshotFailed": "Sicherungs-Snapshot fehlgeschlagen, Rollback abgebrochen: {error}",
   "rollback.restoreFailed": "Rollback fehlgeschlagen; Arbeitsbereich auf den vorherigen Stand zurückgesetzt: {error}",
-  "rollback.compareFailed": "Vergleich fehlgeschlagen: {error}"
+  "rollback.compareFailed": "Vergleich fehlgeschlagen: {error}",
+  "rollback.pluginInstalledHint": "Das Git-Rollback-Plugin pro Runde ist im DSH-Webprofil installiert, wurde aber vom laufenden Server noch nicht geladen. Starten Sie den DSH-Server neu, um /rollback, /redo und /checkpoints zu aktivieren.",
+  "rollback.pluginRestartNow": "Jetzt neu starten",
+  "rollback.pluginRestarted": "DSH-Server neu gestartet; das Rollback-Plugin ist jetzt aktiv.",
+  "rollback.pluginManualRestart": "Der DSH-Server wurde nicht von dieser Erweiterung gestartet. Starten Sie ihn in dem Terminal neu, das ihn gestartet hat."
 }

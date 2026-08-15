@@ -44,5 +44,6 @@
   "config.language.th": "ไทย",
   "config.language.id": "อินโดนีเซีย",
   "config.language.tr": "ตุรกี",
-  "config.language.ar": "อาหรับ"
+  "config.language.ar": "อาหรับ",
+  "config.installRollbackPlugin": "ติดตั้งปลั๊กอิน Git rollback รายเทิร์นลงในโปรไฟล์ web ของ DSH โดยอัตโนมัติ (เปิดใช้งาน /rollback, /redo, /checkpoints; มีผลหลังรีสตาร์ทเซิร์ฟเวอร์ DSH)"
 }

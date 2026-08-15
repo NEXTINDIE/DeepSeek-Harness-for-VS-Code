@@ -148,5 +148,9 @@
   "rollback.noGit": "Git 저장소가 아닙니다: {cwd}",
   "rollback.snapshotFailed": "안전 스냅샷을 만들 수 없어 롤백을 중단했습니다: {error}",
   "rollback.restoreFailed": "롤백 실패, 워크스페이스를 롤백 전 상태로 복원했습니다: {error}",
-  "rollback.compareFailed": "비교 실패: {error}"
+  "rollback.compareFailed": "비교 실패: {error}",
+  "rollback.pluginInstalledHint": "턴 단위 Git 롤백 플러그인이 DSH web profile에 설치되었지만 실행 중인 서버에 아직 로드되지 않았습니다. DSH 서버를 다시 시작하면 /rollback, /redo, /checkpoints가 활성화됩니다.",
+  "rollback.pluginRestartNow": "지금 다시 시작",
+  "rollback.pluginRestarted": "DSH 서버를 다시 시작했습니다. 롤백 플러그인이 활성화되었습니다.",
+  "rollback.pluginManualRestart": "현재 DSH 서버는 이 확장에서 시작한 것이 아닙니다. 시작한 터미널에서 다시 시작하세요."
 }

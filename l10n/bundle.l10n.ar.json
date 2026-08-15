@@ -148,5 +148,9 @@
   "rollback.noGit": "ليس مستودع Git: {cwd}",
   "rollback.snapshotFailed": "تعذر إنشاء لقطة الأمان، تم إلغاء التراجع: {error}",
   "rollback.restoreFailed": "فشل التراجع؛ تمت استعادة مساحة العمل إلى حالتها السابقة: {error}",
-  "rollback.compareFailed": "فشلت المقارنة: {error}"
+  "rollback.compareFailed": "فشلت المقارنة: {error}",
+  "rollback.pluginInstalledHint": "تم تثبيت ملحق التراجع Git لكل جولة في ملف تعريف DSH على الويب، لكن الخادم قيد التشغيل لم يحمّله بعد. أعد تشغيل خادم DSH لتفعيل /rollback و /redo و /checkpoints.",
+  "rollback.pluginRestartNow": "إعادة التشغيل الآن",
+  "rollback.pluginRestarted": "تمت إعادة تشغيل خادم DSH؛ ملحق التراجع نشط الآن.",
+  "rollback.pluginManualRestart": "لم يبدأ خادم DSH بواسطة هذا الملحق. أعد تشغيله من الطرفية التي شغّلته."
 }

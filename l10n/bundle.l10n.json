@@ -153,5 +153,9 @@
   "rollback.noGit": "Not a Git repository: {cwd}",
   "rollback.snapshotFailed": "Cannot take a safety snapshot, rollback aborted: {error}",
   "rollback.restoreFailed": "Rollback failed; the workspace was restored to its previous state: {error}",
-  "rollback.compareFailed": "Compare failed: {error}"
+  "rollback.compareFailed": "Compare failed: {error}",
+  "rollback.pluginInstalledHint": "The turn-level Git rollback plugin is installed for the DSH web profile, but the running server has not loaded it yet. Restart the DSH server to activate /rollback, /redo and /checkpoints.",
+  "rollback.pluginRestartNow": "Restart Now",
+  "rollback.pluginRestarted": "DSH server restarted; the rollback plugin is active now.",
+  "rollback.pluginManualRestart": "The DSH server was not started by this extension. Restart it from the terminal that launched it."
 }

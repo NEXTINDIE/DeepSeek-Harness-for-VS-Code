@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
+import { join } from "node:path";
 import { DshHub, type HubStatus } from "./dsh/hub";
 import { createTranslator } from "./dsh/i18n";
 import { registerChatParticipant } from "./dsh/chatParticipant";
 import { folderCwd, setParticipantSession } from "./dsh/participantSessions";
 import { registerCommitMessageCommand } from "./dsh/commitMessage";
+import { ensureRollbackPluginInstalled } from "./dsh/rollbackInstall";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
 
@@ -55,6 +57,47 @@ export function activate(ctx: vscode.ExtensionContext) {
     onLog: (message) => output.appendLine(message),
   });
   output.appendLine(`[activate] 服务器地址 ${dshUrl()}`);
+
+  // ---------- 回合级 Git 回退服务端插件:自动安装进用户的 DSH web profile ----------
+  // 快照/回退命令(/rollback /redo /checkpoints)由服务端插件承担;扩展把编译好的插件
+  // 打进 vsix 的 resources/dsh-git-rollback,激活时幂等安装(带版本标记),服务器下次启动生效。
+  const bundledRollbackDir = join(ctx.extensionUri.fsPath, "resources", "dsh-git-rollback");
+  const rollbackInstall = { checked: false };
+  const installPromise = (async () => {
+    if (!cfg().get<boolean>("installRollbackPlugin", true)) return;
+    const result = await ensureRollbackPluginInstalled(bundledRollbackDir);
+    output.appendLine(`[rollback-plugin] 安装结果: ${JSON.stringify(result)}`);
+  })();
+
+  // 服务器上线后:若插件文件已就位但运行中的服务器未加载(安装发生在服务器启动之后),提示一键重启
+  const checkRollbackActive = async () => {
+    if (rollbackInstall.checked || !cfg().get<boolean>("installRollbackPlugin", true)) return;
+    rollbackInstall.checked = true;
+    try {
+      await installPromise;
+      const sessionId = hub.store.listSessions()[0]?.sessionId;
+      if (!sessionId) return; // 尚无会话可查命令目录;下次激活再检
+      const names = await hub.client.listCommands(sessionId);
+      if (names.includes("rollback")) return; // 插件已生效
+    } catch (error) {
+      output.appendLine(`[rollback-plugin] 生效检测失败: ${String(error)}`);
+      return;
+    }
+    const restart = t("rollback.pluginRestartNow");
+    const pick = await vscode.window.showInformationMessage(t("rollback.pluginInstalledHint"), restart);
+    if (pick !== restart) return;
+    if (hub.server.status.startedByUs) {
+      await hub.server.stop();
+      const ready = await hub.ensureReady();
+      output.appendLine(`[rollback-plugin] 重启结果: ${ready.ok ? "ok" : (ready.message ?? "failed")}`);
+      void vscode.window.showInformationMessage(t("rollback.pluginRestarted"));
+    } else {
+      void vscode.window.showInformationMessage(t("rollback.pluginManualRestart"));
+    }
+  };
+  hub.onStatus((status) => {
+    if (status.serverUp && !rollbackInstall.checked) void checkRollbackActive();
+  });
 
   // ---------- 界面:视图 provider 优先注册 ----------
   // 必须在视图被解析之前完成注册;视图条目在 package.json 中声明 "type": "webview",

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import { checkpointSummaries, gitShowContent, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
+import { checkpointSummaries, gitHeadUriForFile, gitShowContent, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
 
@@ -326,6 +326,18 @@ export class ChatChannel {
       await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });
     } catch {
       // 文件缺失/不可读时静默,不打断会话切换
+    }
+  }
+
+  /** 产物是 git 已跟踪文件时:默认打开「HEAD → 工作树」diff 视图,改动一眼可见;失败回退普通打开。 */
+  private async tryOpenGitDiff(filePath: string): Promise<boolean> {
+    try {
+      const headUri = await gitHeadUriForFile(filePath);
+      if (!headUri) return false;
+      await vscode.commands.executeCommand("vscode.diff", headUri, vscode.Uri.file(filePath), `${basename(filePath)} (HEAD → Working Tree)`);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -974,6 +986,8 @@ export class ChatChannel {
             if (cwd) target = join(cwd, target);
           }
           try {
+            // 产物是 git 已跟踪文件时:默认打开 HEAD → 工作树 diff,改动一眼可见
+            if (await this.tryOpenGitDiff(target)) break;
             const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
             // 预览模式打开,保持聊天面板焦点(计划待审等文件不进入编辑模式)
             await vscode.window.showTextDocument(doc, { preview: true, preserveFocus: true });

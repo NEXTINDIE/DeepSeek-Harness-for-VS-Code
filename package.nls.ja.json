@@ -44,5 +44,6 @@
   "config.language.th": "タイ語",
   "config.language.id": "インドネシア語",
   "config.language.tr": "トルコ語",
-  "config.language.ar": "アラビア語"
+  "config.language.ar": "アラビア語",
+  "config.installRollbackPlugin": "ターン単位の Git ロールバックプラグインを DSH web profile に自動インストールします(/rollback、/redo、/checkpoints が有効化;DSH サーバー再起動後に有効)"
 }

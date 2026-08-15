@@ -148,5 +148,9 @@
   "rollback.noGit": "Bukan repositori Git: {cwd}",
   "rollback.snapshotFailed": "Tidak dapat membuat snapshot pengaman, rollback dibatalkan: {error}",
   "rollback.restoreFailed": "Rollback gagal; ruang kerja dikembalikan ke kondisi sebelumnya: {error}",
-  "rollback.compareFailed": "Gagal membandingkan: {error}"
+  "rollback.compareFailed": "Gagal membandingkan: {error}",
+  "rollback.pluginInstalledHint": "Plugin rollback Git per giliran sudah terpasang di profil web DSH, tetapi server yang berjalan belum memuatnya. Mulai ulang server DSH untuk mengaktifkan /rollback, /redo, dan /checkpoints.",
+  "rollback.pluginRestartNow": "Mulai ulang sekarang",
+  "rollback.pluginRestarted": "Server DSH dimulai ulang; plugin rollback aktif sekarang.",
+  "rollback.pluginManualRestart": "Server DSH tidak dimulai oleh ekstensi ini. Mulai ulang dari terminal yang meluncurkannya."
 }

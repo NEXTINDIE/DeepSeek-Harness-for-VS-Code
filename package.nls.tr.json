@@ -44,5 +44,6 @@
   "config.language.th": "Tayca",
   "config.language.id": "Endonezce",
   "config.language.tr": "Türkçe",
-  "config.language.ar": "Arapça"
+  "config.language.ar": "Arapça",
+  "config.installRollbackPlugin": "Turn bazlı Git geri alma eklentisini DSH web profiline otomatik kur (/rollback, /redo, /checkpoints etkinleştirilir; DSH sunucusu yeniden başlatıldığında etkili olur)"
 }

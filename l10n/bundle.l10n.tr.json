@@ -148,5 +148,9 @@
   "rollback.noGit": "Bir Git deposu değil: {cwd}",
   "rollback.snapshotFailed": "Güvenlik anlık görüntüsü alınamadı, geri alma iptal edildi: {error}",
   "rollback.restoreFailed": "Geri alma başarısız oldu; çalışma alanı önceki duruma geri yüklendi: {error}",
-  "rollback.compareFailed": "Karşılaştırma başarısız: {error}"
+  "rollback.compareFailed": "Karşılaştırma başarısız: {error}",
+  "rollback.pluginInstalledHint": "Turn bazlı Git geri alma eklentisi DSH web profiline kuruldu ancak çalışan sunucu henüz yüklemedi. /rollback, /redo ve /checkpoints'i etkinleştirmek için DSH sunucusunu yeniden başlatın.",
+  "rollback.pluginRestartNow": "Şimdi yeniden başlat",
+  "rollback.pluginRestarted": "DSH sunucusu yeniden başlatıldı; geri alma eklentisi artık etkin.",
+  "rollback.pluginManualRestart": "DSH sunucusu bu uzantı tarafından başlatılmadı. Başlatan terminalden yeniden başlatın."
 }

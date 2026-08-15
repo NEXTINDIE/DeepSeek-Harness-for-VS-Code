@@ -148,5 +148,9 @@
   "rollback.noGit": "Git リポジトリではありません:{cwd}",
   "rollback.snapshotFailed": "安全スナップショットを作成できないため、ロールバックを中止しました:{error}",
   "rollback.restoreFailed": "ロールバックに失敗し、ワークスペースを元の状態に復元しました:{error}",
-  "rollback.compareFailed": "比較に失敗しました:{error}"
+  "rollback.compareFailed": "比較に失敗しました:{error}",
+  "rollback.pluginInstalledHint": "ターン単位の Git ロールバックプラグインは DSH web profile にインストール済みですが、実行中のサーバーにはまだ読み込まれていません。DSH サーバーを再起動すると /rollback、/redo、/checkpoints が有効になります。",
+  "rollback.pluginRestartNow": "今すぐ再起動",
+  "rollback.pluginRestarted": "DSH サーバーを再起動しました。ロールバックプラグインが有効になりました。",
+  "rollback.pluginManualRestart": "この拡張機能によって DSH サーバーは起動されていません。起動したターミナルから再起動してください。"
 }

@@ -153,5 +153,9 @@
   "rollback.noGit": "不是 Git 仓库:{cwd}",
   "rollback.snapshotFailed": "无法创建安全快照,已中止回退:{error}",
   "rollback.restoreFailed": "回退失败,工作区已还原到回退前的状态:{error}",
-  "rollback.compareFailed": "对比失败:{error}"
+  "rollback.compareFailed": "对比失败:{error}",
+  "rollback.pluginInstalledHint": "回合级 Git 回退插件已安装到 DSH web profile,但当前运行的服务器尚未加载。重启 DSH 服务器后 /rollback、/redo、/checkpoints 生效。",
+  "rollback.pluginRestartNow": "立即重启",
+  "rollback.pluginRestarted": "DSH 服务器已重启,回合级回退插件已生效。",
+  "rollback.pluginManualRestart": "当前 DSH 服务器不是由本扩展启动的,请在其启动终端中重启。"
 }

@@ -148,5 +148,9 @@
   "rollback.noGit": "No es un repositorio Git: {cwd}",
   "rollback.snapshotFailed": "No se pudo crear la instantánea de seguridad, reversión cancelada: {error}",
   "rollback.restoreFailed": "Reversión fallida; el espacio de trabajo se restauró al estado anterior: {error}",
-  "rollback.compareFailed": "Error al comparar: {error}"
+  "rollback.compareFailed": "Error al comparar: {error}",
+  "rollback.pluginInstalledHint": "El complemento de reversión Git por turno está instalado en el perfil web de DSH, pero el servidor en ejecución aún no lo ha cargado. Reinicia el servidor DSH para activar /rollback, /redo y /checkpoints.",
+  "rollback.pluginRestartNow": "Reiniciar ahora",
+  "rollback.pluginRestarted": "Servidor DSH reiniciado; el complemento de reversión ya está activo.",
+  "rollback.pluginManualRestart": "El servidor DSH no fue iniciado por esta extensión. Reinícialo desde la terminal que lo inició."
 }

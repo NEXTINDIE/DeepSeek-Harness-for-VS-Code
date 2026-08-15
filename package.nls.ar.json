@@ -44,5 +44,6 @@
   "config.language.th": "التايلاندية",
   "config.language.id": "الإندونيسية",
   "config.language.tr": "التركية",
-  "config.language.ar": "العربية"
+  "config.language.ar": "العربية",
+  "config.installRollbackPlugin": "تثبيت ملحق التراجع Git لكل جولة تلقائيًا في ملف تعريف DSH على الويب (تفعيل /rollback و /redo و /checkpoints؛ يسري بعد إعادة تشغيل خادم DSH)"
 }

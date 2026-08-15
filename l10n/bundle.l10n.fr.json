@@ -148,5 +148,9 @@
   "rollback.noGit": "Ce n'est pas un dépôt Git : {cwd}",
   "rollback.snapshotFailed": "Impossible de créer l'instantané de sécurité, restauration annulée : {error}",
   "rollback.restoreFailed": "Échec de la restauration ; l'espace de travail a été rétabli à son état précédent : {error}",
-  "rollback.compareFailed": "Échec de la comparaison : {error}"
+  "rollback.compareFailed": "Échec de la comparaison : {error}",
+  "rollback.pluginInstalledHint": "Le plugin de restauration Git par tour est installé dans le profil web DSH, mais le serveur en cours ne l'a pas encore chargé. Redémarrez le serveur DSH pour activer /rollback, /redo et /checkpoints.",
+  "rollback.pluginRestartNow": "Redémarrer maintenant",
+  "rollback.pluginRestarted": "Serveur DSH redémarré ; le plugin de restauration est actif.",
+  "rollback.pluginManualRestart": "Le serveur DSH n'a pas été démarré par cette extension. Redémarrez-le depuis le terminal qui l'a lancé."
 }

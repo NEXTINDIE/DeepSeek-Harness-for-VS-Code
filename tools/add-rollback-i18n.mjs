@@ -627,3 +627,118 @@ for (const [key, dict] of Object.entries(compareBundle)) {
     console.log(`bundle ${lang} "${key}": +${added} keys`);
   }
 }
+
+// ---------- 第六批:自动安装设置(package.nls)+ 重启提示(bundle) ----------
+
+const nlsFiles = {
+  en: `${root}package.nls.json`,
+  "zh-cn": `${root}package.nls.zh-cn.json`,
+  "zh-tw": `${root}package.nls.zh-tw.json`,
+  ja: `${root}package.nls.ja.json`,
+  ko: `${root}package.nls.ko.json`,
+  de: `${root}package.nls.de.json`,
+  fr: `${root}package.nls.fr.json`,
+  es: `${root}package.nls.es.json`,
+  pt: `${root}package.nls.pt.json`,
+  th: `${root}package.nls.th.json`,
+  id: `${root}package.nls.id.json`,
+  tr: `${root}package.nls.tr.json`,
+  ar: `${root}package.nls.ar.json`,
+};
+
+const installSetting = {
+  "config.installRollbackPlugin": {
+    en: "Automatically install the turn-level Git rollback plugin into the DSH web profile (enables /rollback, /redo, /checkpoints; takes effect after the DSH server restarts)",
+    "zh-cn": "自动把回合级 Git 回退插件安装到 DSH web profile(启用 /rollback、/redo、/checkpoints;重启 DSH 服务器后生效)",
+    "zh-tw": "自動把回合級 Git 回退外掛安裝到 DSH web profile(啟用 /rollback、/redo、/checkpoints;重啟 DSH 伺服器後生效)",
+    ja: "ターン単位の Git ロールバックプラグインを DSH web profile に自動インストールします(/rollback、/redo、/checkpoints が有効化;DSH サーバー再起動後に有効)",
+    ko: "턴 단위 Git 롤백 플러그인을 DSH web profile에 자동 설치합니다(/rollback, /redo, /checkpoints 활성화;DSH 서버 재시작 후 적용)",
+    de: "Das Git-Rollback-Plugin pro Runde automatisch im DSH-Webprofil installieren (aktiviert /rollback, /redo, /checkpoints; wirkt nach einem Neustart des DSH-Servers)",
+    fr: "Installer automatiquement le plugin de restauration Git par tour dans le profil web DSH (active /rollback, /redo, /checkpoints ; effet après redémarrage du serveur DSH)",
+    es: "Instala automáticamente el complemento de reversión Git por turno en el perfil web de DSH (habilita /rollback, /redo, /checkpoints; surte efecto tras reiniciar el servidor DSH)",
+    pt: "Instala automaticamente o plugin de reversão Git por turno no perfil web do DSH (ativa /rollback, /redo, /checkpoints; entra em vigor após reiniciar o servidor DSH)",
+    th: "ติดตั้งปลั๊กอิน Git rollback รายเทิร์นลงในโปรไฟล์ web ของ DSH โดยอัตโนมัติ (เปิดใช้งาน /rollback, /redo, /checkpoints; มีผลหลังรีสตาร์ทเซิร์ฟเวอร์ DSH)",
+    id: "Instal otomatis plugin rollback Git per giliran ke profil web DSH (mengaktifkan /rollback, /redo, /checkpoints; berlaku setelah server DSH dimulai ulang)",
+    tr: "Turn bazlı Git geri alma eklentisini DSH web profiline otomatik kur (/rollback, /redo, /checkpoints etkinleştirilir; DSH sunucusu yeniden başlatıldığında etkili olur)",
+    ar: "تثبيت ملحق التراجع Git لكل جولة تلقائيًا في ملف تعريف DSH على الويب (تفعيل /rollback و /redo و /checkpoints؛ يسري بعد إعادة تشغيل خادم DSH)",
+  },
+};
+
+for (const [key, dict] of Object.entries(installSetting)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = nlsFiles[lang];
+    const added = addKeys(file, { [key]: value });
+    console.log(`nls ${lang} "${key}": +${added} keys`);
+  }
+}
+
+const restartBundle = {
+  "rollback.pluginInstalledHint": {
+    en: "The turn-level Git rollback plugin is installed for the DSH web profile, but the running server has not loaded it yet. Restart the DSH server to activate /rollback, /redo and /checkpoints.",
+    "zh-cn": "回合级 Git 回退插件已安装到 DSH web profile,但当前运行的服务器尚未加载。重启 DSH 服务器后 /rollback、/redo、/checkpoints 生效。",
+    "zh-tw": "回合級 Git 回退外掛已安裝到 DSH web profile,但目前執行的伺服器尚未載入。重啟 DSH 伺服器後 /rollback、/redo、/checkpoints 生效。",
+    ja: "ターン単位の Git ロールバックプラグインは DSH web profile にインストール済みですが、実行中のサーバーにはまだ読み込まれていません。DSH サーバーを再起動すると /rollback、/redo、/checkpoints が有効になります。",
+    ko: "턴 단위 Git 롤백 플러그인이 DSH web profile에 설치되었지만 실행 중인 서버에 아직 로드되지 않았습니다. DSH 서버를 다시 시작하면 /rollback, /redo, /checkpoints가 활성화됩니다.",
+    de: "Das Git-Rollback-Plugin pro Runde ist im DSH-Webprofil installiert, wurde aber vom laufenden Server noch nicht geladen. Starten Sie den DSH-Server neu, um /rollback, /redo und /checkpoints zu aktivieren.",
+    fr: "Le plugin de restauration Git par tour est installé dans le profil web DSH, mais le serveur en cours ne l'a pas encore chargé. Redémarrez le serveur DSH pour activer /rollback, /redo et /checkpoints.",
+    es: "El complemento de reversión Git por turno está instalado en el perfil web de DSH, pero el servidor en ejecución aún no lo ha cargado. Reinicia el servidor DSH para activar /rollback, /redo y /checkpoints.",
+    pt: "O plugin de reversão Git por turno está instalado no perfil web do DSH, mas o servidor em execução ainda não o carregou. Reinicie o servidor DSH para ativar /rollback, /redo e /checkpoints.",
+    th: "ปลั๊กอิน Git rollback รายเทิร์นติดตั้งในโปรไฟล์ web ของ DSH แล้ว แต่เซิร์ฟเวอร์ที่ทำงานอยู่ยังไม่ได้โหลด รีสตาร์ทเซิร์ฟเวอร์ DSH เพื่อเปิดใช้ /rollback, /redo และ /checkpoints",
+    id: "Plugin rollback Git per giliran sudah terpasang di profil web DSH, tetapi server yang berjalan belum memuatnya. Mulai ulang server DSH untuk mengaktifkan /rollback, /redo, dan /checkpoints.",
+    tr: "Turn bazlı Git geri alma eklentisi DSH web profiline kuruldu ancak çalışan sunucu henüz yüklemedi. /rollback, /redo ve /checkpoints'i etkinleştirmek için DSH sunucusunu yeniden başlatın.",
+    ar: "تم تثبيت ملحق التراجع Git لكل جولة في ملف تعريف DSH على الويب، لكن الخادم قيد التشغيل لم يحمّله بعد. أعد تشغيل خادم DSH لتفعيل /rollback و /redo و /checkpoints.",
+  },
+  "rollback.pluginRestartNow": {
+    en: "Restart Now",
+    "zh-cn": "立即重启",
+    "zh-tw": "立即重啟",
+    ja: "今すぐ再起動",
+    ko: "지금 다시 시작",
+    de: "Jetzt neu starten",
+    fr: "Redémarrer maintenant",
+    es: "Reiniciar ahora",
+    pt: "Reiniciar agora",
+    th: "รีสตาร์ทตอนนี้",
+    id: "Mulai ulang sekarang",
+    tr: "Şimdi yeniden başlat",
+    ar: "إعادة التشغيل الآن",
+  },
+  "rollback.pluginRestarted": {
+    en: "DSH server restarted; the rollback plugin is active now.",
+    "zh-cn": "DSH 服务器已重启,回合级回退插件已生效。",
+    "zh-tw": "DSH 伺服器已重啟,回合級回退外掛已生效。",
+    ja: "DSH サーバーを再起動しました。ロールバックプラグインが有効になりました。",
+    ko: "DSH 서버를 다시 시작했습니다. 롤백 플러그인이 활성화되었습니다.",
+    de: "DSH-Server neu gestartet; das Rollback-Plugin ist jetzt aktiv.",
+    fr: "Serveur DSH redémarré ; le plugin de restauration est actif.",
+    es: "Servidor DSH reiniciado; el complemento de reversión ya está activo.",
+    pt: "Servidor DSH reiniciado; o plugin de reversão está ativo.",
+    th: "รีสตาร์ทเซิร์ฟเวอร์ DSH แล้ว ปลั๊กอินย้อนกลับพร้อมใช้งาน",
+    id: "Server DSH dimulai ulang; plugin rollback aktif sekarang.",
+    tr: "DSH sunucusu yeniden başlatıldı; geri alma eklentisi artık etkin.",
+    ar: "تمت إعادة تشغيل خادم DSH؛ ملحق التراجع نشط الآن.",
+  },
+  "rollback.pluginManualRestart": {
+    en: "The DSH server was not started by this extension. Restart it from the terminal that launched it.",
+    "zh-cn": "当前 DSH 服务器不是由本扩展启动的,请在其启动终端中重启。",
+    "zh-tw": "目前 DSH 伺服器不是由本擴充功能啟動的,請在其啟動終端機中重啟。",
+    ja: "この拡張機能によって DSH サーバーは起動されていません。起動したターミナルから再起動してください。",
+    ko: "현재 DSH 서버는 이 확장에서 시작한 것이 아닙니다. 시작한 터미널에서 다시 시작하세요.",
+    de: "Der DSH-Server wurde nicht von dieser Erweiterung gestartet. Starten Sie ihn in dem Terminal neu, das ihn gestartet hat.",
+    fr: "Le serveur DSH n'a pas été démarré par cette extension. Redémarrez-le depuis le terminal qui l'a lancé.",
+    es: "El servidor DSH no fue iniciado por esta extensión. Reinícialo desde la terminal que lo inició.",
+    pt: "O servidor DSH não foi iniciado por esta extensão. Reinicie-o no terminal que o iniciou.",
+    th: "เซิร์ฟเวอร์ DSH ไม่ได้เริ่มต้นโดยส่วนขยายนี้ โปรดรีสตาร์ทจากเทอร์มินัลที่เปิดใช้งาน",
+    id: "Server DSH tidak dimulai oleh ekstensi ini. Mulai ulang dari terminal yang meluncurkannya.",
+    tr: "DSH sunucusu bu uzantı tarafından başlatılmadı. Başlatan terminalden yeniden başlatın.",
+    ar: "لم يبدأ خادم DSH بواسطة هذا الملحق. أعد تشغيله من الطرفية التي شغّلته.",
+  },
+};
+
+for (const [key, dict] of Object.entries(restartBundle)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = bundleFiles[lang];
+    const added = addKeys(file, { [key]: value });
+    console.log(`bundle ${lang} "${key}": +${added} keys`);
+  }
+}

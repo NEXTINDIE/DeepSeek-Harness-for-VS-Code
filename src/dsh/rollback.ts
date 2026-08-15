@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import * as vscode from "vscode";
 
 /**
@@ -201,6 +202,35 @@ export async function gitShowContent(cwd: string, commit: string, path: string):
   const res = await gitExec(cwd, ["show", `${commit}:${path}`]);
   if (!res.ok) return "";
   return res.stdout;
+}
+
+/** 找到包含该路径的 git 仓库根(向上查找 .git);不是仓库时返回 null。 */
+function findGitRoot(startDir: string): string | null {
+  let d = startDir;
+  for (let i = 0; i < 40; i++) {
+    if (existsSync(join(d, ".git"))) return d;
+    const parent = dirname(d);
+    if (parent === d) return null;
+    d = parent;
+  }
+  return null;
+}
+
+/**
+ * 产物文件若位于 git 仓库且已被跟踪:返回其 `git:` HEAD URI
+ * (scheme 与 VS Code 内置 git 扩展的 GitUri 一致),供 vscode.diff 打开「HEAD → 工作树」差异;
+ * 未跟踪/非仓库文件返回 undefined。
+ */
+export async function gitHeadUriForFile(filePath: string): Promise<vscode.Uri | undefined> {
+  const repoRoot = findGitRoot(dirname(filePath));
+  if (!repoRoot) return undefined;
+  const rel = filePath.slice(repoRoot.length).replace(/^[\\/]+/, "").replace(/\\/g, "/");
+  const res = await gitExec(repoRoot, ["ls-files", "--error-unmatch", "--", rel]);
+  if (!res.ok) return undefined;
+  return vscode.Uri.file(filePath).with({
+    scheme: "git",
+    query: JSON.stringify({ path: filePath, ref: "HEAD" }),
+  });
 }
 
 /** 检查点清单:每个检查点相对当前工作区的差异概览(文件数、增删行数)。 */

@@ -148,5 +148,9 @@
   "rollback.noGit": "ไม่ใช่ที่เก็บ Git: {cwd}",
   "rollback.snapshotFailed": "สร้างสแนปช็อตความปลอดภัยไม่ได้ ยกเลิกการย้อนกลับ: {error}",
   "rollback.restoreFailed": "การย้อนกลับล้มเหลว พื้นที่ทำงานถูกกู้คืนเป็นสถานะก่อนหน้า: {error}",
-  "rollback.compareFailed": "การเปรียบเทียบล้มเหลว: {error}"
+  "rollback.compareFailed": "การเปรียบเทียบล้มเหลว: {error}",
+  "rollback.pluginInstalledHint": "ปลั๊กอิน Git rollback รายเทิร์นติดตั้งในโปรไฟล์ web ของ DSH แล้ว แต่เซิร์ฟเวอร์ที่ทำงานอยู่ยังไม่ได้โหลด รีสตาร์ทเซิร์ฟเวอร์ DSH เพื่อเปิดใช้ /rollback, /redo และ /checkpoints",
+  "rollback.pluginRestartNow": "รีสตาร์ทตอนนี้",
+  "rollback.pluginRestarted": "รีสตาร์ทเซิร์ฟเวอร์ DSH แล้ว ปลั๊กอินย้อนกลับพร้อมใช้งาน",
+  "rollback.pluginManualRestart": "เซิร์ฟเวอร์ DSH ไม่ได้เริ่มต้นโดยส่วนขยายนี้ โปรดรีสตาร์ทจากเทอร์มินัลที่เปิดใช้งาน"
 }

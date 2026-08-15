@@ -44,5 +44,6 @@
   "config.language.th": "태국어",
   "config.language.id": "인도네시아어",
   "config.language.tr": "터키어",
-  "config.language.ar": "아랍어"
+  "config.language.ar": "아랍어",
+  "config.installRollbackPlugin": "턴 단위 Git 롤백 플러그인을 DSH web profile에 자동 설치합니다(/rollback, /redo, /checkpoints 활성화;DSH 서버 재시작 후 적용)"
 }
