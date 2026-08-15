@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "Le plugin de restauration Git par tour est installé dans le profil web DSH, mais le serveur en cours ne l'a pas encore chargé. Redémarrez le serveur DSH pour activer /rollback, /redo et /checkpoints.",
   "rollback.pluginRestartNow": "Redémarrer maintenant",
   "rollback.pluginRestarted": "Serveur DSH redémarré ; le plugin de restauration est actif.",
-  "rollback.pluginManualRestart": "Le serveur DSH n'a pas été démarré par cette extension. Redémarrez-le depuis le terminal qui l'a lancé."
+  "rollback.pluginManualRestart": "Le serveur DSH n'a pas été démarré par cette extension. Redémarrez-le depuis le terminal qui l'a lancé.",
+  "notice.commandExecuted": "Commande exécutée : {line}",
+  "notice.commandUnmatched": "L'hôte n'offre pas cette commande : {line}",
+  "notice.commandUnavailable": "Ce déploiement n'a pas de canal de commande dans la session ; la commande n'a pas été exécutée : {line}",
+  "notice.agentDirsSetFailed": "Échec de la mise à jour des commutateurs de répertoires de configuration d'agent : {error}",
+  "plan.reviewHeader": "# Examen du plan\n\n> **Plan à examiner**\n> Sélectionnez le texte du plan pour ajouter des commentaires. Saisissez vos remarques dans le champ d'examen du plan DSH et appuyez sur Entrée."
 }

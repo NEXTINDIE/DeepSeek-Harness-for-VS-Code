@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "ปลั๊กอิน Git rollback รายเทิร์นติดตั้งในโปรไฟล์ web ของ DSH แล้ว แต่เซิร์ฟเวอร์ที่ทำงานอยู่ยังไม่ได้โหลด รีสตาร์ทเซิร์ฟเวอร์ DSH เพื่อเปิดใช้ /rollback, /redo และ /checkpoints",
   "rollback.pluginRestartNow": "รีสตาร์ทตอนนี้",
   "rollback.pluginRestarted": "รีสตาร์ทเซิร์ฟเวอร์ DSH แล้ว ปลั๊กอินย้อนกลับพร้อมใช้งาน",
-  "rollback.pluginManualRestart": "เซิร์ฟเวอร์ DSH ไม่ได้เริ่มต้นโดยส่วนขยายนี้ โปรดรีสตาร์ทจากเทอร์มินัลที่เปิดใช้งาน"
+  "rollback.pluginManualRestart": "เซิร์ฟเวอร์ DSH ไม่ได้เริ่มต้นโดยส่วนขยายนี้ โปรดรีสตาร์ทจากเทอร์มินัลที่เปิดใช้งาน",
+  "notice.commandExecuted": "คำสั่งถูกดำเนินการ: {line}",
+  "notice.commandUnmatched": "โฮสต์ไม่มีคำสั่งนี้: {line}",
+  "notice.commandUnavailable": "การติดตั้งนี้ไม่มีช่องทางคำสั่งในเซสชัน คำสั่งจึงไม่ถูกดำเนินการ: {line}",
+  "notice.agentDirsSetFailed": "อัปเดตสวิตช์ไดเรกทอรีกำหนดค่าเอเจนต์ล้มเหลว: {error}",
+  "plan.reviewHeader": "# ทบทวนแผน\n\n> **แผนรอตรวจสอบ**\n> เลือกข้อความแผนเพื่อเพิ่มความคิดเห็น ป้อนความเห็นในช่องทบทวนแผนของ DSH แล้วกด Enter"
 }

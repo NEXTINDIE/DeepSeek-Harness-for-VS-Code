@@ -18,8 +18,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const name = process.argv[2] || "dsh-git-rollback";
 const dryRun = process.argv.includes("--dry-run");
+const name = process.argv.slice(2).find((a) => !a.startsWith("--")) || "dsh-git-rollback";
 
 const pkgFile = join(root, "plugins", name, "package.json");
 if (!existsSync(pkgFile)) {
@@ -39,8 +39,10 @@ let latest = "";
 try {
   const versions = JSON.parse(execSync(`npm view ${name} versions --json`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   for (const v of Array.isArray(versions) ? versions : []) published.add(String(v));
+  // dist-tags 可能返回对象 {latest: ...} 或数组 [{latest: ...}](registry 缓存形态不定)
   const distTags = JSON.parse(execSync(`npm view ${name} dist-tags --json`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
-  latest = String(distTags?.latest ?? "");
+  if (Array.isArray(distTags)) latest = String(distTags[0]?.latest ?? "");
+  else latest = String(distTags?.latest ?? "");
 } catch {
   console.error(`[publish-plugin] 查询 ${name} 的 registry 信息失败(网络/未登录?),跳过发布`);
   process.exit(1);

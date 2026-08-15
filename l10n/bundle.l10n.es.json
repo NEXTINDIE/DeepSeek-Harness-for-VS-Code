@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "El complemento de reversión Git por turno está instalado en el perfil web de DSH, pero el servidor en ejecución aún no lo ha cargado. Reinicia el servidor DSH para activar /rollback, /redo y /checkpoints.",
   "rollback.pluginRestartNow": "Reiniciar ahora",
   "rollback.pluginRestarted": "Servidor DSH reiniciado; el complemento de reversión ya está activo.",
-  "rollback.pluginManualRestart": "El servidor DSH no fue iniciado por esta extensión. Reinícialo desde la terminal que lo inició."
+  "rollback.pluginManualRestart": "El servidor DSH no fue iniciado por esta extensión. Reinícialo desde la terminal que lo inició.",
+  "notice.commandExecuted": "Comando ejecutado: {line}",
+  "notice.commandUnmatched": "El host no ofrece este comando: {line}",
+  "notice.commandUnavailable": "Este despliegue no tiene canal de comandos en sesión; el comando no se ejecutó: {line}",
+  "notice.agentDirsSetFailed": "No se pudieron actualizar los interruptores de directorios de configuración del agente: {error}",
+  "plan.reviewHeader": "# Revisión del plan\n\n> **Plan por revisar**\n> Selecciona el texto del plan para añadir comentarios. Escribe tus observaciones en el campo de revisión del plan de DSH y pulsa Entrar."
 }

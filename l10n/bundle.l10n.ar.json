@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "تم تثبيت ملحق التراجع Git لكل جولة في ملف تعريف DSH على الويب، لكن الخادم قيد التشغيل لم يحمّله بعد. أعد تشغيل خادم DSH لتفعيل /rollback و /redo و /checkpoints.",
   "rollback.pluginRestartNow": "إعادة التشغيل الآن",
   "rollback.pluginRestarted": "تمت إعادة تشغيل خادم DSH؛ ملحق التراجع نشط الآن.",
-  "rollback.pluginManualRestart": "لم يبدأ خادم DSH بواسطة هذا الملحق. أعد تشغيله من الطرفية التي شغّلته."
+  "rollback.pluginManualRestart": "لم يبدأ خادم DSH بواسطة هذا الملحق. أعد تشغيله من الطرفية التي شغّلته.",
+  "notice.commandExecuted": "تم تنفيذ الأمر: {line}",
+  "notice.commandUnmatched": "لا يوفر المضيف هذا الأمر: {line}",
+  "notice.commandUnavailable": "لا توجد قناة أوامر داخل الجلسة في هذا النشر؛ لم يُنفَّذ الأمر: {line}",
+  "notice.agentDirsSetFailed": "فشل تحديث مفاتيح أدلة إعدادات الوكيل: {error}",
+  "plan.reviewHeader": "# مراجعة الخطة\n\n> **الخطة بانتظار المراجعة**\n> حدد نص الخطة لإضافة تعليقات. اكتب ملاحظاتك في حقل مراجعة الخطة في DSH واضغط Enter."
 }

@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "Das Git-Rollback-Plugin pro Runde ist im DSH-Webprofil installiert, wurde aber vom laufenden Server noch nicht geladen. Starten Sie den DSH-Server neu, um /rollback, /redo und /checkpoints zu aktivieren.",
   "rollback.pluginRestartNow": "Jetzt neu starten",
   "rollback.pluginRestarted": "DSH-Server neu gestartet; das Rollback-Plugin ist jetzt aktiv.",
-  "rollback.pluginManualRestart": "Der DSH-Server wurde nicht von dieser Erweiterung gestartet. Starten Sie ihn in dem Terminal neu, das ihn gestartet hat."
+  "rollback.pluginManualRestart": "Der DSH-Server wurde nicht von dieser Erweiterung gestartet. Starten Sie ihn in dem Terminal neu, das ihn gestartet hat.",
+  "notice.commandExecuted": "Befehl ausgeführt: {line}",
+  "notice.commandUnmatched": "Der Host bietet diesen Befehl nicht an: {line}",
+  "notice.commandUnavailable": "Diese Bereitstellung hat keinen In-Session-Befehlskanal; der Befehl wurde nicht ausgeführt: {line}",
+  "notice.agentDirsSetFailed": "Aktualisierung der Agent-Konfigurationsverzeichnis-Schalter fehlgeschlagen: {error}",
+  "plan.reviewHeader": "# Planprüfung\n\n> **Plan zur Überprüfung bereit**\n> Plan-Text auswählen, um Kommentare hinzuzufügen. Änderungswünsche im DSH-Planprüfungsfeld eingeben und Enter drücken."
 }

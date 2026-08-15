@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "Plugin rollback Git per giliran sudah terpasang di profil web DSH, tetapi server yang berjalan belum memuatnya. Mulai ulang server DSH untuk mengaktifkan /rollback, /redo, dan /checkpoints.",
   "rollback.pluginRestartNow": "Mulai ulang sekarang",
   "rollback.pluginRestarted": "Server DSH dimulai ulang; plugin rollback aktif sekarang.",
-  "rollback.pluginManualRestart": "Server DSH tidak dimulai oleh ekstensi ini. Mulai ulang dari terminal yang meluncurkannya."
+  "rollback.pluginManualRestart": "Server DSH tidak dimulai oleh ekstensi ini. Mulai ulang dari terminal yang meluncurkannya.",
+  "notice.commandExecuted": "Perintah dijalankan: {line}",
+  "notice.commandUnmatched": "Host tidak menyediakan perintah ini: {line}",
+  "notice.commandUnavailable": "Pemasangan ini tidak memiliki kanal perintah dalam sesi; perintah tidak dijalankan: {line}",
+  "notice.agentDirsSetFailed": "Gagal memperbarui sakelar direktori konfigurasi agen: {error}",
+  "plan.reviewHeader": "# Tinjauan rencana\n\n> **Rencana menunggu persetujuan**\n> Pilih teks rencana untuk menambahkan komentar. Masukkan masukan di kolom tinjauan rencana DSH lalu tekan Enter."
 }

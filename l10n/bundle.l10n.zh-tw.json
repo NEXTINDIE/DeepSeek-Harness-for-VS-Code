@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "回合級 Git 回退外掛已安裝到 DSH web profile,但目前執行的伺服器尚未載入。重啟 DSH 伺服器後 /rollback、/redo、/checkpoints 生效。",
   "rollback.pluginRestartNow": "立即重啟",
   "rollback.pluginRestarted": "DSH 伺服器已重啟,回合級回退外掛已生效。",
-  "rollback.pluginManualRestart": "目前 DSH 伺服器不是由本擴充功能啟動的,請在其啟動終端機中重啟。"
+  "rollback.pluginManualRestart": "目前 DSH 伺服器不是由本擴充功能啟動的,請在其啟動終端機中重啟。",
+  "notice.commandExecuted": "命令已執行: {line}",
+  "notice.commandUnmatched": "主機沒有此命令: {line}",
+  "notice.commandUnavailable": "目前部署沒有工作階段內命令通道,命令未執行: {line}",
+  "notice.agentDirsSetFailed": "更新智慧體設定目錄開關失敗: {error}",
+  "plan.reviewHeader": "# 計畫審核\n\n> **計畫待審**\n> 選取計畫文字即可新增評論;修改意見請在 DSH 面板的計畫審核輸入框中輸入並按 Enter。"
 }

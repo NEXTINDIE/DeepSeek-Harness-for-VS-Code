@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "턴 단위 Git 롤백 플러그인이 DSH web profile에 설치되었지만 실행 중인 서버에 아직 로드되지 않았습니다. DSH 서버를 다시 시작하면 /rollback, /redo, /checkpoints가 활성화됩니다.",
   "rollback.pluginRestartNow": "지금 다시 시작",
   "rollback.pluginRestarted": "DSH 서버를 다시 시작했습니다. 롤백 플러그인이 활성화되었습니다.",
-  "rollback.pluginManualRestart": "현재 DSH 서버는 이 확장에서 시작한 것이 아닙니다. 시작한 터미널에서 다시 시작하세요."
+  "rollback.pluginManualRestart": "현재 DSH 서버는 이 확장에서 시작한 것이 아닙니다. 시작한 터미널에서 다시 시작하세요.",
+  "notice.commandExecuted": "명령이 실행되었습니다: {line}",
+  "notice.commandUnmatched": "호스트에 이 명령이 없습니다: {line}",
+  "notice.commandUnavailable": "이 배포에는 세션 내 명령 채널이 없어 명령이 실행되지 않았습니다: {line}",
+  "notice.agentDirsSetFailed": "에이전트 설정 디렉터리 스위치를 업데이트하지 못했습니다: {error}",
+  "plan.reviewHeader": "# 계획 승인\n\n> **계획 검토 대기**\n> 계획 텍스트를 선택하여 댓글을 추가할 수 있습니다. 수정 의견은 DSH 패널의 계획 승인 입력란에 입력하고 Enter를 누르세요."
 }

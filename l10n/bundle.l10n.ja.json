@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "ターン単位の Git ロールバックプラグインは DSH web profile にインストール済みですが、実行中のサーバーにはまだ読み込まれていません。DSH サーバーを再起動すると /rollback、/redo、/checkpoints が有効になります。",
   "rollback.pluginRestartNow": "今すぐ再起動",
   "rollback.pluginRestarted": "DSH サーバーを再起動しました。ロールバックプラグインが有効になりました。",
-  "rollback.pluginManualRestart": "この拡張機能によって DSH サーバーは起動されていません。起動したターミナルから再起動してください。"
+  "rollback.pluginManualRestart": "この拡張機能によって DSH サーバーは起動されていません。起動したターミナルから再起動してください。",
+  "notice.commandExecuted": "コマンドを実行しました: {line}",
+  "notice.commandUnmatched": "ホストにこのコマンドはありません: {line}",
+  "notice.commandUnavailable": "このデプロイメントにはセッション内コマンドチャネルがなく、コマンドは実行されませんでした: {line}",
+  "notice.agentDirsSetFailed": "エージェント設定ディレクトリのスイッチを更新できませんでした: {error}",
+  "plan.reviewHeader": "# 計画承認\n\n> **計画待審**\n> 計画テキストを選択してコメントを追加できます。修正意見は DSH パネルの計画承認入力欄に入力して Enter を押してください。"
 }

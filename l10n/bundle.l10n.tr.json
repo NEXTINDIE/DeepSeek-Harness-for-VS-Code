@@ -153,5 +153,10 @@
   "rollback.pluginInstalledHint": "Turn bazlı Git geri alma eklentisi DSH web profiline kuruldu ancak çalışan sunucu henüz yüklemedi. /rollback, /redo ve /checkpoints'i etkinleştirmek için DSH sunucusunu yeniden başlatın.",
   "rollback.pluginRestartNow": "Şimdi yeniden başlat",
   "rollback.pluginRestarted": "DSH sunucusu yeniden başlatıldı; geri alma eklentisi artık etkin.",
-  "rollback.pluginManualRestart": "DSH sunucusu bu uzantı tarafından başlatılmadı. Başlatan terminalden yeniden başlatın."
+  "rollback.pluginManualRestart": "DSH sunucusu bu uzantı tarafından başlatılmadı. Başlatan terminalden yeniden başlatın.",
+  "notice.commandExecuted": "Komut çalıştırıldı: {line}",
+  "notice.commandUnmatched": "Sunucu bu komutu sunmuyor: {line}",
+  "notice.commandUnavailable": "Bu dağıtımda oturum içi komut kanalı yok; komut çalıştırılmadı: {line}",
+  "notice.agentDirsSetFailed": "Ajan yapılandırma dizini anahtarları güncellenemedi: {error}",
+  "plan.reviewHeader": "# Plan incelemesi\n\n> **Plan incelenmeyi bekliyor**\n> Yorum eklemek için plan metnini seçin. Geri bildiriminizi DSH plan inceleme kutusuna yazıp Enter'a basın."
 }
