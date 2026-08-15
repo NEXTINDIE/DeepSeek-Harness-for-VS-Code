@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.12.69
+- Turn-level "Restore checkpoint" dividers (GitHub Copilot style): every turn boundary inside a conversation now shows a horizontal line with a centered 「还原检查点」 button — clicking it previews and restores the workspace to the checkpoint before that turn began. Also fixed forked sessions missing the `session/end-seed` boundary event after they had been active (always pull history on open).
+- 回合级「还原检查点」分隔线(GitHub Copilot 同款):同一对话内每个回合边界都显示水平线 + 居中「还原检查点」按钮——点击预览并回退到该回合开始前的检查点。同时修复分叉会话活动过后缺失 `session/end-seed` 边界事件的问题(打开会话时始终拉取历史)。
+
 ## 0.12.68
-- Fix: forked conversations that already ran (store has live events via mux) no longer miss the `session/end-seed` boundary event — opening them now always pulls history, so the "Restore checkpoint" divider renders even after the branch has been active.
-- 修复:已经运行过的分叉会话(store 里已有 mux 实时事件)不再缺失 `session/end-seed` 边界事件——打开分叉会话时现在始终拉取历史,「还原检查点」分隔线在分支活动过后也能正常显示。
+- Turn-level "Restore checkpoint" dividers (GitHub Copilot style): every turn boundary inside a conversation now shows a horizontal line with a centered 「还原检查点」 button — clicking it previews and restores the workspace to the checkpoint before that turn began. Also fixed forked sessions missing the `session/end-seed` boundary event after they had been active (always pull history on open).
+- 回合级「还原检查点」分隔线(GitHub Copilot 同款):同一对话内每个回合边界都显示水平线 + 居中「还原检查点」按钮——点击预览并回退到该回合开始前的检查点。同时修复分叉会话活动过后缺失 `session/end-seed` 边界事件的问题(打开会话时始终拉取历史)。
 
 ## 0.12.67
 - Bundles dsh-git-rollback@0.1.5 (identical code, version reset for the npm release flow); refreshed "model config compatibility" wording in the settings panel (EN + 12 languages).
