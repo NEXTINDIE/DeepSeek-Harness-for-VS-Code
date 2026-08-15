@@ -1,8 +1,10 @@
-test2.txt - Second test file
+test2.txt - Updated content
 12312
-Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-This file contains some random English text.
-Line 1
-Line 2
-Line 3
-123123
+This document has been changed on 2025.
+New random text:
+- apple
+- banana
+- cherry
+Hello world!
+End of file.
+12312
