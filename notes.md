@@ -18,3 +18,6 @@ node --experimental-vm-modules main.mjs
 
 - 使用 UTF-8 编码
 - 缩进：Python 4 空格，JS/TS 2 空格
+
+<!-- TEST-MARKER: 回合 5 修改的跟踪文件内容,用于测试 reset --hard 内容还原 -->
+
