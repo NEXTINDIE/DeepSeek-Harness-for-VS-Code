@@ -152,5 +152,6 @@
   "rollback.noCheckpoint": "No rollback checkpoint for turn {turn}",
   "rollback.noGit": "Not a Git repository: {cwd}",
   "rollback.snapshotFailed": "Cannot take a safety snapshot, rollback aborted: {error}",
-  "rollback.restoreFailed": "Rollback failed; the workspace was restored to its previous state: {error}"
+  "rollback.restoreFailed": "Rollback failed; the workspace was restored to its previous state: {error}",
+  "rollback.compareFailed": "Compare failed: {error}"
 }

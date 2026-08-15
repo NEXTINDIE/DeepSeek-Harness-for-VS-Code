@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "{turn}. tur için geri alma noktası yok",
   "rollback.noGit": "Bir Git deposu değil: {cwd}",
   "rollback.snapshotFailed": "Güvenlik anlık görüntüsü alınamadı, geri alma iptal edildi: {error}",
-  "rollback.restoreFailed": "Geri alma başarısız oldu; çalışma alanı önceki duruma geri yüklendi: {error}"
+  "rollback.restoreFailed": "Geri alma başarısız oldu; çalışma alanı önceki duruma geri yüklendi: {error}",
+  "rollback.compareFailed": "Karşılaştırma başarısız: {error}"
 }

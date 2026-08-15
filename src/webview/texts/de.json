@@ -31,7 +31,6 @@
   "分支 / 回退": "Verzweigen / zurückspulen",
   "回退到此处": "Bis hierher zurückspulen",
   "从此处新建分支": "Von hier aus verzweigen",
-  "分支并回退到更早位置": "Verzweigen und zu einem früheren Punkt zurückspulen",
   "回到主线(父会话)": "Zurück zur Hauptlinie (übergeordnete Sitzung)",
   "重命名会话": "Sitzung umbenennen",
   "修改会话标题(已填入当前标题):": "Sitzungstitel bearbeiten (aktueller Titel ist vorausgefüllt):",
@@ -78,11 +77,9 @@
   "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ Keine Sitzung ausgewählt; klicken Sie auf ＋, um eine zu erstellen",
   "⚠️ 当前会话还没有可回退的回合": "⚠️ Diese Sitzung hat keine Runden zum Zurückspulen",
   "⚠️ 还没有可选择的回退点": "⚠️ Noch kein Zurückspulpunkt verfügbar",
-  "⚠️ 没有更早的对话点": "⚠️ Kein früherer Gesprächspunkt",
   "📎 附件上下文(已注入模型,点击展开)": "📎 Anhangskontext (in das Modell injiziert, zum Erweitern klicken)",
   "激活文件 · ": "Aktive Datei · ",
   "⬆ 加载更早的消息": "⬆ Frühere Nachrichten laden",
-  "选择回退点(在其后开启新分支)": "Zurückspulpunkt wählen (danach beginnt ein neuer Zweig)",
   "📄 添加文件": "📄 Datei hinzufügen",
   "📁 添加文件夹": "📁 Ordner hinzufügen",
   "只读": "Nur lesen",
@@ -362,5 +359,12 @@
   "差异不可用": "Diff nicht verfügbar",
   "编码模式": "Code-Modus",
   "允许一次": "Einmal erlauben",
-  "工具 {toolName} 请求越权执行": "Tool {toolName} fordert privilegierte Ausführung"
+  "工具 {toolName} 请求越权执行": "Tool {toolName} fordert privilegierte Ausführung",
+  "撤销本回合改动并新建分支": "Änderungen dieser Runde rückgängig machen und hier abzweigen",
+  "会话(当前目录)": "Sitzungen (aktueller Ordner)",
+  "显示全部会话": "Alle Sitzungen anzeigen",
+  "仅显示当前目录会话": "Nur Sitzungen im aktuellen Ordner",
+  "显示其他目录的会话": "Sitzungen aus anderen Ordnern anzeigen",
+  "默认只显示当前工作目录的会话": "Standardmäßig nur Sitzungen im aktuellen Arbeitsordner",
+  "对比": "Vergleichen"
 }

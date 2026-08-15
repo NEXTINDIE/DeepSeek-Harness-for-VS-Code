@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "Kein Rollback-Checkpoint für Runde {turn}",
   "rollback.noGit": "Kein Git-Repository: {cwd}",
   "rollback.snapshotFailed": "Sicherungs-Snapshot fehlgeschlagen, Rollback abgebrochen: {error}",
-  "rollback.restoreFailed": "Rollback fehlgeschlagen; Arbeitsbereich auf den vorherigen Stand zurückgesetzt: {error}"
+  "rollback.restoreFailed": "Rollback fehlgeschlagen; Arbeitsbereich auf den vorherigen Stand zurückgesetzt: {error}",
+  "rollback.compareFailed": "Vergleich fehlgeschlagen: {error}"
 }

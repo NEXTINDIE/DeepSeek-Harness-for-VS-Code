@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "Aucun point de restauration pour le tour {turn}",
   "rollback.noGit": "Ce n'est pas un dépôt Git : {cwd}",
   "rollback.snapshotFailed": "Impossible de créer l'instantané de sécurité, restauration annulée : {error}",
-  "rollback.restoreFailed": "Échec de la restauration ; l'espace de travail a été rétabli à son état précédent : {error}"
+  "rollback.restoreFailed": "Échec de la restauration ; l'espace de travail a été rétabli à son état précédent : {error}",
+  "rollback.compareFailed": "Échec de la comparaison : {error}"
 }

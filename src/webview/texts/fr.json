@@ -31,7 +31,6 @@
   "分支 / 回退": "Branche / retour en arrière",
   "回退到此处": "Revenir à ce point",
   "从此处新建分支": "Créer une branche à partir d'ici",
-  "分支并回退到更早位置": "Créer une branche et revenir à un point antérieur",
   "回到主线(父会话)": "Revenir à la ligne principale (session parente)",
   "重命名会话": "Renommer la session",
   "修改会话标题(已填入当前标题):": "Modifier le titre de la session (titre actuel pré-rempli) :",
@@ -78,11 +77,9 @@
   "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ Aucune session sélectionnée ; cliquez sur ＋ pour en créer une",
   "⚠️ 当前会话还没有可回退的回合": "⚠️ Cette session n'a encore aucun tour auquel revenir",
   "⚠️ 还没有可选择的回退点": "⚠️ Aucun point de retour disponible pour le moment",
-  "⚠️ 没有更早的对话点": "⚠️ Aucun point de conversation antérieur",
   "📎 附件上下文(已注入模型,点击展开)": "📎 Contexte des pièces jointes (injecté dans le modèle, cliquer pour développer)",
   "激活文件 · ": "Fichier actif · ",
   "⬆ 加载更早的消息": "⬆ Charger les messages antérieurs",
-  "选择回退点(在其后开启新分支)": "Choisir un point de retour (une nouvelle branche commence après lui)",
   "📄 添加文件": "📄 Ajouter un fichier",
   "📁 添加文件夹": "📁 Ajouter un dossier",
   "只读": "Lecture seule",
@@ -362,5 +359,12 @@
   "差异不可用": "Diff indisponible",
   "编码模式": "Mode code",
   "允许一次": "Autoriser une fois",
-  "工具 {toolName} 请求越权执行": "L'outil {toolName} demande une exécution privilégiée"
+  "工具 {toolName} 请求越权执行": "L'outil {toolName} demande une exécution privilégiée",
+  "撤销本回合改动并新建分支": "Annuler les changements de ce tour et créer une branche ici",
+  "会话(当前目录)": "Sessions (dossier actuel)",
+  "显示全部会话": "Afficher toutes les sessions",
+  "仅显示当前目录会话": "Sessions du dossier actuel uniquement",
+  "显示其他目录的会话": "Afficher les sessions des autres dossiers",
+  "默认只显示当前工作目录的会话": "Par défaut, seules les sessions du dossier de travail actuel sont affichées",
+  "对比": "Comparer"
 }

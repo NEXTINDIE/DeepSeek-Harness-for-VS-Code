@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "Nenhum ponto de restauração para o turno {turn}",
   "rollback.noGit": "Não é um repositório Git: {cwd}",
   "rollback.snapshotFailed": "Não foi possível criar o instantâneo de segurança, reversão cancelada: {error}",
-  "rollback.restoreFailed": "Falha na reversão; o espaço de trabalho foi restaurado ao estado anterior: {error}"
+  "rollback.restoreFailed": "Falha na reversão; o espaço de trabalho foi restaurado ao estado anterior: {error}",
+  "rollback.compareFailed": "Falha na comparação: {error}"
 }

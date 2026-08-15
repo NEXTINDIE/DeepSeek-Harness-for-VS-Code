@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "沒有第 {turn} 回合的回退快照",
   "rollback.noGit": "不是 Git 存放庫:{cwd}",
   "rollback.snapshotFailed": "無法建立安全快照,已中止回退:{error}",
-  "rollback.restoreFailed": "回退失敗,工作區已還原到回退前的狀態:{error}"
+  "rollback.restoreFailed": "回退失敗,工作區已還原到回退前的狀態:{error}",
+  "rollback.compareFailed": "對比失敗:{error}"
 }

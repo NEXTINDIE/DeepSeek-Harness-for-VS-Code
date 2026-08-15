@@ -31,7 +31,6 @@
   "分支 / 回退": "Bifurcar / rebobinar",
   "回退到此处": "Rebobinar hasta aquí",
   "从此处新建分支": "Bifurcar desde aquí",
-  "分支并回退到更早位置": "Bifurcar y rebobinar hasta un punto anterior",
   "回到主线(父会话)": "Volver a la línea principal (sesión principal)",
   "重命名会话": "Renombrar sesión",
   "修改会话标题(已填入当前标题):": "Edita el título de la sesión (se ha rellenado el título actual):",
@@ -78,11 +77,9 @@
   "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ No hay ninguna sesión seleccionada; haz clic en ＋ para crear una",
   "⚠️ 当前会话还没有可回退的回合": "⚠️ Esta sesión no tiene rondas que rebobinar",
   "⚠️ 还没有可选择的回退点": "⚠️ Aún no hay ningún punto de rebobinado disponible",
-  "⚠️ 没有更早的对话点": "⚠️ No hay ningún punto anterior de la conversación",
   "📎 附件上下文(已注入模型,点击展开)": "📎 Contexto de adjuntos (inyectado en el modelo, haz clic para expandir)",
   "激活文件 · ": "Archivo activo · ",
   "⬆ 加载更早的消息": "⬆ Cargar mensajes anteriores",
-  "选择回退点(在其后开启新分支)": "Elige un punto de rebobinado (después de él comienza una nueva rama)",
   "📄 添加文件": "📄 Añadir archivo",
   "📁 添加文件夹": "📁 Añadir carpeta",
   "只读": "Solo lectura",
@@ -362,5 +359,12 @@
   "差异不可用": "Diferencia no disponible",
   "编码模式": "Modo código",
   "允许一次": "Permitir una vez",
-  "工具 {toolName} 请求越权执行": "La herramienta {toolName} solicita ejecución privilegiada"
+  "工具 {toolName} 请求越权执行": "La herramienta {toolName} solicita ejecución privilegiada",
+  "撤销本回合改动并新建分支": "Deshacer los cambios de este turno y crear una rama aquí",
+  "会话(当前目录)": "Sesiones (carpeta actual)",
+  "显示全部会话": "Mostrar todas las sesiones",
+  "仅显示当前目录会话": "Solo sesiones de la carpeta actual",
+  "显示其他目录的会话": "Mostrar sesiones de otras carpetas",
+  "默认只显示当前工作目录的会话": "Por defecto solo se muestran las sesiones de la carpeta de trabajo actual",
+  "对比": "Comparar"
 }

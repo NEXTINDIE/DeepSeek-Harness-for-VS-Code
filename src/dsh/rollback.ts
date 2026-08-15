@@ -196,6 +196,13 @@ export async function rollbackFileDiff(cwd: string, commit: string, path: string
   return text || undefined;
 }
 
+/** 检查点版本的文件内容(git show commit:path;文件在检查点中不存在时返回空串,供 diff 视图作全新增展示)。 */
+export async function gitShowContent(cwd: string, commit: string, path: string): Promise<string> {
+  const res = await gitExec(cwd, ["show", `${commit}:${path}`]);
+  if (!res.ok) return "";
+  return res.stdout;
+}
+
 /** 检查点清单:每个检查点相对当前工作区的差异概览(文件数、增删行数)。 */
 export async function checkpointSummaries(cwd: string, record: RollbackRecord): Promise<{ head: string; dirty: number; checkpoints: CheckpointSummary[] }> {
   const head = await gitExec(cwd, ["rev-parse", "--short", "HEAD"]);

@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "ไม่มีจุดย้อนกลับสำหรับเทิร์น {turn}",
   "rollback.noGit": "ไม่ใช่ที่เก็บ Git: {cwd}",
   "rollback.snapshotFailed": "สร้างสแนปช็อตความปลอดภัยไม่ได้ ยกเลิกการย้อนกลับ: {error}",
-  "rollback.restoreFailed": "การย้อนกลับล้มเหลว พื้นที่ทำงานถูกกู้คืนเป็นสถานะก่อนหน้า: {error}"
+  "rollback.restoreFailed": "การย้อนกลับล้มเหลว พื้นที่ทำงานถูกกู้คืนเป็นสถานะก่อนหน้า: {error}",
+  "rollback.compareFailed": "การเปรียบเทียบล้มเหลว: {error}"
 }

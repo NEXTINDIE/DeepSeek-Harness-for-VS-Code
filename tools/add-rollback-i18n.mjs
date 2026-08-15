@@ -533,3 +533,97 @@ for (const [key, dict] of Object.entries(dialogTexts)) {
     console.log(`texts ${lang}.json "${key.slice(0, 12)}…": +${added} keys`);
   }
 }
+
+// ---------- 第四批:「撤销本回合改动并新建分支」替换旧的「分支并回退到更早位置」 ----------
+
+const OLD_KEYS = ["分支并回退到更早位置", "选择回退点(在其后开启新分支)", "⚠️ 没有更早的对话点"];
+
+function dropKeys(file, keys) {
+  const json = JSON.parse(readFileSync(file, "utf8"));
+  let removed = 0;
+  for (const key of keys) {
+    if (json[key] !== undefined) {
+      delete json[key];
+      removed += 1;
+    }
+  }
+  writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+  return removed;
+}
+
+const newMenuItem = {
+  "撤销本回合改动并新建分支": {
+    "zh-tw": "復原本回合變更並新建分支",
+    ja: "このターンの変更を取り消してここから分岐",
+    ko: "이 턴의 변경을 취소하고 여기서 분기",
+    de: "Änderungen dieser Runde rückgängig machen und hier abzweigen",
+    fr: "Annuler les changements de ce tour et créer une branche ici",
+    es: "Deshacer los cambios de este turno y crear una rama aquí",
+    pt: "Desfazer as alterações deste turno e ramificar daqui",
+    th: "ยกเลิกการเปลี่ยนแปลงของเทิร์นนี้และแตกสาขาจากตรงนี้",
+    id: "Batalkan perubahan giliran ini dan buat cabang dari sini",
+    tr: "Bu turun değişikliklerini geri al ve buradan dal oluştur",
+    ar: "التراجع عن تغييرات هذه الجولة وإنشاء فرع من هنا",
+  },
+};
+
+for (const [key, dict] of Object.entries(newMenuItem)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = `${root}src/webview/texts/${lang}.json`;
+    const added = addKeys(file, { [key]: value });
+    const removed = dropKeys(file, OLD_KEYS);
+    console.log(`texts ${lang}.json "${key.slice(0, 10)}…": +${added} / −${removed} old`);
+  }
+}
+
+// ---------- 第五批:「对比」按钮(webview)+ rollback.compareFailed(宿主 bundle) ----------
+
+const compareWebview = {
+  "对比": {
+    "zh-tw": "比較",
+    ja: "比較",
+    ko: "비교",
+    de: "Vergleichen",
+    fr: "Comparer",
+    es: "Comparar",
+    pt: "Comparar",
+    th: "เปรียบเทียบ",
+    id: "Bandingkan",
+    tr: "Karşılaştır",
+    ar: "مقارنة",
+  },
+};
+
+for (const [key, dict] of Object.entries(compareWebview)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = `${root}src/webview/texts/${lang}.json`;
+    const added = addKeys(file, { [key]: value });
+    console.log(`texts ${lang}.json "${key}": +${added} keys`);
+  }
+}
+
+const compareBundle = {
+  "rollback.compareFailed": {
+    en: "Compare failed: {error}",
+    "zh-cn": "对比失败:{error}",
+    "zh-tw": "對比失敗:{error}",
+    ja: "比較に失敗しました:{error}",
+    ko: "비교 실패: {error}",
+    de: "Vergleich fehlgeschlagen: {error}",
+    fr: "Échec de la comparaison : {error}",
+    es: "Error al comparar: {error}",
+    pt: "Falha na comparação: {error}",
+    th: "การเปรียบเทียบล้มเหลว: {error}",
+    id: "Gagal membandingkan: {error}",
+    tr: "Karşılaştırma başarısız: {error}",
+    ar: "فشلت المقارنة: {error}",
+  },
+};
+
+for (const [key, dict] of Object.entries(compareBundle)) {
+  for (const [lang, value] of Object.entries(dict)) {
+    const file = bundleFiles[lang];
+    const added = addKeys(file, { [key]: value });
+    console.log(`bundle ${lang} "${key}": +${added} keys`);
+  }
+}

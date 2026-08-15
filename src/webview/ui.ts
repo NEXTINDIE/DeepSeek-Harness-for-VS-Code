@@ -239,6 +239,10 @@ const state = {
   workspaces: [] as WorkspaceItem[],
   workspaceOrder: [] as string[],
   archivedSessionIds: [] as string[],
+  /** 当前工作区文件夹路径(宿主下发;空 = 未打开文件夹) */
+  workspaceFolder: null as string | null,
+  /** 会话下拉是否显示全部目录(默认 false:仅当前工作目录,Claude Code 同款) */
+  showAllSessions: false,
   /** 当前会话的后台任务(session/jobs 帧) */
   jobs: [] as JobView[],
   /** 图片附件(待发送) */
@@ -496,6 +500,8 @@ const EN_TEXT: Record<string, string> = {
   "分支 / 回退": "Branch / rewind",
   "回退到此处": "Rewind to here",
   "撤销本回合文件改动": "Undo this turn's file changes",
+  "撤销本回合改动并新建分支": "Undo this turn's changes and branch from here",
+  "对比": "Compare",
   "查看检查点": "View checkpoints",
   "Git 回退到本回合之前": "Git rollback to before this turn",
   "回退确认": "Rollback confirmation",
@@ -520,7 +526,6 @@ const EN_TEXT: Record<string, string> = {
   "/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "/rollback [N] rolls back directly; /redo restores the last rollback; cleanup: git update-ref -d refs/dsh/checkpoints|saves/<sessionId> plus the .dsh/rollback record",
   "差异不可用": "Diff unavailable",
   "从此处新建分支": "Branch from here",
-  "分支并回退到更早位置": "Branch and rewind to an earlier point",
   "回到主线(父会话)": "Back to main line (parent session)",
   "重命名会话": "Rename session",
   "修改会话标题(已填入当前标题):": "Edit the session title (current title pre-filled):",
@@ -567,11 +572,9 @@ const EN_TEXT: Record<string, string> = {
   "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ No session selected; click ＋ to create one",
   "⚠️ 当前会话还没有可回退的回合": "⚠️ This session has no turns to rewind",
   "⚠️ 还没有可选择的回退点": "⚠️ No rewind point available yet",
-  "⚠️ 没有更早的对话点": "⚠️ No earlier conversation point",
   "📎 附件上下文(已注入模型,点击展开)": "📎 Attachment context (injected into the model, click to expand)",
   "激活文件 · ": "Active file · ",
   "⬆ 加载更早的消息": "⬆ Load earlier messages",
-  "选择回退点(在其后开启新分支)": "Pick a rewind point (a new branch starts after it)",
   "📄 添加文件": "📄 Add file",
   "📁 添加文件夹": "📁 Add folder",
   "只读": "Read only",
@@ -612,6 +615,11 @@ const EN_TEXT: Record<string, string> = {
   "拒绝": "Refuse",
   "确认执行": "Approve",
   "会话": "Sessions",
+  "会话(当前目录)": "Sessions (current folder)",
+  "显示全部会话": "Show all sessions",
+  "仅显示当前目录会话": "Show current-folder sessions only",
+  "显示其他目录的会话": "Show sessions from other folders",
+  "默认只显示当前工作目录的会话": "By default only sessions in the current workspace folder are shown",
   "暂无会话": "No sessions",
   "智能体": "Agents",
   "系统提示词": "System prompt",
@@ -1108,7 +1116,7 @@ rbOverlay.append(rbBox);
 root.append(rbOverlay);
 
 /** 回退弹窗状态:当前模式与期望的 requestId(过滤过期回复)。 */
-const rbState: { mode: "review" | "checkpoints"; requestId: string; confirmTurn?: number } = { mode: "review", requestId: "" };
+const rbState: { mode: "review" | "checkpoints"; requestId: string; confirmTurn?: number; afterConfirm?: () => void } = { mode: "review", requestId: "" };
 /** diff 请求 id → 目标 pre 元素(多文件展开互不串扰)。 */
 const rbDiffTargets = new Map<string, HTMLPreElement>();
 
@@ -1123,17 +1131,19 @@ function rbClose() {
   rbDiffTargets.clear();
   rbState.requestId = "";
   rbState.confirmTurn = undefined;
+  rbState.afterConfirm = undefined;
 }
 
 function fmtRbTime(time: number): string {
   return new Date(time).toLocaleString();
 }
 
-/** 请求回退预览(代码审核)数据;turn 缺省 = 最近检查点。 */
-function openRollbackReview(turn?: number) {
+/** 请求回退预览(代码审核)数据;turn 缺省 = 最近检查点;afterConfirm 在确认回退后执行(如「回退+新建分支」)。 */
+function openRollbackReview(turn?: number, afterConfirm?: () => void) {
   const requestId = `rb:${Date.now()}`;
   rbState.mode = "review";
   rbState.requestId = requestId;
+  rbState.afterConfirm = afterConfirm;
   rbTitle.textContent = t("回退确认");
   rbMeta.textContent = t("正在计算差异…");
   rbBody.innerHTML = "";
@@ -1171,6 +1181,14 @@ function renderRollbackReview(preview: RbPreview) {
       if (f.added > 0) summary.append(el("span", "rb-add", `+${f.added}`));
       if (f.deleted > 0) summary.append(el("span", "rb-del", `−${f.deleted}`));
       if (f.added === 0 && f.deleted === 0) summary.append(el("span", "rb-zero", "0"));
+      // 「对比」:在 VS Code 内置 diff 视图打开 检查点版本 ↔ 工作区当前版本(不触发展开)
+      const compareBtn = el("button", "mini-btn rb-compare", t("对比"));
+      compareBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        vscode.postMessage({ kind: "rollbackCompare", sessionId: state.current, turn: preview.turn, path: f.path });
+      });
+      summary.append(compareBtn);
     }
     details.append(summary);
     const pre = el("pre", "rb-diff");
@@ -1218,10 +1236,12 @@ function renderRollbackReview(preview: RbPreview) {
   rbConfirm.textContent = t("确认回退");
   rbConfirm.onclick = () => {
     const turn = rbState.confirmTurn;
+    const after = rbState.afterConfirm;
     rbClose();
     if (typeof turn === "number") {
       vscode.postMessage({ kind: "command", line: `/rollback ${turn}` });
     }
+    after?.();
   };
 }
 
@@ -1286,6 +1306,13 @@ function renderCheckpointsDialog(data: { head: string; dirty: number; checkpoint
       else {
         if (f.added > 0) line.append(el("span", "rb-add", `+${f.added}`));
         if (f.deleted > 0) line.append(el("span", "rb-del", `−${f.deleted}`));
+        // 「对比」:VS Code 内置 diff 视图打开 检查点版本 ↔ 工作区当前版本
+        const compareBtn = el("button", "mini-btn rb-compare", t("对比"));
+        compareBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          vscode.postMessage({ kind: "rollbackCompare", sessionId: state.current, turn: cp.turn, path: f.path });
+        });
+        line.append(compareBtn);
       }
       body.append(line);
     }
@@ -2173,6 +2200,12 @@ function flipPopoverUp(pop: HTMLElement) {
 
 function renderActions(node: NodeState) {
   if (!node.actionsEl) return;
+  // 回合未结束(消息仍在流式输出/被修改)时不渲染操作条:
+  // 避免对话进行中用户误点分支/回退/点赞等操作(与网页端一致,仅回合结束后显示)
+  if (state.running && node.turn !== undefined && node.turn === state.currentStreamTurn) {
+    node.actionsEl.innerHTML = "";
+    return;
+  }
   node.actionsEl.innerHTML = "";
 
   const actionBtn = (iconPaths: string, title: string, onClick: () => void): HTMLButtonElement => {
@@ -2205,68 +2238,49 @@ function renderActions(node: NodeState) {
     });
   }
 
-  // ↪ 分支 / 回退:单图标,点击显示 3 个方法
+  // ↪ 分支 / 回退:单图标,点击弹出菜单(固定定位弹层,视口内自动钳制)
   if (typeof node.seq === "number") {
-    actionBtn(ICONS.branch, t("分支 / 回退"), () => {
-      const menu = el("div", "msg-popover");
-      const add = (iconPaths: string, label: string, action: () => void) => {
-        const row = el("button", "plus-menu-item");
-        row.append(lineIcon(iconPaths), el("span", "menu-item-label", label));
-        row.addEventListener("click", () => {
-          menu.remove();
-          action();
-        });
-        menu.append(row);
-      };
-      // 工作区回退(服务端 dsh-git-rollback 插件命令):先弹「代码审核」确认窗口,再真正回退
-      add(ICONS.rewind, t("撤销本回合文件改动"), () => {
-        openRollbackReview();
-      });
-      add(ICONS.ledger, t("查看检查点"), () => {
-        openCheckpointsDialog();
-      });
-      // 从此处新建分支(保留到此;回退语义由"分支并回退到更早位置"承载,不再提供重复的"回退到此处")
-      add(ICONS.branch, t("从此处新建分支"), () => {
-        vscode.postMessage({ kind: "forkAt", seq: node.seq });
-      });
-      // 方法 3:分支并回退到更早位置(选择更早的对话点)
-      add(ICONS.corner, t("分支并回退到更早位置"), () => {
-        const candidates = state.nodes
-          .filter((n) => n.kind === "assistant" && typeof n.seq === "number" && (n.seq ?? 0) < (node.seq ?? 0))
-          .slice(-8);
-        if (candidates.length === 0) {
-          appendNode({ kind: "note", key: `note:${Date.now()}`, el: null, text: t("⚠️ 没有更早的对话点") });
-          return;
-        }
-        const picker = el("div", "msg-popover");
-        picker.append(el("div", "plus-menu-label", t("选择回退点(在其后开启新分支)")));
-        for (const n of candidates) {
-          const preview = (n.plainText ?? "").replace(/\s+/g, " ").slice(0, 50) || t("(无文本)");
-          const row = el("button", "plus-menu-item", `↩ ${preview}`);
+    const btn = actionBtn(ICONS.branch, t("分支 / 回退"), () => {
+      openAnchoredMenu(btn, (menu) => {
+        const add = (iconPaths: string, label: string, action: () => void) => {
+          const row = el("button", "plus-menu-item");
+          row.append(lineIcon(iconPaths), el("span", "menu-item-label", label));
           row.addEventListener("click", () => {
-            picker.remove();
-            vscode.postMessage({ kind: "forkAt", seq: n.seq });
+            closeActivePopover();
+            action();
           });
-          picker.append(row);
-        }
-        node.el?.append(picker);
-        flipPopoverUp(picker);
-        picker.addEventListener("click", (e) => e.stopPropagation());
-        const closePicker = () => picker.remove();
-        setTimeout(() => document.addEventListener("click", closePicker, { once: true }), 0);
-      });
-      // 若当前是分叉分支,追加"回到主线"
-      const currentSession = state.sessions.find((s) => s.sessionId === state.current);
-      if (currentSession?.parentSessionId) {
-        add(ICONS.backMain, t("回到主线(父会话)"), () => {
-          vscode.postMessage({ kind: "select", sessionId: currentSession.parentSessionId });
+          menu.append(row);
+        };
+        // 工作区回退(服务端 dsh-git-rollback 插件命令):先弹「代码审核」确认窗口,再真正回退
+        add(ICONS.rewind, t("撤销本回合文件改动"), () => {
+          openRollbackReview();
         });
-      }
-      node.el?.append(menu);
-      flipPopoverUp(menu);
-      menu.addEventListener("click", (e) => e.stopPropagation());
-      const closeMenu = () => menu.remove();
-      setTimeout(() => document.addEventListener("click", closeMenu, { once: true }), 0);
+        add(ICONS.ledger, t("查看检查点"), () => {
+          openCheckpointsDialog();
+        });
+        // 从此处新建分支(保留到此;回退语义由"分支并回退到更早位置"承载,不再提供重复的"回退到此处")
+        add(ICONS.branch, t("从此处新建分支"), () => {
+          vscode.postMessage({ kind: "forkAt", seq: node.seq });
+        });
+        // 撤销本回合改动并新建分支:先弹该回合的「代码审核」回退确认,确认后回退工作区 + 从此处新建会话分支
+        add(ICONS.corner, t("撤销本回合改动并新建分支"), () => {
+          if (typeof node.turn === "number" && node.turn > 0) {
+            openRollbackReview(node.turn, () => {
+              vscode.postMessage({ kind: "forkAt", seq: node.seq });
+            });
+          } else {
+            // 该消息没有可用的回合检查点:退化为仅从此处新建分支
+            vscode.postMessage({ kind: "forkAt", seq: node.seq });
+          }
+        });
+        // 若当前是分叉分支,追加"回到主线"
+        const currentSession = state.sessions.find((s) => s.sessionId === state.current);
+        if (currentSession?.parentSessionId) {
+          add(ICONS.backMain, t("回到主线(父会话)"), () => {
+            vscode.postMessage({ kind: "select", sessionId: currentSession.parentSessionId });
+          });
+        }
+      });
     });
   }
 
@@ -2864,8 +2878,20 @@ function renderSessions() {
   const current = state.current;
   const archived = new Set(state.archivedSessionIds);
   // 与网页端一致:归档会话与子代理会话从常规列表隐藏(归档可到工作区面板"已归档"区查看)
+  // 与 Claude Code 一致:默认只展示当前工作目录的会话,避免误操作其他项目的对话
+  const folder = state.workspaceFolder;
+  const inFolder = (s: StoredSession) => {
+    if (!folder) return true;
+    if (!s.cwd) return false;
+    const norm = (p: string) => p.replace(/[\\/]+$/, "").replace(/\\/g, "/").toLowerCase();
+    const f = norm(folder);
+    const c = norm(s.cwd);
+    return c === f || c.startsWith(f + "/");
+  };
+  const filtered = !state.showAllSessions && folder !== null;
   const visible = state.sessions.filter(
-    (s) => s.sessionId === current || (!archived.has(s.sessionId) && s.origin !== "subagent"),
+    (s) =>
+      (s.sessionId === current || (!archived.has(s.sessionId) && s.origin !== "subagent")) && (!filtered || inFolder(s)),
   );
 
   // ---- 触发按钮:当前会话 + 状态徽标 + 通知点(有未读/待处理会话时) ----
@@ -2886,7 +2912,7 @@ function renderSessions() {
 
   // ---- 会话列表弹层 ----
   sessionList.innerHTML = "";
-  sessionList.append(el("div", "session-dropdown-head", t("会话")));
+  sessionList.append(el("div", "session-dropdown-head", filtered ? t("会话(当前目录)") : t("会话")));
   for (const s of visible) {
     const row = el("button", "session-row" + (s.sessionId === current ? " active" : ""));
     // 未查看完成回合 → 绿色圆点(点击选中该会话后由宿主清除)
@@ -2922,6 +2948,15 @@ function renderSessions() {
   if (visible.length === 0) {
     sessionList.append(el("div", "session-dropdown-empty", t("暂无会话")));
   }
+  // 过滤开关:默认仅当前目录;可随时切回全部会话
+  const foot = el("button", "session-dropdown-foot");
+  foot.textContent = filtered ? t("显示全部会话") : t("仅显示当前目录会话");
+  foot.title = filtered ? t("显示其他目录的会话") : t("默认只显示当前工作目录的会话");
+  foot.addEventListener("click", () => {
+    state.showAllSessions = !state.showAllSessions;
+    renderSessions();
+  });
+  sessionList.append(foot);
 
   // 回到主线按钮:仅当前会话是分叉分支时显示
   const currentSession = state.sessions.find((s) => s.sessionId === current);
@@ -3973,6 +4008,7 @@ function handleMessage(msg: any) {
       state.workspaces = msg.workspaces ?? [];
       state.workspaceOrder = msg.workspaceOrder ?? [];
       state.archivedSessionIds = msg.archivedSessionIds ?? [];
+      state.workspaceFolder = typeof msg.workspaceFolder === "string" ? msg.workspaceFolder : null;
       state.jobs = msg.jobs ?? [];
       state.rawEvents = [];
       state.settingsDescribe = null;
@@ -4253,6 +4289,11 @@ function handleMessage(msg: any) {
       state.workspaceOrder = msg.workspaces?.workspaceOrder ?? [];
       state.archivedSessionIds = msg.workspaces?.archivedSessionIds ?? [];
       panels.updateWorkspaces();
+      break;
+    }
+    case "workspaceFolder": {
+      state.workspaceFolder = typeof msg.path === "string" ? msg.path : null;
+      renderSessions();
       break;
     }
     case "jobs": {

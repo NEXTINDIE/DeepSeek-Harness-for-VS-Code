@@ -4,12 +4,30 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import { checkpointSummaries, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
+import { checkpointSummaries, gitShowContent, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
+
+/** 回退对比:自定义 URI scheme,由内容提供器按需执行 git show <commit>:<path> 供给 diff 左栏。 */
+const COMPARE_SCHEME = "dsh-git-old";
+let compareProviderRegistered = false;
+function ensureCompareProvider() {
+  if (compareProviderRegistered) return;
+  compareProviderRegistered = true;
+  const provider: vscode.TextDocumentContentProvider = {
+    provideTextDocumentContent: async (uri: vscode.Uri): Promise<string> => {
+      const query = new URLSearchParams(uri.query);
+      const cwd = query.get("cwd") ?? "";
+      const commit = query.get("commit") ?? "";
+      const path = query.get("path") ?? "";
+      return gitShowContent(cwd, commit, path);
+    },
+  };
+  void vscode.workspace.registerTextDocumentContentProvider(COMPARE_SCHEME, provider);
+}
 
 /** 文件名清理:替换非法字符、压缩空白、去首尾符号并截断。 */
 function sanitizeFileName(name: string): string {
@@ -119,6 +137,8 @@ export class ChatChannel {
       { dispose: () => activeEditorSub.dispose() },
       // 语言设置变更:通知前端重载界面
       { dispose: () => configSub.dispose() },
+      // 工作区文件夹变更:通知前端(会话下拉按当前目录过滤)
+      { dispose: () => vscode.workspace.onDidChangeWorkspaceFolders(() => this.post({ kind: "workspaceFolder", path: this.workspaceFolder() })) },
       { dispose: store.on("sessionsChanged", () => this.post({ kind: "sessions", sessions: this.serializeSessions() })) },
       { dispose: store.on("jobs", (sid: string, jobs: unknown) => this.post({ kind: "jobs", sessionId: sid, jobs })) },
       {
@@ -375,6 +395,7 @@ export class ChatChannel {
       status: this.hub.status,
       sessions: this.serializeSessions(),
       ...this.serializeWorkspaces(),
+      workspaceFolder: this.workspaceFolder(),
       current,
       events: current ? this.serializeEventsForWire(store.eventsFor(current)) : [],
       approvals: current ? [...store.pendingApprovals.values()].filter((a) => a.sessionId === current) : [],
@@ -1029,6 +1050,31 @@ export class ChatChannel {
         });
         break;
       }
+      case "rollbackCompare": {
+        // 「对比」:用 VS Code 内置 diff 视图打开 检查点版本(git show,经自定义内容提供器)↔ 工作区当前版本
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid || typeof msg.path !== "string") break;
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const turn = typeof msg.turn === "number" ? msg.turn : undefined;
+        const entry = record && (typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1]);
+        if (!cwd || !entry) {
+          this.post({ kind: "notice", message: t("rollback.compareFailed", { error: t("rollback.noRecord") }), level: "error" });
+          break;
+        }
+        try {
+          ensureCompareProvider();
+          const name = basename(msg.path);
+          const query = `cwd=${encodeURIComponent(cwd)}&commit=${entry.commit}&path=${encodeURIComponent(msg.path)}`;
+          const oldUri = vscode.Uri.parse(`${COMPARE_SCHEME}://compare/${encodeURIComponent(name)}?${query}`);
+          const newUri = vscode.Uri.file(join(cwd, msg.path));
+          await vscode.commands.executeCommand("vscode.diff", oldUri, newUri, name, { preview: true });
+        } catch (error) {
+          this.post({ kind: "notice", message: t("rollback.compareFailed", { error: String(error) }), level: "error" });
+        }
+        break;
+      }
       case "loadMore":
         if (current) {
           const { hasMore } = await this.hub.loadMoreHistory(current);
@@ -1336,6 +1382,11 @@ export class ChatChannel {
 
   private dshUrl(): string {
     return vscode.workspace.getConfiguration("dsh").get<string>("url", "http://127.0.0.1:3080");
+  }
+
+  /** 当前工作区文件夹路径(会话下拉按目录过滤用);未打开文件夹时为 null。 */
+  private workspaceFolder(): string | null {
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
   }
 
   /** 执行一条斜杠命令并给出结果提示;命令自身的结果文本(如 /rollback 回退摘要)透传到 notice。 */

@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "Tidak ada titik rollback untuk giliran {turn}",
   "rollback.noGit": "Bukan repositori Git: {cwd}",
   "rollback.snapshotFailed": "Tidak dapat membuat snapshot pengaman, rollback dibatalkan: {error}",
-  "rollback.restoreFailed": "Rollback gagal; ruang kerja dikembalikan ke kondisi sebelumnya: {error}"
+  "rollback.restoreFailed": "Rollback gagal; ruang kerja dikembalikan ke kondisi sebelumnya: {error}",
+  "rollback.compareFailed": "Gagal membandingkan: {error}"
 }

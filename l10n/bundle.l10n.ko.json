@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "{turn} 턴의 롤백 스냅샷이 없습니다",
   "rollback.noGit": "Git 저장소가 아닙니다: {cwd}",
   "rollback.snapshotFailed": "안전 스냅샷을 만들 수 없어 롤백을 중단했습니다: {error}",
-  "rollback.restoreFailed": "롤백 실패, 워크스페이스를 롤백 전 상태로 복원했습니다: {error}"
+  "rollback.restoreFailed": "롤백 실패, 워크스페이스를 롤백 전 상태로 복원했습니다: {error}",
+  "rollback.compareFailed": "비교 실패: {error}"
 }

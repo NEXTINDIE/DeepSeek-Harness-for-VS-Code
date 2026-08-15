@@ -249,6 +249,20 @@ body {
   list-style: none;
 }
 
+.rb-file-head .rb-compare {
+  font-size: 10.5px;
+  padding: 0 6px;
+  height: 18px;
+  flex: none;
+}
+
+.rb-cp-file .rb-compare {
+  font-size: 10.5px;
+  padding: 0 6px;
+  height: 18px;
+  flex: none;
+}
+
 .rb-file-head::-webkit-details-marker {
   display: none;
 }
@@ -509,6 +523,24 @@ body {
   font-size: 11.5px;
   color: var(--dsh-muted);
   padding: 6px 8px;
+}
+
+.session-dropdown-foot {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--dsh-border);
+  color: var(--dsh-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 6px 8px 4px;
+  text-align: left;
+  margin-top: 2px;
+}
+
+.session-dropdown-foot:hover {
+  color: var(--dsh-accent);
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 
 .session-row {

@@ -147,5 +147,6 @@
   "rollback.noCheckpoint": "第 {turn} ターンのロールバックスナップショットがありません",
   "rollback.noGit": "Git リポジトリではありません:{cwd}",
   "rollback.snapshotFailed": "安全スナップショットを作成できないため、ロールバックを中止しました:{error}",
-  "rollback.restoreFailed": "ロールバックに失敗し、ワークスペースを元の状態に復元しました:{error}"
+  "rollback.restoreFailed": "ロールバックに失敗し、ワークスペースを元の状態に復元しました:{error}",
+  "rollback.compareFailed": "比較に失敗しました:{error}"
 }

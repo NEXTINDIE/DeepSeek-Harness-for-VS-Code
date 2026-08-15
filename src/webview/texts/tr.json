@@ -31,7 +31,6 @@
   "分支 / 回退": "Dal / geri sar",
   "回退到此处": "Buraya geri sar",
   "从此处新建分支": "Buradan dal oluştur",
-  "分支并回退到更早位置": "Dal oluştur ve daha eski bir noktaya geri sar",
   "回到主线(父会话)": "Ana hatta dön (üst oturum)",
   "重命名会话": "Oturumu yeniden adlandır",
   "修改会话标题(已填入当前标题):": "Oturum başlığını düzenleyin (geçerli başlık önceden dolduruldu):",
@@ -78,11 +77,9 @@
   "⚠️ 尚未选择会话,点击 ＋ 新建一个会话": "⚠️ Oturum seçilmedi; oluşturmak için ＋ simgesine tıklayın",
   "⚠️ 当前会话还没有可回退的回合": "⚠️ Bu oturumda geri sarılacak tur yok",
   "⚠️ 还没有可选择的回退点": "⚠️ Henüz seçilebilir geri sarma noktası yok",
-  "⚠️ 没有更早的对话点": "⚠️ Daha eski bir konuşma noktası yok",
   "📎 附件上下文(已注入模型,点击展开)": "📎 Ek bağlamı (modele eklendi, genişletmek için tıklayın)",
   "激活文件 · ": "Etkin dosya · ",
   "⬆ 加载更早的消息": "⬆ Daha eski iletileri yükle",
-  "选择回退点(在其后开启新分支)": "Bir geri sarma noktası seçin (ardından yeni bir dal başlar)",
   "📄 添加文件": "📄 Dosya ekle",
   "📁 添加文件夹": "📁 Klasör ekle",
   "只读": "Salt okunur",
@@ -362,5 +359,12 @@
   "差异不可用": "Fark kullanılamıyor",
   "编码模式": "Kod modu",
   "允许一次": "Bir kez izin ver",
-  "工具 {toolName} 请求越权执行": "{toolName} aracı ayrıcalıklı çalıştırma istiyor"
+  "工具 {toolName} 请求越权执行": "{toolName} aracı ayrıcalıklı çalıştırma istiyor",
+  "撤销本回合改动并新建分支": "Bu turun değişikliklerini geri al ve buradan dal oluştur",
+  "会话(当前目录)": "Oturumlar (geçerli klasör)",
+  "显示全部会话": "Tüm oturumları göster",
+  "仅显示当前目录会话": "Yalnızca geçerli klasördeki oturumlar",
+  "显示其他目录的会话": "Diğer klasörlerdeki oturumları göster",
+  "默认只显示当前工作目录的会话": "Varsayılan olarak yalnızca geçerli çalışma klasöründeki oturumlar gösterilir",
+  "对比": "Karşılaştır"
 }
