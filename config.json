@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "sample-app",
+    "version": "0.1.0",
+    "debug": true
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "workers": 4
+  },
+  "features": {
+    "logging": true,
+    "metrics": false
+  }
+}
