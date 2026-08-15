@@ -102,19 +102,26 @@ export async function checkpointTurn(
   }
   const untrackedBefore = await untrackedList(gitBin, cwd);
   const snap = await snapshotCommit(gitBin, cwd, parent, `${opts.commitPrefix} ${sid} turn ${turn}`);
-  if (!snap.ok || snap.unchanged) {
-    if (!snap.ok) console.error("[dsh-git-rollback] checkpoint failed:", snap.reason);
-    return; // 无改动回合跳过
+  if (!snap.ok) {
+    console.error("[dsh-git-rollback] checkpoint failed:", snap.reason);
+    return;
   }
-  // ref 已存在 → old = 当前值(CAS);首创建 → old = 全零(必须不存在)
-  const oldValue = tipInfo.fromRef && tipInfo.commit ? tipInfo.commit : "";
-  const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid), snap.commit!, oldValue]);
-  if (!refResult.ok) {
-    console.error("[dsh-git-rollback] checkpoint ref update failed:", refResult.stderr);
+  // 无改动回合(树与父一致)也记录检查点条目:复用父提交,不创建新提交。
+  // 这样回合结束快照(after)仍能归属该回合——回合内新建/修改的文件不会
+  // "落进"下一个回合的开始检查点,点击该回合的「还原检查点」才能撤销它们。
+  const commit = snap.unchanged ? parent : snap.commit;
+  if (!commit) return; // 无父且无新提交(理论上不发生)
+  if (!snap.unchanged) {
+    // ref 已存在 → old = 当前值(CAS);首创建 → old = 全零(必须不存在)
+    const oldValue = tipInfo.fromRef && tipInfo.commit ? tipInfo.commit : "";
+    const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid), snap.commit!, oldValue]);
+    if (!refResult.ok) {
+      console.error("[dsh-git-rollback] checkpoint ref update failed:", refResult.stderr);
+    }
   }
   const entry: CheckpointEntry = {
     turn,
-    commit: snap.commit!,
+    commit,
     parent: parent ?? undefined,
     time,
     untracked: untrackedBefore.files,

@@ -1,4 +1,4 @@
-﻿{
+{
   "displayName": "DeepSeek Harness for VS Code",
   "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant, model/preset/permission/thinking controls, attachments, goals, subagents, and turn-level Git rollback.",
   "cmd.openChat.title": "DSH: Open Built-in Chat (@dsh)",
@@ -50,5 +50,6 @@
   "config.agentDirs.codex": "Compatible with Codex — scan .codex (config.toml, skills) in the workspace and your user home (~/.codex)",
   "config.agentDirs.githubCopilot": "Compatible with GitHub Copilot — scan .github (instructions, agents, prompts) in the workspace and your user home (~/.github)",
   "config.installRollbackPlugin": "Automatically install the turn-level Git rollback plugin into the DSH web profile (enables /rollback, /redo, /checkpoints; takes effect after the DSH server restarts)",
-  "config.agentDirs.dshUserSkills": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills) in the available-skills list"
+  "config.agentDirs.dshUserSkills": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills) in the available-skills list",
+  "config.language.ru": "Russian"
 }

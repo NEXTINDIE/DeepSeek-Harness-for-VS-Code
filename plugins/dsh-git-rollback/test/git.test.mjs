@@ -55,19 +55,51 @@ test("检查点链:快照内容、用户暂存区不污染、无改动跳过", a
     const tree = run(["ls-tree", "-r", "--name-only", rec.checkpoints[0].commit]);
     assert.ok(tree.includes("a.txt") && tree.includes("notes.txt") && tree.includes("staged.txt"));
 
-    // 回合 2 前:无任何改动 → 跳过
+    // 回合 2 前:无任何改动 → 仍记录条目(复用父提交,不建新提交)
     await checkpointTurn(GIT, dir, SID, 2, 2000, OPTS);
-    assert.equal(readRecord(dir, SID).checkpoints.length, 1);
+    const rec2 = readRecord(dir, SID);
+    assert.equal(rec2.checkpoints.length, 2);
+    assert.equal(rec2.checkpoints[1].turn, 2);
+    assert.equal(rec2.checkpoints[1].commit, rec2.checkpoints[0].commit); // 复用父提交
 
     // 回合 3 前:有改动 → 新检查点,链父 = 回合 1 检查点
     writeFileSync(join(dir, "a.txt"), "turn3-edit");
     await checkpointTurn(GIT, dir, SID, 3, 3000, OPTS);
     const rec3 = readRecord(dir, SID);
-    assert.equal(rec3.checkpoints.length, 2);
-    assert.equal(rec3.checkpoints[1].parent, rec3.checkpoints[0].commit);
+    assert.equal(rec3.checkpoints.length, 3);
+    assert.equal(rec3.checkpoints[2].parent, rec3.checkpoints[1].commit);
     // tip ref 指向最新检查点
     const tip = run(["rev-parse", "refs/dsh/checkpoints/session-test-1"]);
-    assert.equal(tip, rec3.checkpoints[1].commit);
+    assert.equal(tip, rec3.checkpoints[2].commit);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("无改动回合也记录条目:回合内新建文件可被该回合的 /undo 撤销", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "a.txt"), "v1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    // 回合 3 开始前:工作区与 HEAD 一致(无改动)→ 仍记录条目(复用 HEAD)
+    await checkpointTurn(GIT, dir, SID, 3, 3000, OPTS);
+    const rec1 = readRecord(dir, SID);
+    assert.equal(rec1.checkpoints.length, 1);
+    assert.equal(rec1.checkpoints[0].turn, 3);
+    assert.equal(rec1.checkpoints[0].commit, run(["rev-parse", "HEAD"]));
+    // 回合 3 内新建文件(此前会被"落进"下一个回合的开始快照)
+    writeFileSync(join(dir, "new-file.txt"), "created-in-turn-3");
+    await checkpointTurnEnd(GIT, dir, SID, 3, 4000, OPTS);
+    const rec2 = readRecord(dir, SID);
+    assert.ok(rec2.checkpoints[0].after, "无改动回合结束后也应记录 after 快照");
+    // /undo 3 应撤销该回合的新建文件
+    const res = await performUndo(GIT, dir, SID, "3", OPTS);
+    assert.equal(res.kind, "success", JSON.stringify(res));
+    assert.ok(!existsSync(join(dir, "new-file.txt")));
+    // HEAD 与分支历史零污染
+    assert.equal(run(["rev-parse", "HEAD"]), run(["rev-parse", "HEAD"]));
+    assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

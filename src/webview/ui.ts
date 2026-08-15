@@ -12,6 +12,7 @@ import ptTexts from "./texts/pt.json";
 import thTexts from "./texts/th.json";
 import idTexts from "./texts/id.json";
 import trTexts from "./texts/tr.json";
+import ruTexts from "./texts/ru.json";
 import arTexts from "./texts/ar.json";
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void; getState(): any; setState(state: any): void };
@@ -990,6 +991,7 @@ const UI_TEXTS: Record<string, Record<string, string>> = {
   th: thTexts as Record<string, string>,
   id: idTexts as Record<string, string>,
   tr: trTexts as Record<string, string>,
+  ru: ruTexts as Record<string, string>,
   ar: arTexts as Record<string, string>,
 };
 

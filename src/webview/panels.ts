@@ -788,6 +788,7 @@ export function createPanels(ctx: PanelsContext) {
       { id: "th", label: "ไทย" },
       { id: "id", label: "Bahasa Indonesia" },
       { id: "tr", label: "Türkçe" },
+      { id: "ru", label: "Русский" },
       { id: "ar", label: "العربية" },
     ];
     for (const opt of options) {

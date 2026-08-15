@@ -1,6 +1,6 @@
 {
   "name": "dsh-git-rollback",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints /undo commands, per-turn checkpoints in hidden refs, non-destructive workspace restore, scoped turn undo, checkpoint-SHA restore.",
   "type": "module",
   "main": "lib/index.js",

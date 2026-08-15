@@ -1,4 +1,4 @@
-﻿{
+{
   "displayName": "DeepSeek Harness para VS Code",
   "description": "Usa DeepSeek Harness directamente en VS Code: panel de chat en la barra lateral secundaria, participante de chat integrado @dsh, controles de modelo/preset/permisos/razonamiento, adjuntos, objetivos, subagentes y reversión Git por turno.",
   "cmd.openChat.title": "DSH: Abrir chat integrado (@dsh)",
@@ -50,5 +50,6 @@
   "config.agentDirs.claude": "Compatible con Claude — analizar .claude (comandos, habilidades) en el espacio de trabajo y el directorio de usuario (~/.claude), y reportar CLAUDE.md / AGENTS.md",
   "config.agentDirs.codex": "Compatible con Codex — analizar .codex (config.toml, habilidades) en el espacio de trabajo y el directorio de usuario (~/.codex)",
   "config.agentDirs.githubCopilot": "Compatible con GitHub Copilot — analizar .github (instrucciones, agentes, indicaciones) en el espacio de trabajo y el directorio de usuario (~/.github)",
-  "config.agentDirs.dshUserSkills": "Mostrar / ocultar habilidades globales de usuario DSH en la lista (~/.dsh/skills, ~/.agents/skills)"
+  "config.agentDirs.dshUserSkills": "Mostrar / ocultar habilidades globales de usuario DSH en la lista (~/.dsh/skills, ~/.agents/skills)",
+  "config.language.ru": "Ruso"
 }

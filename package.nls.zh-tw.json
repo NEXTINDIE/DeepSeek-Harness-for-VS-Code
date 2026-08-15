@@ -1,4 +1,4 @@
-﻿{
+{
   "displayName": "DeepSeek Harness for VS Code",
   "description": "直接在 VS Code 中使用 DeepSeek Harness:次要側邊欄聊天面板、@dsh 內建聊天參與者、模型/預設/權限/思考控制、附件、目標與子代理、回合級 Git 回退。",
   "cmd.openChat.title": "DSH: 開啟內建聊天 (@dsh)",
@@ -50,5 +50,6 @@
   "config.agentDirs.claude": "相容 Claude:掃描工作區與使用者主目錄(~/.claude)下的 .claude(命令、技能),並回報 CLAUDE.md / AGENTS.md",
   "config.agentDirs.codex": "相容 Codex:掃描工作區與使用者主目錄(~/.codex)下的 .codex(config.toml、技能)",
   "config.agentDirs.githubCopilot": "相容 GitHub Copilot:掃描工作區與使用者主目錄(~/.github)下的 .github 檔案(指令、智慧體、提示詞)",
-  "config.agentDirs.dshUserSkills": "在可用技能清單中顯示 / 隱藏 DSH 使用者全域技能(~/.dsh/skills、~/.agents/skills)"
+  "config.agentDirs.dshUserSkills": "在可用技能清單中顯示 / 隱藏 DSH 使用者全域技能(~/.dsh/skills、~/.agents/skills)",
+  "config.language.ru": "俄語"
 }

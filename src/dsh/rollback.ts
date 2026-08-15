@@ -314,6 +314,9 @@ export async function scopedTurnStats(
   turn?: number,
 ): Promise<{ turn: number; time: number; before: string; after: string; files: RollbackFileStat[]; addedTotal: number; deletedTotal: number; truncated: boolean } | undefined> {
   const entry = typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : undefined;
+  // 明确指定回合但记录里没有该回合 → 返回 undefined(提示该回合无检查点),
+  // 绝不 fallback 到其他回合——否则点击 A/B 分隔线会错误显示最后一个回合的改动。
+  if (typeof turn === "number" && !entry) return undefined;
   const candidate = entry ?? [...record.checkpoints].reverse().find((c) => c.after);
   if (!candidate || !candidate.after) return undefined;
   const diff = await gitExec(cwd, ["diff", "--numstat", candidate.commit, candidate.after.commit, "--"]);

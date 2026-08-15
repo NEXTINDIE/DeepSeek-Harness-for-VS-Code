@@ -1,4 +1,4 @@
-﻿{
+{
   "displayName": "DeepSeek Harness untuk VS Code",
   "description": "Gunakan DeepSeek Harness langsung di VS Code: panel chat sidebar sekunder, peserta chat bawaan @dsh, kontrol model/preset/izin/berpikir, lampiran, tujuan, subagen, dan rollback Git per giliran.",
   "cmd.openChat.title": "DSH: Buka Chat Bawaan (@dsh)",
@@ -50,5 +50,6 @@
   "config.agentDirs.claude": "Kompatibel dengan Claude — pindai .claude (perintah, skill) di ruang kerja dan direktori pengguna (~/.claude), dan laporkan CLAUDE.md / AGENTS.md",
   "config.agentDirs.codex": "Kompatibel dengan Codex — pindai .codex (config.toml, skill) di ruang kerja dan direktori pengguna (~/.codex)",
   "config.agentDirs.githubCopilot": "Kompatibel dengan GitHub Copilot — pindai .github (instruksi, agen, prompt) di ruang kerja dan direktori pengguna (~/.github)",
-  "config.agentDirs.dshUserSkills": "Tampilkan / sembunyikan skill global pengguna DSH di daftar skill (~/.dsh/skills, ~/.agents/skills)"
+  "config.agentDirs.dshUserSkills": "Tampilkan / sembunyikan skill global pengguna DSH di daftar skill (~/.dsh/skills, ~/.agents/skills)",
+  "config.language.ru": "Rusia"
 }

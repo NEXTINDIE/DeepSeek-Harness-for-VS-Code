@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.72
+- Fix: "Restore checkpoint" on a turn divider no longer falls back to the last checkpoint when that turn has no record — it now reports "no restorable checkpoint for this turn" instead of showing another turn's changes (e.g. clicking turn A/B no longer previews turn C's diff). Plus Russian (ru) language scaffolding.
+- 修复:「还原检查点」点击某个回合的分隔线时,若该回合没有检查点记录,不再错误回退显示最后一个回合的改动(如点 A/B 却显示 C 回合的 23–32 条),而是提示"该回合没有可精确撤销的快照"。附带俄语(ru)语言脚手架。
+
+## 0.12.71
+- Fix: turns that started with an unchanged workspace now still get a checkpoint entry (reusing the parent commit), so files created during such a turn are attributed to that turn — "Restore checkpoint" on that turn now previews and undoes them instead of silently folding them into the next turn's snapshot. Includes plugin dsh-git-rollback@0.1.6.
+- 修复:回合开始时工作区无改动的情况现在也会记录检查点条目(复用父提交),使该回合内新建的文件归属到该回合——点击该回合的「还原检查点」能预览并撤销它们,不再被静默并入下一回合的快照。内置插件升级至 dsh-git-rollback@0.1.6。
+
 ## 0.12.70
 - "Restore checkpoint" now matches GitHub Copilot semantics: clicking a turn divider only reverts the files changed by that turn (reverse-applies the turn-start → turn-end diff), leaving files you changed manually, other turns' changes, and your own commits/HEAD untouched — no more whole-workspace rollback.
 - 「还原检查点」改为 GitHub Copilot 同款语义:点击回合分隔线**只撤销该回合自身产生的文件改动**(反向应用 回合开始→回合结束 的差异);你手动改的文件、其他回合的改动以及你自己的提交与 HEAD 完全不受影响——不再整体回滚工作区。

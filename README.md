@@ -6,9 +6,9 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.12.70
+[中文版](#chinese) | Publisher: Jager · Latest: 0.12.73
 
-Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية — follows the VS Code display language or switch manually).
+Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية — follows the VS Code display language or switch manually).
 
 ![DeepSeek Harness for VS Code](https://raw.githubusercontent.com/NEXTINDIE/DeepSeek-Harness-for-VS-Code/main/media/home.jpg)
 
@@ -43,7 +43,7 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Queued-message actions**: queued messages can be edited / removed / steered (official session.updateQueue).
 - **Goal creation**: the 🎯 chip creates a goal when none exists (goal.create with objective and round cap).
 - **One-click commit messages**: the ✨ button in the Source Control title bar (`DSH: Generate Commit Message`) reads the staged/unstaged git diff and generates a Conventional Commits-style message in a disposable session (archived immediately, never shown in the session list) with a lightweight model (default `deepseek-v4-flash` + low effort; configurable via `dsh.commitModel` / `dsh.commitReasoningEffort`), writing the result into the SCM input box and auto-cancelling on timeout or when the model requests extra interaction.
-- **i18n**: Simplified Chinese / Traditional Chinese / English / Japanese / Korean / German / French / Spanish / Portuguese / Thai / Indonesian / Turkish / Arabic — follows the VS Code display language, or switch in place via `dsh.language` / the 🌐 section of the settings panel.
+- **i18n**: Simplified Chinese / Traditional Chinese / English / Japanese / Korean / German / French / Spanish / Portuguese / Thai / Indonesian / Turkish / Russian / Arabic — follows the VS Code display language, or switch in place via `dsh.language` / the 🌐 section of the settings panel.
 
 ## Install
 
@@ -80,7 +80,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 | `dsh.defaultReasoningEffort` | `""` | Default thinking depth for new sessions (off/high/max, model-dependent) |
 | `dsh.commitModel` | `deepseek-v4-flash` | Model used to generate commit messages (resolved from the DSH model catalog; falls back to the session's current model) |
 | `dsh.commitReasoningEffort` | `low` | Reasoning effort for commit messages (`low` = no thinking on DeepSeek models, fastest) |
-| `dsh.language` | `auto` | UI language: auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ar |
+| `dsh.language` | `auto` | UI language: auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ru / ar |
 | `dsh.installRollbackPlugin` | `true` | Auto-install the turn-level Git rollback server plugin into the DSH web profile (enables `/rollback`, `/redo`, `/checkpoints`) |
 
 ## Turn-level Git rollback setup
@@ -124,9 +124,9 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.12.70
+[English version](#) | 发布者:Jager · 最新版本:0.12.73
 
-在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية,跟随 VS Code 显示语言或手动切换)。
+在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية,跟随 VS Code 显示语言或手动切换)。
 
 ## 功能总览
 
@@ -159,7 +159,7 @@ npm run package     # → Releases/
 - **排队消息操作**:排队消息条可 编辑 / 移除 / 插队(session.updateQueue 官方端点)。
 - **目标创建**:无目标时 🎯 芯片一键创建(goal.create,目标描述 + 最大轮数)。
 - **一键生成提交信息**:源代码管理(SCM)视图标题栏 ✨ 按钮(`DSH: 生成提交信息`),读取 git 暂存/未暂存 diff,在一次性会话(创建即归档,不占用会话列表)中用轻量模型按 Conventional Commits 风格生成提交信息并写入 SCM 输入框;模型与思考深度可配置(`dsh.commitModel` / `dsh.commitReasoningEffort`),超时或模型请求额外交互时自动取消。
-- **多语言**:扩展与聊天界面支持简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / العربية——跟随 VS Code 显示语言,或通过设置 `dsh.language` / 设置面板 🌐 就地切换。
+- **多语言**:扩展与聊天界面支持简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية——跟随 VS Code 显示语言,或通过设置 `dsh.language` / 设置面板 🌐 就地切换。
 
 ## 安装
 
@@ -218,7 +218,7 @@ npm run watch
 | `dsh.defaultReasoningEffort` | `""` | 新会话默认思考深度(off/high/max 等,取决于模型) |
 | `dsh.commitModel` | `deepseek-v4-flash` | 生成提交信息所用的模型(从 DSH 模型目录解析,找不到时回退当前模型) |
 | `dsh.commitReasoningEffort` | `low` | 生成提交信息时的思考深度(DeepSeek 模型上 low 表示不开思考,最快) |
-| `dsh.language` | `auto` | 界面语言:auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ar |
+| `dsh.language` | `auto` | 界面语言:auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ru / ar |
 | `dsh.installRollbackPlugin` | `true` | 自动把回合级 Git 回退服务端插件安装到 DSH web profile(启用 `/rollback`、`/redo`、`/checkpoints`) |
 
 ## 回合级 Git 回退的安装

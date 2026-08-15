@@ -11,17 +11,18 @@ import ptBundle from "../../l10n/bundle.l10n.pt.json";
 import thBundle from "../../l10n/bundle.l10n.th.json";
 import idBundle from "../../l10n/bundle.l10n.id.json";
 import trBundle from "../../l10n/bundle.l10n.tr.json";
+import ruBundle from "../../l10n/bundle.l10n.ru.json";
 import arBundle from "../../l10n/bundle.l10n.ar.json";
 
 /**
- * 运行时翻译:支持 dsh.language 设置(auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ar)覆盖 VS Code 显示语言。
+ * 运行时翻译:支持 dsh.language 设置(auto / zh-cn / zh-tw / en / ja / ko / de / fr / es / pt / th / id / tr / ru / ar)覆盖 VS Code 显示语言。
  * 宿主侧所有面向用户的字符串经由此处翻译;聊天界面由宿主下发的 lang 决定。
  */
 
 export type Translator = (key: string, args?: Record<string, string | number>) => string;
 
 /** 支持的语言 ID(与 package.json 的 dsh.language 枚举保持一致)。 */
-export const SUPPORTED_LANGUAGES = ["zh-cn", "zh-tw", "en", "ja", "ko", "de", "fr", "es", "pt", "th", "id", "tr", "ar"] as const;
+export const SUPPORTED_LANGUAGES = ["zh-cn", "zh-tw", "en", "ja", "ko", "de", "fr", "es", "pt", "th", "id", "tr", "ru", "ar"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 const BUNDLES: Record<SupportedLanguage, Record<string, string>> = {
@@ -37,6 +38,7 @@ const BUNDLES: Record<SupportedLanguage, Record<string, string>> = {
   th: thBundle as Record<string, string>,
   id: idBundle as Record<string, string>,
   tr: trBundle as Record<string, string>,
+  ru: ruBundle as Record<string, string>,
   ar: arBundle as Record<string, string>,
 };
 
@@ -56,6 +58,7 @@ function mapVscodeLanguage(lang: string): SupportedLanguage {
   if (l.startsWith("th")) return "th";
   if (l.startsWith("id")) return "id";
   if (l.startsWith("tr")) return "tr";
+  if (l.startsWith("ru")) return "ru";
   if (l.startsWith("ar")) return "ar";
   return "en";
 }
