@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "호스트에 이 명령이 없습니다: {line}",
   "notice.commandUnavailable": "이 배포에는 세션 내 명령 채널이 없어 명령이 실행되지 않았습니다: {line}",
   "notice.agentDirsSetFailed": "에이전트 설정 디렉터리 스위치를 업데이트하지 못했습니다: {error}",
-  "plan.reviewHeader": "# 계획 승인\n\n> **계획 검토 대기**\n> 계획 텍스트를 선택하여 댓글을 추가할 수 있습니다. 수정 의견은 DSH 패널의 계획 승인 입력란에 입력하고 Enter를 누르세요."
+  "plan.reviewHeader": "# 계획 승인\n\n> **계획 검토 대기**\n> 계획 텍스트를 선택하여 댓글을 추가할 수 있습니다. 수정 의견은 DSH 패널의 계획 승인 입력란에 입력하고 Enter를 누르세요.",
+  "notice.steerAccepted": "끼어들기 완료: 현재 응답이 끝난 후 이 메시지를 우선 처리합니다",
+  "notice.steerUnavailable": "현재 턴이 종료되어 끼어들 수 없습니다. 메시지는 다음 턴에서 자동 전송됩니다"
 }

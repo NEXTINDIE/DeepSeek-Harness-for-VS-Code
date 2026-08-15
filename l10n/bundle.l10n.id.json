@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "Host tidak menyediakan perintah ini: {line}",
   "notice.commandUnavailable": "Pemasangan ini tidak memiliki kanal perintah dalam sesi; perintah tidak dijalankan: {line}",
   "notice.agentDirsSetFailed": "Gagal memperbarui sakelar direktori konfigurasi agen: {error}",
-  "plan.reviewHeader": "# Tinjauan rencana\n\n> **Rencana menunggu persetujuan**\n> Pilih teks rencana untuk menambahkan komentar. Masukkan masukan di kolom tinjauan rencana DSH lalu tekan Enter."
+  "plan.reviewHeader": "# Tinjauan rencana\n\n> **Rencana menunggu persetujuan**\n> Pilih teks rencana untuk menambahkan komentar. Masukkan masukan di kolom tinjauan rencana DSH lalu tekan Enter.",
+  "notice.steerAccepted": "Disisipkan: akan diproses dengan prioritas setelah respons saat ini selesai",
+  "notice.steerUnavailable": "Giliran saat ini telah berakhir dan tidak dapat disisipi; pesan akan dikirim otomatis pada giliran berikutnya"
 }

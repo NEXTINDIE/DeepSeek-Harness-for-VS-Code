@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "Der Host bietet diesen Befehl nicht an: {line}",
   "notice.commandUnavailable": "Diese Bereitstellung hat keinen In-Session-Befehlskanal; der Befehl wurde nicht ausgeführt: {line}",
   "notice.agentDirsSetFailed": "Aktualisierung der Agent-Konfigurationsverzeichnis-Schalter fehlgeschlagen: {error}",
-  "plan.reviewHeader": "# Planprüfung\n\n> **Plan zur Überprüfung bereit**\n> Plan-Text auswählen, um Kommentare hinzuzufügen. Änderungswünsche im DSH-Planprüfungsfeld eingeben und Enter drücken."
+  "plan.reviewHeader": "# Planprüfung\n\n> **Plan zur Überprüfung bereit**\n> Plan-Text auswählen, um Kommentare hinzuzufügen. Änderungswünsche im DSH-Planprüfungsfeld eingeben und Enter drücken.",
+  "notice.steerAccepted": "Eingefügt: wird direkt nach der aktuellen Antwort priorisiert bearbeitet",
+  "notice.steerUnavailable": "Die aktuelle Runde ist beendet, eine Unterbrechung ist nicht mehr möglich; die Nachricht wird automatisch in der nächsten Runde gesendet"
 }

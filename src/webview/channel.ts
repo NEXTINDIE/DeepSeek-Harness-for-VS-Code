@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
+import { DshApiError } from "../dsh/apiClient";
 import { folderCwd } from "../dsh/participantSessions";
 import {
   allCheckpointSummaries,
@@ -969,7 +970,19 @@ export class ChatChannel {
         if (typeof msg.sessionId === "string" && typeof msg.itemId === "string" && msg.action && typeof msg.action === "object") {
           try {
             await this.hub.client.updateQueue(msg.sessionId, msg.itemId, msg.action as { kind: "edit"; content: unknown[] } | { kind: "remove" } | { kind: "steer" });
+            if (msg.action.kind === "steer") {
+              // 插队成功:消息已切入当前回合,当前回答结束后优先处理(网页端为静默,这里给明确反馈)
+              this.post({ kind: "notice", message: t("notice.steerAccepted"), level: "info" });
+            }
           } catch (error) {
+            if (error instanceof DshApiError) {
+              if (error.code === "queue-item-not-found") break; // 消息已被认领/开始处理:静默收敛(网页端同款)
+              if (error.code === "steer-unavailable") {
+                // 当前回合已结束(或取消/出错后队列滞留),steer 不再可用:给出可操作解释
+                this.post({ kind: "notice", message: t("notice.steerUnavailable"), level: "warning" });
+                break;
+              }
+            }
             this.post({ kind: "notice", message: t("notice.queueActionFailed", { error: String(error) }), level: "error" });
           }
         }

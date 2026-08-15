@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.74
+- Review dialogs now color-code file rows by change type: added files (A) in green, deleted files (D) in red with strikethrough — applied to rollback preview, turn-undo preview and the checkpoints dialog (binary files use git --name-status to determine add/delete).
+- 审核窗口按改动类型着色文件行:新增文件(A)绿色,删除文件(D)红色 + 删除线——覆盖回退预览、回合精确撤销预览与检查点清单弹窗(二进制文件通过 git --name-status 判定增删)。
+
 ## 0.12.72
 - Fix: "Restore checkpoint" on a turn divider no longer falls back to the last checkpoint when that turn has no record — it now reports "no restorable checkpoint for this turn" instead of showing another turn's changes (e.g. clicking turn A/B no longer previews turn C's diff). Plus Russian (ru) language scaffolding.
 - 修复:「还原检查点」点击某个回合的分隔线时,若该回合没有检查点记录,不再错误回退显示最后一个回合的改动(如点 A/B 却显示 C 回合的 23–32 条),而是提示"该回合没有可精确撤销的快照"。附带俄语(ru)语言脚手架。

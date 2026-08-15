@@ -293,6 +293,16 @@ body {
   font-size: 11px;
 }
 
+/* 审核窗口文件行状态:新增(A)绿色,删除(D)红色 + 删除线 */
+.rb-file-path.rb-file-added {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #89d185);
+}
+
+.rb-file-path.rb-file-removed {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c);
+  text-decoration: line-through;
+}
+
 .rb-bin {
   color: var(--vscode-charts-orange, #d18616);
   font-size: 11px;
@@ -3302,6 +3312,15 @@ body {
 }
 
 .mini-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2)); }
+
+.mini-btn.mini-btn-disabled,
+.mini-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mini-btn.mini-btn-disabled:hover,
+.mini-btn:disabled:hover { background: none; }
 
 .mini-btn.accent {
   color: var(--vscode-textLink-foreground, #3794ff);

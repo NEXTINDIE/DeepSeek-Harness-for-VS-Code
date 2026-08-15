@@ -284,8 +284,13 @@ export class SessionStore {
         break;
       case "turn/end":
         if (s) {
-          s.running = false;
-          this.emit("running", sessionId, false);
+          // 回合结束但排队区仍有待处理消息时,宿主 agent 阶段保持 running
+          // (turn() 返回 true 直接进入下一回合,不会置 idle)—— 与 agent.status 语义一致。
+          // 只有队列清空才真正空闲(取消/出错/维护后也可能出现"空闲但仍有排队项",
+          // 此时 running 由 host/session-status 帧置 false)。
+          const stillPending = (this.queues.get(sessionId) ?? []).length > 0;
+          s.running = stillPending;
+          this.emit("running", sessionId, stillPending);
         }
         this.lastTurnBySession.set(sessionId, event.data?.turn ?? 0);
         this.emit("turnEnd", sessionId, event.data?.turn ?? 0);

@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "El host no ofrece este comando: {line}",
   "notice.commandUnavailable": "Este despliegue no tiene canal de comandos en sesión; el comando no se ejecutó: {line}",
   "notice.agentDirsSetFailed": "No se pudieron actualizar los interruptores de directorios de configuración del agente: {error}",
-  "plan.reviewHeader": "# Revisión del plan\n\n> **Plan por revisar**\n> Selecciona el texto del plan para añadir comentarios. Escribe tus observaciones en el campo de revisión del plan de DSH y pulsa Entrar."
+  "plan.reviewHeader": "# Revisión del plan\n\n> **Plan por revisar**\n> Selecciona el texto del plan para añadir comentarios. Escribe tus observaciones en el campo de revisión del plan de DSH y pulsa Entrar.",
+  "notice.steerAccepted": "Insertado: se procesará con prioridad al terminar la respuesta actual",
+  "notice.steerUnavailable": "El turno actual ha terminado y ya no se puede interrumpir; el mensaje se enviará automáticamente en el próximo turno"
 }

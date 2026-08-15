@@ -41,6 +41,8 @@ export interface RollbackFileStat {
   added: number;
   deleted: number;
   binary: boolean;
+  /** A=新增 D=删除(文本可由 numstat 推断;二进制文件需 --name-status 判定)。 */
+  status?: "A" | "D" | "M";
 }
 
 export interface RollbackPreview {
@@ -140,7 +142,10 @@ function gitExec(cwd: string, args: string[]): Promise<{ ok: boolean; stdout: st
 }
 
 /** 解析 `git diff --numstat` 输出为文件行数列表(工作区相对 commit 的改动)。 */
-function parseNumstat(stdout: string): { files: RollbackFileStat[]; addedTotal: number; deletedTotal: number; truncated: boolean } {
+function parseNumstat(
+  stdout: string,
+  nameStatus?: Map<string, "A" | "D" | "M">,
+): { files: RollbackFileStat[]; addedTotal: number; deletedTotal: number; truncated: boolean } {
   const files: RollbackFileStat[] = [];
   let addedTotal = 0;
   let deletedTotal = 0;
@@ -152,12 +157,37 @@ function parseNumstat(stdout: string): { files: RollbackFileStat[]; addedTotal: 
     const binary = parts[0] === "-" || parts[1] === "-";
     const added = binary ? 0 : Number.parseInt(parts[0], 10) || 0;
     const deleted = binary ? 0 : Number.parseInt(parts[1], 10) || 0;
+    // 状态判定:二进制文件 numstat 无行数,须借助 --name-status;
+    // 文本文件按 新增(added>0,deleted=0)/删除(added=0,deleted>0) 推断,修改为 M。
+    let status: "A" | "D" | "M" | undefined = nameStatus?.get(path);
+    if (!status) {
+      if (added > 0 && deleted === 0) status = "A";
+      else if (added === 0 && deleted > 0) status = "D";
+      else status = "M";
+    }
     addedTotal += added;
     deletedTotal += deleted;
-    files.push({ path, added, deleted, binary });
+    files.push({ path, added, deleted, binary, status });
     if (files.length >= MAX_PREVIEW_FILES) return { files, addedTotal, deletedTotal, truncated: true };
   }
   return { files, addedTotal, deletedTotal, truncated: false };
+}
+
+/** git diff --name-status <commit>[ <commit2>] -- 的 A/D/M 映射(区分二进制文件的新增/删除)。 */
+async function diffNameStatus(cwd: string, commit: string, commit2?: string): Promise<Map<string, "A" | "D" | "M">> {
+  const args = ["diff", "--name-status", commit, ...(commit2 ? [commit2] : []), "--"];
+  const res = await gitExec(cwd, args);
+  const map = new Map<string, "A" | "D" | "M">();
+  if (!res.ok) return map;
+  for (const line of res.stdout.split(/\r?\n/)) {
+    if (!line) continue;
+    const tab = line.indexOf("\t");
+    if (tab <= 0) continue;
+    const code = line.slice(0, tab);
+    const path = line.slice(tab + 1);
+    if (code === "A" || code === "D" || code === "M") map.set(path, code);
+  }
+  return map;
 }
 
 /** 当前未跟踪文件清单(与服务端插件一致:排除 ignored 与记录目录)。 */
@@ -178,7 +208,8 @@ async function previewFromCommit(
 ): Promise<RollbackPreview | undefined> {
   const diff = await gitExec(cwd, ["diff", "--numstat", commit, "--"]);
   if (!diff.ok) return undefined;
-  const stats = parseNumstat(diff.stdout);
+  const [nameStatus] = await Promise.all([diffNameStatus(cwd, commit)]);
+  const stats = parseNumstat(diff.stdout, nameStatus);
   const current = await currentUntracked(cwd);
   const manifest = new Set(untracked ?? []);
   const removedUntracked = truncated ? [] : current.filter((f) => !manifest.has(f));
@@ -266,7 +297,8 @@ export async function checkpointSummaries(cwd: string, record: RollbackRecord): 
   const list: CheckpointSummary[] = [];
   for (const entry of [...record.checkpoints].slice(-20)) {
     const diff = await gitExec(cwd, ["diff", "--numstat", entry.commit, "--"]);
-    const stats = diff.ok ? parseNumstat(diff.stdout) : { files: [], addedTotal: 0, deletedTotal: 0, truncated: false };
+    const nameStatus = await diffNameStatus(cwd, entry.commit);
+    const stats = diff.ok ? parseNumstat(diff.stdout, nameStatus) : { files: [], addedTotal: 0, deletedTotal: 0, truncated: false };
     list.push({
       turn: entry.turn,
       time: entry.time,
@@ -321,7 +353,8 @@ export async function scopedTurnStats(
   if (!candidate || !candidate.after) return undefined;
   const diff = await gitExec(cwd, ["diff", "--numstat", candidate.commit, candidate.after.commit, "--"]);
   if (!diff.ok) return undefined;
-  const stats = parseNumstat(diff.stdout);
+  const nameStatus = await diffNameStatus(cwd, candidate.commit, candidate.after.commit);
+  const stats = parseNumstat(diff.stdout, nameStatus);
   return {
     turn: candidate.turn,
     time: candidate.time,

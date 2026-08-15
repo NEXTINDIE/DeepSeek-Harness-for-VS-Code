@@ -444,5 +444,6 @@
   "兼容 Claude:扫描工作区与用户主目录(~/.claude)下的 .claude(命令、技能),并报告 CLAUDE.md / AGENTS.md": "Compatible con Claude: escanea .claude (comandos, habilidades) en el espacio de trabajo y el directorio de usuario (~/.claude) e informa CLAUDE.md / AGENTS.md",
   "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)": "Compatible con Codex: escanea .codex (config.toml, habilidades) en el espacio de trabajo y el directorio de usuario (~/.codex)",
   "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Compatible con GitHub Copilot: escanea archivos .github (instrucciones, agentes, prompts) en el espacio de trabajo y el directorio de usuario (~/.github)",
-  "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Habilita la compatibilidad con los directorios de configuración de cada herramienta (carpeta del espacio de trabajo y directorio de usuario); al marcarlo, DSH puede leer las configuraciones de usuario del modelo/herramienta correspondiente."
+  "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Habilita la compatibilidad con los directorios de configuración de cada herramienta (carpeta del espacio de trabajo y directorio de usuario); al marcarlo, DSH puede leer las configuraciones de usuario del modelo/herramienta correspondiente.",
+  "当前回合已结束,无法插队;消息将在下一轮自动处理": "El turno actual ha terminado y ya no acepta interrupciones; el mensaje se enviará automáticamente en el próximo turno"
 }

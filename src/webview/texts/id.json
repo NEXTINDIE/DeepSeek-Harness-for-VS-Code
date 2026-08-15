@@ -444,5 +444,6 @@
   "兼容 Claude:扫描工作区与用户主目录(~/.claude)下的 .claude(命令、技能),并报告 CLAUDE.md / AGENTS.md": "Kompatibel Claude: memindai .claude (perintah, skill) di ruang kerja dan direktori pengguna (~/.claude) serta melaporkan CLAUDE.md / AGENTS.md",
   "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)": "Kompatibel Codex: memindai .codex (config.toml, skill) di ruang kerja dan direktori pengguna (~/.codex)",
   "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Kompatibel GitHub Copilot: memindai berkas .github (instruksi, agen, prompt) di ruang kerja dan direktori pengguna (~/.github)",
-  "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Aktifkan kompatibilitas dengan direktori konfigurasi tiap alat (folder ruang kerja dan direktori pengguna); jika dicentang, DSH dapat membaca konfigurasi pengguna model/alat terkait."
+  "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Aktifkan kompatibilitas dengan direktori konfigurasi tiap alat (folder ruang kerja dan direktori pengguna); jika dicentang, DSH dapat membaca konfigurasi pengguna model/alat terkait.",
+  "当前回合已结束,无法插队;消息将在下一轮自动处理": "Giliran saat ini telah berakhir dan tidak dapat menerima sisipan; pesan akan dikirim otomatis pada giliran berikutnya"
 }

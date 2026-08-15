@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "Sunucu bu komutu sunmuyor: {line}",
   "notice.commandUnavailable": "Bu dağıtımda oturum içi komut kanalı yok; komut çalıştırılmadı: {line}",
   "notice.agentDirsSetFailed": "Ajan yapılandırma dizini anahtarları güncellenemedi: {error}",
-  "plan.reviewHeader": "# Plan incelemesi\n\n> **Plan incelenmeyi bekliyor**\n> Yorum eklemek için plan metnini seçin. Geri bildiriminizi DSH plan inceleme kutusuna yazıp Enter'a basın."
+  "plan.reviewHeader": "# Plan incelemesi\n\n> **Plan incelenmeyi bekliyor**\n> Yorum eklemek için plan metnini seçin. Geri bildiriminizi DSH plan inceleme kutusuna yazıp Enter'a basın.",
+  "notice.steerAccepted": "Araya eklendi: mevcut yanıt bittikten hemen sonra öncelikli olarak işlenecek",
+  "notice.steerUnavailable": "Mevcut tur sona erdi ve araya girilemiyor; mesaj bir sonraki turda otomatik gönderilecek"
 }

@@ -729,6 +729,7 @@ const EN_TEXT: Record<string, string> = {
   "移除": "Remove",
   "编辑排队消息": "Edit queued message",
   "修改后立即生效": "Applies immediately",
+  "当前回合已结束,无法插队;消息将在下一轮自动处理": "The current turn has ended and no longer accepts steering; the message will be sent automatically in the next turn",
   // ---- 目标创建 ----
   "🎯 设置目标": "🎯 Set goal",
   "创建一个长期目标(agent 自动多轮推进直至完成)": "Create a long-running goal (the agent keeps pushing until done)",
@@ -1143,6 +1144,8 @@ interface RbPreviewFile {
   added: number;
   deleted: number;
   binary: boolean;
+  /** A=新增 D=删除(来自 numstat 推断或 --name-status,二进制文件必备)。 */
+  status?: "A" | "D" | "M";
 }
 
 interface RbPreview {
@@ -1230,6 +1233,13 @@ function fmtRbTime(time: number): string {
   return new Date(time).toLocaleString();
 }
 
+/** 文件行状态样式:新增(A)→ 绿色;删除(D)→ 红色 + 删除线;修改/未知 → 无。 */
+function rbFilePathClass(f: RbPreviewFile): string {
+  if (f.status === "A") return "rb-file-path rb-file-added";
+  if (f.status === "D") return "rb-file-path rb-file-removed";
+  return "rb-file-path";
+}
+
 /** 请求回退预览(代码审核)数据;turn 缺省 = 最近检查点;afterConfirm 在确认回退后执行(如「回退+新建分支」)。 */
 function openRollbackReview(turn?: number, afterConfirm?: () => void) {
   const requestId = `rb:${Date.now()}`;
@@ -1262,11 +1272,12 @@ function renderRollbackReview(preview: RbPreview) {
     rbBody.append(el("div", "rb-empty", t("无文件差异")));
   }
 
-  // 逐文件行:summary 显示 +N/−M,展开时按需加载完整 diff
+  // 逐文件行:summary 显示 +N/−M,展开时按需加载完整 diff;
+  // 新增文件(A)文件名绿色,删除文件(D)红色 + 删除线
   preview.files.forEach((f, index) => {
     const details = el("details", "rb-file");
     const summary = el("summary", "rb-file-head");
-    summary.append(el("span", "rb-file-path", f.path));
+    summary.append(el("span", rbFilePathClass(f), f.path));
     if (f.binary) {
       summary.append(el("span", "rb-bin", t("二进制文件")));
     } else {
@@ -1375,7 +1386,7 @@ function renderUndoReview(preview: RbUndoPreview) {
   preview.files.forEach((f, index) => {
     const details = el("details", "rb-file");
     const summary = el("summary", "rb-file-head");
-    summary.append(el("span", "rb-file-path", f.path));
+    summary.append(el("span", rbFilePathClass(f), f.path));
     if (f.binary) summary.append(el("span", "rb-bin", t("二进制文件")));
     else {
       if (f.added > 0) summary.append(el("span", "rb-add", `+${f.added}`));
@@ -1498,7 +1509,7 @@ function renderCheckpointsDialog(data: { head: string; dirty: number; sessions: 
       }
       for (const f of cp.files) {
         const line = el("div", "rb-cp-file");
-        line.append(el("span", "rb-file-path", f.path));
+        line.append(el("span", rbFilePathClass(f), f.path));
         if (f.binary) line.append(el("span", "rb-bin", t("二进制文件")));
         else {
           if (f.added > 0) line.append(el("span", "rb-add", `+${f.added}`));
@@ -2286,9 +2297,20 @@ function renderNode(node: NodeState): HTMLElement {
           }
         });
       });
-      mkBtn(t("插队"), () => {
-        if (itemId && state.current) vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "steer" } });
+      // 插队(steer)仅在 agent 运行中的回合可用 —— 与网页端 disabled: !running 一致。
+      // 会话空闲(回合已结束/取消/出错后仍有排队项)时禁用并给出解释;
+      // running 状态变化时由 updateRunning() → refreshSteerButtons() 就地刷新
+      const steerBtn = el("button", "mini-btn", t("插队"));
+      steerBtn.dataset.steer = itemId;
+      steerBtn.addEventListener("click", () => {
+        if (state.running && itemId && state.current) vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "steer" } });
       });
+      if (!state.running) {
+        steerBtn.disabled = true;
+        steerBtn.classList.add("mini-btn-disabled");
+        steerBtn.title = t("当前回合已结束,无法插队;消息将在下一轮自动处理");
+      }
+      actions.append(steerBtn);
       mkBtn(t("移除"), () => {
         if (itemId && state.current) vscode.postMessage({ kind: "updateQueue", sessionId: state.current, itemId, action: { kind: "remove" } });
       });
@@ -3812,6 +3834,26 @@ function stopTurnStatus() {
 
 function updateRunning() {
   updateSendButton();
+  refreshSteerButtons();
+}
+
+/** 就地刷新所有排队卡的「插队」按钮:仅 agent 运行中的回合可插队(与网页端一致)。 */
+function refreshSteerButtons() {
+  const tip = t("当前回合已结束,无法插队;消息将在下一轮自动处理");
+  for (const n of state.nodes) {
+    if (n.kind !== "queued" || !n.el) continue;
+    const btn = n.el.querySelector<HTMLButtonElement>("button[data-steer]");
+    if (!btn) continue;
+    if (state.running) {
+      btn.disabled = false;
+      btn.classList.remove("mini-btn-disabled");
+      btn.removeAttribute("title");
+    } else {
+      btn.disabled = true;
+      btn.classList.add("mini-btn-disabled");
+      btn.title = tip;
+    }
+  }
 }
 
 /** 发送/停止合一按钮 + 提示语状态。 */

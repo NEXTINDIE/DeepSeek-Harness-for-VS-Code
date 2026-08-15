@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "O host não oferece este comando: {line}",
   "notice.commandUnavailable": "Este ambiente não tem canal de comando na sessão; o comando não foi executado: {line}",
   "notice.agentDirsSetFailed": "Falha ao atualizar os interruptores de diretórios de configuração do agente: {error}",
-  "plan.reviewHeader": "# Revisão do plano\n\n> **Plano em revisão**\n> Selecione o texto do plano para adicionar comentários. Escreva suas observações no campo de revisão do plano do DSH e pressione Enter."
+  "plan.reviewHeader": "# Revisão do plano\n\n> **Plano em revisão**\n> Selecione o texto do plano para adicionar comentários. Escreva suas observações no campo de revisão do plano do DSH e pressione Enter.",
+  "notice.steerAccepted": "Inserido: será processado com prioridade após a resposta atual terminar",
+  "notice.steerUnavailable": "A rodada atual terminou e não é mais possível interromper; a mensagem será enviada automaticamente na próxima rodada"
 }

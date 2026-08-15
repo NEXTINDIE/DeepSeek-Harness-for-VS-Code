@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "ホストにこのコマンドはありません: {line}",
   "notice.commandUnavailable": "このデプロイメントにはセッション内コマンドチャネルがなく、コマンドは実行されませんでした: {line}",
   "notice.agentDirsSetFailed": "エージェント設定ディレクトリのスイッチを更新できませんでした: {error}",
-  "plan.reviewHeader": "# 計画承認\n\n> **計画待審**\n> 計画テキストを選択してコメントを追加できます。修正意見は DSH パネルの計画承認入力欄に入力して Enter を押してください。"
+  "plan.reviewHeader": "# 計画承認\n\n> **計画待審**\n> 計画テキストを選択してコメントを追加できます。修正意見は DSH パネルの計画承認入力欄に入力して Enter を押してください。",
+  "notice.steerAccepted": "割り込み挿入しました:現在の回答が終わり次第、このメッセージを優先して処理します",
+  "notice.steerUnavailable": "現在のターンは終了しており、割り込みできません。メッセージは次のターンで自動送信されます"
 }

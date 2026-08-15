@@ -158,5 +158,7 @@
   "notice.commandUnmatched": "L'hôte n'offre pas cette commande : {line}",
   "notice.commandUnavailable": "Ce déploiement n'a pas de canal de commande dans la session ; la commande n'a pas été exécutée : {line}",
   "notice.agentDirsSetFailed": "Échec de la mise à jour des commutateurs de répertoires de configuration d'agent : {error}",
-  "plan.reviewHeader": "# Examen du plan\n\n> **Plan à examiner**\n> Sélectionnez le texte du plan pour ajouter des commentaires. Saisissez vos remarques dans le champ d'examen du plan DSH et appuyez sur Entrée."
+  "plan.reviewHeader": "# Examen du plan\n\n> **Plan à examiner**\n> Sélectionnez le texte du plan pour ajouter des commentaires. Saisissez vos remarques dans le champ d'examen du plan DSH et appuyez sur Entrée.",
+  "notice.steerAccepted": "Insertion réussie : sera traitée en priorité dès la fin de la réponse en cours",
+  "notice.steerUnavailable": "La tournée en cours est terminée et n'accepte plus d'interruption ; le message sera envoyé automatiquement au prochain tour"
 }
