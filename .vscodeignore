@@ -4,13 +4,7 @@
 .dsh/**
 .claude/**
 _chrome_profile*/**
-dsh-git-rollback/**
-git-checkpoint-test/**
-rollback-test/**
-config.json
-hello.py
-notes.md
-utils.js
+plugins/**
 plan-*.json
 plan-*.mjs
 Releases/**
@@ -22,5 +16,4 @@ tsconfig.json
 **/*.ts
 .gitignore
 tools/**
-dist/test.js
 media/icon.svg

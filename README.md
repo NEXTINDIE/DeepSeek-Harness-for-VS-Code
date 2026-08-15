@@ -110,7 +110,7 @@ npm run package     # → Releases/
 - Host: `src/extension.ts`, `src/dsh/*` (API client, server manager, session store, chat participant, project-session mapping, commit message generation).
 - UI: `src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`; icon `media/icon.png`.
 - i18n: `package.nls.json` + `package.nls.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, `l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`, the `EN_TEXT` dictionary in `ui.ts` + `src/webview/texts/*.json`.
-- Integration test: `tools/test-client.ts`.
+- Server plugins: source lives under `plugins/<name>/` (all new DSH server plugins go there); `npm run build` compiles them and syncs the bundle into `resources/<name>/` via `tools/sync-plugins.mjs` for packaging into the vsix. Unit tests: `cd plugins/<name> && npm test`.
 
 ---
 
@@ -248,4 +248,4 @@ npm run package     # 打包到 Releases/
 - 宿主代码:`src/extension.ts`、`src/dsh/*`(API 客户端 / 服务器管理 / 会话存储 / Chat Participant / 项目会话映射 / 提交信息生成)。
 - 界面:`src/webview/{channel,panel,window,ui}.ts` + `media/chat.css`;图标 `media/icon.png`。
 - 本地化:`package.nls.json` + `package.nls.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`(贡献点)、`l10n/bundle.l10n.json` + `bundle.l10n.zh-cn/zh-tw/ja/ko/de/fr/es/pt/th/id/tr/ar.json`(宿主运行时)、`ui.ts` 的 EN_TEXT 词典 + `src/webview/texts/*.json`(Webview)。
-- 集成测试:`tools/test-client.ts`(对运行中的服务器验证全链路)。
+- 服务端插件:源码统一放在 `plugins/<name>/`(以后所有新插件都建在此目录);`npm run build` 会自动编译并同步到 `resources/<name>/`(`tools/sync-plugins.mjs`)随 vsix 打包分发。插件单元测试:`cd plugins/<name> && npm test`。
