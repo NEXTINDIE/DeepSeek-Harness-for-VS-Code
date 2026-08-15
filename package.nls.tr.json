@@ -1,4 +1,4 @@
-{
+﻿{
   "displayName": "VS Code için DeepSeek Harness",
   "description": "DeepSeek Harness'ı doğrudan VS Code'da kullanın: ikincil kenar çubuğu sohbet paneli, @dsh yerleşik sohbet katılımcısı, model/ön ayar/izin/düşünme kontrolleri, ekler, hedefler, alt ajanlar ve tur bazlı Git geri alma.",
   "cmd.openChat.title": "DSH: Yerleşik Sohbeti Aç (@dsh)",
@@ -46,5 +46,9 @@
   "config.language.tr": "Türkçe",
   "config.language.ar": "Arapça",
   "config.installRollbackPlugin": "Turn bazlı Git geri alma eklentisini DSH web profiline otomatik kur (/rollback, /redo, /checkpoints etkinleştirilir; DSH sunucusu yeniden başlatıldığında etkili olur)",
+  "config.agentDirs": "Model yapılandırma uyumluluğu: her aracın yapılandırma dizinleriyle (çalışma alanı klasörü ve kullanıcı ana dizini) uyumluluğu etkinleştir",
+  "config.agentDirs.claude": "Claude ile uyumlu — çalışma alanı ve kullanıcı ana dizinindeki (~/.claude) .claude (komutlar, beceriler) taranır ve CLAUDE.md / AGENTS.md bildirilir",
+  "config.agentDirs.codex": "Codex ile uyumlu — çalışma alanı ve kullanıcı ana dizinindeki (~/.codex) .codex (config.toml, beceriler) taranır",
+  "config.agentDirs.githubCopilot": "GitHub Copilot ile uyumlu — çalışma alanı ve kullanıcı ana dizinindeki (~/.github) .github (talimatlar, ajanlar, istemler) taranır",
   "config.agentDirs.dshUserSkills": "Beceri listesinde DSH kullanıcı genel becerilerini göster / gizle (~/.dsh/skills, ~/.agents/skills)"
 }

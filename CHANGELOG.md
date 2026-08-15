@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.12.67
+- Bundles dsh-git-rollback@0.1.5 (identical code, version reset for the npm release flow); refreshed "model config compatibility" wording in the settings panel (EN + 12 languages).
+- 内置插件升级至 dsh-git-rollback@0.1.5(内容与 0.1.4 相同,版本号用于重新对齐 npm 发布流程);设置面板「模型配置兼容」相关文案更新(英文 + 12 语言)。
+
 ## 0.12.66
-- Fork-point "Restore checkpoint" divider (GitHub Copilot style): when viewing a forked conversation, a horizontal line with a centered 「还原检查点」 button now sits between the parent conversation's messages and the branch's own messages — clicking it restores the workspace to the checkpoint before this conversation began (the fork-point state), with the usual review-and-confirm dialog. The old per-message "Git rollback to before this turn" button was removed. Fallback path restores the parent's last turn-end snapshot via `/rollback <commit>` when the fork happened with a clean workspace. Includes plugin dsh-git-rollback@0.1.3 (checkpoint-SHA restore).
-- 分叉点「还原检查点」分隔线(GitHub Copilot 同款):查看分叉会话时,父会话(对话 A)与该分支(对话 B)的消息之间出现一条水平分隔线,中间是「还原检查点」按钮——点击即可把工作区还原到本对话创建前的检查点(分叉时刻状态),带逐文件差异确认弹窗;同时移除了旧的「Git 回退到本回合之前」按钮。分叉时工作区干净(首快照被跳过)的兜底路径会经 `/rollback <commit>` 恢复父会话最后一轮的回合结束快照。内置插件升级至 dsh-git-rollback@0.1.3(支持按检查点提交恢复)。
+- Fork-point "Restore checkpoint" divider (GitHub Copilot style): when viewing a forked conversation, a horizontal line with a centered 「还原检查点」 button now sits between the parent conversation's messages and the branch's own messages — clicking it restores the workspace to the checkpoint before this conversation began (the fork-point state), with the usual review-and-confirm dialog. The old per-message "Git rollback to before this turn" button was removed. Fallback path restores the parent's last turn-end snapshot via `/rollback <commit>` when the fork happened with a clean workspace. Includes plugin dsh-git-rollback@0.1.4 (checkpoint-SHA restore).
+- 分叉点「还原检查点」分隔线(GitHub Copilot 同款):查看分叉会话时,父会话(对话 A)与该分支(对话 B)的消息之间出现一条水平分隔线,中间是「还原检查点」按钮——点击即可把工作区还原到本对话创建前的检查点(分叉时刻状态),带逐文件差异确认弹窗;同时移除了旧的「Git 回退到本回合之前」按钮。分叉时工作区干净(首快照被跳过)的兜底路径会经 `/rollback <commit>` 恢复父会话最后一轮的回合结束快照。内置插件升级至 dsh-git-rollback@0.1.4(支持按检查点提交恢复)。
 
 ## 0.12.63
 - Scoped turn undo (`/undo`): the checkpoints dialog and message menus now offer "Undo this turn's changes" — only the files changed by that turn are reversed (reverse-applied turn diff), your own commits and HEAD stay untouched. Cross-session checkpoint browsing lets you undo changes made by another conversation. Includes plugin dsh-git-rollback@0.1.2 (turn-end snapshots) and i18n for 13 languages.

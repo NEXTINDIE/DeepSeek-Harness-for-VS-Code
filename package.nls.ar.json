@@ -1,4 +1,4 @@
-{
+﻿{
   "displayName": "DeepSeek Harness لـ VS Code",
   "description": "استخدم DeepSeek Harness مباشرة في VS Code: لوحة دردشة في الشريط الجانبي الثانوي، ومشارك دردشة مدمج @dsh، وتحكمات النموذج/القالب/الصلاحيات/التفكير، والمرفقات، والأهداف، والوكلاء الفرعيين، والتراجع Git لكل جولة.",
   "cmd.openChat.title": "DSH: فتح الدردشة المدمجة (@dsh)",
@@ -46,5 +46,9 @@
   "config.language.tr": "التركية",
   "config.language.ar": "العربية",
   "config.installRollbackPlugin": "تثبيت ملحق التراجع Git لكل جولة تلقائيًا في ملف تعريف DSH على الويب (تفعيل /rollback و /redo و /checkpoints؛ يسري بعد إعادة تشغيل خادم DSH)",
+  "config.agentDirs": "توافق تكوين النموذج: تمكين التوافق مع أدلة تكوين كل أداة (مجلد مساحة العمل والدليل الرئيسي للمستخدم)",
+  "config.agentDirs.claude": "متوافق مع Claude — فحص .claude (الأوامر، المهارات) في مساحة العمل والدليل الرئيسي للمستخدم (~/.claude)، والإبلاغ عن CLAUDE.md / AGENTS.md",
+  "config.agentDirs.codex": "متوافق مع Codex — فحص .codex (config.toml، المهارات) في مساحة العمل والدليل الرئيسي للمستخدم (~/.codex)",
+  "config.agentDirs.githubCopilot": "متوافق مع GitHub Copilot — فحص .github (التعليمات، الوكلاء، المطالبات) في مساحة العمل والدليل الرئيسي للمستخدم (~/.github)",
   "config.agentDirs.dshUserSkills": "إظهار / إخفاء مهارات المستخدم العامة لـ DSH في قائمة المهارات (~/.dsh/skills, ~/.agents/skills)"
 }

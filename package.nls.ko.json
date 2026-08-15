@@ -1,4 +1,4 @@
-{
+﻿{
   "displayName": "VS Code용 DeepSeek Harness",
   "description": "VS Code에서 DeepSeek Harness를 바로 사용하세요: 보조 사이드바 채팅 패널, 기본 제공 채팅 참여자 @dsh, 모델/프리셋/권한/사고 깊이 컨트롤, 첨부 파일, 목표, 하위 에이전트, 턴 단위 Git 롤백을 제공합니다.",
   "cmd.openChat.title": "DSH: 기본 채팅 열기 (@dsh)",
@@ -46,5 +46,9 @@
   "config.language.tr": "터키어",
   "config.language.ar": "아랍어",
   "config.installRollbackPlugin": "턴 단위 Git 롤백 플러그인을 DSH web profile에 자동 설치합니다(/rollback, /redo, /checkpoints 활성화;DSH 서버 재시작 후 적용)",
+  "config.agentDirs": "모델 설정 호환: 각 도구의 설정 디렉터리(작업 영역 폴더 및 사용자 홈)와의 호환성 활성화",
+  "config.agentDirs.claude": "Claude 호환 — 작업 영역과 사용자 홈(~/.claude)의 .claude(명령어, 스킬)를 스캔하고 CLAUDE.md / AGENTS.md 보고",
+  "config.agentDirs.codex": "Codex 호환 — 작업 영역과 사용자 홈(~/.codex)의 .codex(config.toml, 스킬)를 스캔",
+  "config.agentDirs.githubCopilot": "GitHub Copilot 호환 — 작업 영역과 사용자 홈(~/.github)의 .github(지시, 에이전트, 프롬프트)를 스캔",
   "config.agentDirs.dshUserSkills": "사용 가능한 스킬 목록에서 DSH 사용자 전역 스킬 표시/숨기기(~/.dsh/skills, ~/.agents/skills)"
 }

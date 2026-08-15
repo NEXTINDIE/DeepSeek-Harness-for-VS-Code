@@ -803,9 +803,9 @@ export function createPanels(ctx: PanelsContext) {
     langSection.append(ctx.el("div", "ws-note", t("切换后界面就地重渲染;默认跟随 VS Code 显示语言。")));
     body.append(langSection);
 
-    // 智能体配置目录扫描开关(与 VS Code 设置 dsh.agentConfigDirs 同步)
+    // 模型配置兼容扫描开关(与 VS Code 设置 dsh.agentConfigDirs 同步)
     const dirsSection = ctx.el("div", "settings-section");
-    dirsSection.append(ctx.el("div", "settings-section-title", t("智能体配置目录")));
+    dirsSection.append(ctx.el("div", "settings-section-title", t("模型配置兼容")));
     const dirsRow = ctx.el("div", "settings-perm-row");
     const dirOptions: { id: "claude" | "codex" | "githubCopilot" | "dshUserSkills"; label: string }[] = [
       { id: "claude", label: ".claude" },
@@ -818,11 +818,11 @@ export function createPanels(ctx: PanelsContext) {
       const b = ctx.el("button", "settings-tab" + (on ? " active" : ""), `${on ? "✅" : "☐"} ${opt.label}`) as HTMLButtonElement;
       b.title =
         opt.id === "claude"
-          ? t("扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md")
+          ? t("兼容 Claude:扫描工作区与用户主目录(~/.claude)下的 .claude(命令、技能),并报告 CLAUDE.md / AGENTS.md")
           : opt.id === "codex"
-            ? t("扫描 .codex(config.toml、技能)")
+            ? t("兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)")
             : opt.id === "githubCopilot"
-              ? t("扫描 .github Copilot 文件(指令、智能体、提示词)")
+              ? t("兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)")
               : t("显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)");
       b.addEventListener("click", () => {
         const next = {
@@ -837,7 +837,7 @@ export function createPanels(ctx: PanelsContext) {
       dirsRow.append(b);
     }
     dirsSection.append(dirsRow);
-    dirsSection.append(ctx.el("div", "ws-note", t("控制 / 菜单中扫描列出的目录族;全部勾选则全部扫描。")));
+    dirsSection.append(ctx.el("div", "ws-note", t("启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。")));
     body.append(dirsSection);
 
     const desc = state.settingsDescribe;

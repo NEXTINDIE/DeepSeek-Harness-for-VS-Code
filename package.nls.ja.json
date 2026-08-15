@@ -1,4 +1,4 @@
-{
+﻿{
   "displayName": "DeepSeek Harness for VS Code",
   "description": "VS Code で DeepSeek Harness を直接利用できます:セカンダリーサイドバーのチャットパネル、組み込みチャット参加者 @dsh、モデル / プリセット / 権限 / 思考の制御、添付ファイル、ゴール、子エージェント、ターン単位の Git ロールバック。",
   "cmd.openChat.title": "DSH: 組み込みチャットを開く (@dsh)",
@@ -46,5 +46,9 @@
   "config.language.tr": "トルコ語",
   "config.language.ar": "アラビア語",
   "config.installRollbackPlugin": "ターン単位の Git ロールバックプラグインを DSH web profile に自動インストールします(/rollback、/redo、/checkpoints が有効化;DSH サーバー再起動後に有効)",
+  "config.agentDirs": "モデル設定の互換性:各ツールの設定ディレクトリ(ワークスペースフォルダーとユーザーホーム)との互換性を有効化",
+  "config.agentDirs.claude": "Claude と互換 — ワークスペースとユーザーホーム(~/.claude)の .claude(コマンド、スキル)をスキャンし、CLAUDE.md / AGENTS.md を報告",
+  "config.agentDirs.codex": "Codex と互換 — ワークスペースとユーザーホーム(~/.codex)の .codex(config.toml、スキル)をスキャン",
+  "config.agentDirs.githubCopilot": "GitHub Copilot と互換 — ワークスペースとユーザーホーム(~/.github)の .github(命令、エージェント、プロンプト)をスキャン",
   "config.agentDirs.dshUserSkills": "利用可能なスキル一覧で DSH ユーザー全体スキルを表示/非表示(~/.dsh/skills、~/.agents/skills)"
 }

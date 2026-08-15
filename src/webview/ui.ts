@@ -210,7 +210,7 @@ const state = {
   replaying: false,
   /** 用户配置的语言偏好(auto / zh-cn / en) */
   languagePref: "auto" as string,
-  /** 智能体配置目录扫描开关(dsh.agentConfigDirs) */
+  /** 模型配置兼容扫描开关(dsh.agentConfigDirs) */
   agentDirs: { claude: true, codex: true, githubCopilot: true, dshUserSkills: true } as { claude: boolean; codex: boolean; githubCopilot: boolean; dshUserSkills: boolean },
   /** 每步开始时间,用于计算每条回答的思考耗时 */
   stepStarts: new Map<string, number>(),
@@ -968,15 +968,15 @@ const EN_TEXT: Record<string, string> = {
   "可重试错误码": "Retryable codes",
   "退避": "Backoff",
   "供应商": "Providers",
-  // ---- 智能体配置目录 ----
-  "智能体配置目录": "Agent config directories",
-  "扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md": "Scan .claude (commands, skills) and report CLAUDE.md / AGENTS.md",
-  "扫描 .codex(config.toml、技能)": "Scan .codex (config.toml, skills)",
+  // ---- 模型配置兼容 ----
+  "模型配置兼容": "Model config compatibility",
+  "兼容 Claude:扫描工作区与用户主目录(~/.claude)下的 .claude(命令、技能),并报告 CLAUDE.md / AGENTS.md": "Compatible with Claude — scan .claude (commands, skills) in the workspace and your user home (~/.claude), and report CLAUDE.md / AGENTS.md",
+  "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)": "Compatible with Codex — scan .codex (config.toml, skills) in the workspace and your user home (~/.codex)",
   "DSH 用户技能": "DSH user skills",
   "显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills)",
   "全局": "global",
-  "扫描 .github Copilot 文件(指令、智能体、提示词)": "Scan .github Copilot files (instructions, agents, prompts)",
-  "控制 / 菜单中扫描列出的目录族;全部勾选则全部扫描。": "Controls which directory families are scanned and listed in the / menu; check all to scan all.",
+  "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Compatible with GitHub Copilot — scan .github (instructions, agents, prompts) in the workspace and your user home (~/.github)",
+  "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Enable compatibility with each tool's config directories (workspace folder and user home); when checked, DSH can read the corresponding model/tool user-directory config.",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */

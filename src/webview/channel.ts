@@ -1438,7 +1438,7 @@ export class ChatChannel {
         break;
       }
       case "setAgentDirs": {
-        // 从设置面板切换智能体配置目录扫描开关(写入 dsh.agentConfigDirs,全局)
+        // 从设置面板切换模型配置兼容扫描开关(写入 dsh.agentConfigDirs,全局)
         const value = msg.value;
         if (value && typeof value === "object") {
           const next = {
@@ -1597,7 +1597,7 @@ export class ChatChannel {
     };
   }
 
-  /** 按当前开关重新扫描智能体配置目录并推送前端。 */
+  /** 按当前开关重新扫描模型配置兼容目录并推送前端。 */
   private async rescanAgentConfigs() {
     const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [], dshSkills: [], dshAgents: [], dshMemory: [] };
     try {

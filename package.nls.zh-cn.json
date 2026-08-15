@@ -1,4 +1,4 @@
-{
+﻿{
   "displayName": "DeepSeek Harness for VS Code",
   "description": "在 VS Code 中直接使用 DeepSeek Harness:辅助侧栏聊天面板 + 内置聊天参与者 @dsh + 模型/预设/权限/思考深度切换 + 附件/目标/子代理 + 回合级 Git 回退。",
   "cmd.openChat.title": "DSH: 打开内置聊天 (@dsh)",
@@ -45,10 +45,10 @@
   "config.language.id": "印尼语 (Bahasa Indonesia)",
   "config.language.tr": "土耳其语 (Türkçe)",
   "config.language.ar": "阿拉伯语 (العربية)",
-  "config.agentDirs": "要在 / 菜单中扫描并列出的智能体配置目录(全部勾选则全部扫描)",
-  "config.agentDirs.claude": "扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md",
-  "config.agentDirs.codex": "扫描 .codex(config.toml、技能)",
-  "config.agentDirs.githubCopilot": "扫描 .github Copilot 文件(指令、智能体、提示词)",
+  "config.agentDirs": "模型配置兼容(用户目录模型兼容):启用与各工具配置目录(工作区文件夹和用户主目录)的兼容",
+  "config.agentDirs.claude": "兼容 Claude:扫描工作区与用户主目录(~/.claude)下的 .claude(命令、技能),并报告 CLAUDE.md / AGENTS.md",
+  "config.agentDirs.codex": "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)",
+  "config.agentDirs.githubCopilot": "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)",
   "config.installRollbackPlugin": "自动把回合级 Git 回退插件安装到 DSH web profile(启用 /rollback、/redo、/checkpoints;重启 DSH 服务器后生效)",
   "config.agentDirs.dshUserSkills": "在可用技能列表中显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)"
 }
