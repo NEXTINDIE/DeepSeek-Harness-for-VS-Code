@@ -439,6 +439,53 @@ body {
   margin-top: 0;
 }
 
+/* ---------- 分叉分隔线(GitHub Copilot 同款「还原检查点」) ---------- */
+.fork-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 0;
+  position: relative;
+}
+
+.fork-divider-line {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fork-divider-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--dsh-border);
+}
+
+.fork-divider-btn {
+  position: relative;
+  z-index: 1;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--dsh-border);
+  border-radius: 999px;
+  color: var(--dsh-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 2px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.fork-divider-btn:hover {
+  color: var(--dsh-fg);
+  border-color: var(--dsh-accent);
+}
+
 .rb-cp-head {
   display: flex;
   align-items: center;

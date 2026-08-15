@@ -10,8 +10,10 @@ export type CommandText = {
     kind: "error";
     text: string;
 };
-/** 解析 /rollback 的回合号参数:空 = 最近一回合。 */
+/** 解析 /rollback 参数:空 = 最近一回合;数字 = 回合号;40 位十六进制 = 直接指定检查点提交。 */
 export declare function parseTurnArg(rawInput: string): number | {
+    sha: string;
+} | {
     error: string;
 };
 export declare function performRollback(gitBin: string, cwd: string, sid: string, rawInput: string, opts: RollbackOptions): Promise<CommandText>;

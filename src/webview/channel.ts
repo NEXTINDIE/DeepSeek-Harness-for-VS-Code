@@ -8,6 +8,7 @@ import { folderCwd } from "../dsh/participantSessions";
 import {
   allCheckpointSummaries,
   checkpointSummaries,
+  forkAfterPreview,
   gitHeadUriForFile,
   gitShowContent,
   loadRollbackRecord,
@@ -1055,10 +1056,61 @@ export class ChatChannel {
       }
       case "rollbackApply": {
         // 回合级回退:统一走服务端插件命令通道(命令结果摘要经 runCommandAndNotify 透传)
+        // 支持按回合号 /rollback N,或按检查点提交 /rollback <sha>(分叉分隔线兜底路径)
         const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
         const turn = typeof msg.turn === "number" ? msg.turn : NaN;
-        if (!sid || !Number.isFinite(turn)) break;
-        await this.runCommandAndNotify(sid, `/rollback ${turn}`);
+        const commit = typeof msg.commit === "string" && /^[0-9a-f]{40}$/i.test(msg.commit) ? msg.commit.toLowerCase() : undefined;
+        if (!sid) break;
+        if (commit) {
+          await this.runCommandAndNotify(sid, `/rollback ${commit}`);
+        } else if (Number.isFinite(turn)) {
+          await this.runCommandAndNotify(sid, `/rollback ${turn}`);
+        }
+        break;
+      }
+      case "rollbackForkPreview": {
+        // 分叉分隔线「还原检查点」:回到本对话创建前(分叉点)的检查点。
+        // 优先用本会话自己的首个检查点(第一回合开始时的快照 = 分叉时刻状态,经 /rollback N 恢复);
+        // 本会话没有检查点时(分叉时工作区干净、首快照被跳过),兜底用父会话最后一轮的
+        // 回合结束快照(after)—— 即分叉前一刻的确切状态,经 /rollback <sha> 恢复。
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid) break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        let preview: Awaited<ReturnType<typeof rollbackPreview>>;
+        let targetSessionId: string | undefined;
+        let targetCommit: string | undefined;
+        if (cwd) {
+          const record = await loadRollbackRecord(cwd, sid);
+          if (record && record.checkpoints.length > 0) {
+            const first = record.checkpoints[0];
+            preview = await rollbackPreview(cwd, record, first.turn);
+            targetSessionId = sid;
+          } else {
+            const parentId = session?.parentSessionId;
+            if (parentId) {
+              const events = this.hub.store.eventsFor(sid);
+              const seedEnd = events.findIndex((e) => e.event.type === "session/end-seed");
+              const prefix = seedEnd >= 0 ? events.slice(0, seedEnd) : events;
+              const lastTurnEnd = [...prefix].reverse().find((e) => e.event.type === "turn/end");
+              const turn = lastTurnEnd ? (lastTurnEnd.event.data as { turn?: number } | undefined)?.turn : undefined;
+              const parentRecord = typeof turn === "number" ? await loadRollbackRecord(cwd, parentId) : undefined;
+              const entry = parentRecord?.checkpoints.find((c) => c.turn === turn);
+              if (entry?.after) {
+                preview = await forkAfterPreview(cwd, entry);
+                targetSessionId = sid;
+                targetCommit = entry.after.commit;
+              }
+            }
+          }
+        }
+        this.post({
+          kind: "rollbackPreviewData",
+          requestId,
+          sessionId: sid,
+          ...(preview ? { preview, targetSessionId, targetCommit } : { error: t("rollback.noRecord") }),
+        });
         break;
       }
       case "rollbackPreview": {

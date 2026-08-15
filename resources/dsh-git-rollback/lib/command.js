@@ -14,8 +14,8 @@ function sessionInfo(invocation) {
 export function registerCommands(ctx, opts) {
     const rollbackDef = {
         name: "rollback",
-        description: "把工作区回退到某回合开始前的状态(非破坏性:先存保存点,/redo 可恢复)",
-        input: { hint: "[N]" },
+        description: "把工作区回退到某回合开始前的状态(非破坏性:先存保存点,/redo 可恢复;也可直接指定检查点提交)",
+        input: { hint: "[N | <commit>]" },
         async handler(invocation) {
             const info = sessionInfo(invocation);
             if (!info.cwd || !info.sid)

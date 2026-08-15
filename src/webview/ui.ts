@@ -121,7 +121,7 @@ interface BlockState {
 }
 
 interface NodeState {
-  kind: "user" | "assistant" | "tool" | "queued" | "note" | "files" | "attach";
+  kind: "user" | "assistant" | "tool" | "queued" | "note" | "files" | "attach" | "fork-divider";
   key: string;
   el: HTMLElement | null;
   blocks?: BlockState[];
@@ -551,10 +551,13 @@ const EN_TEXT: Record<string, string> = {
   "撤销本回合改动并新建分支": "Undo this turn's changes and branch from here",
   "对比": "Compare",
   "查看检查点": "View checkpoints",
+  "还原检查点": "Restore checkpoint",
+  "还原到本对话开始前的检查点": "Restore to the checkpoint before this conversation began",
+  "还原到本对话开始前的检查点(撤销该对话产生的全部工作区改动)": "Restore the workspace to the checkpoint before this conversation began (undo all changes this conversation made)",
+  "本对话还没有可还原的检查点": "No restorable checkpoint for this conversation",
   "切换权限": "Switch permission",
   "回退回合改动": "Undo this turn's changes",
   "重做回退": "Redo rollback",
-  "Git 回退到本回合之前": "Git rollback to before this turn",
   "回退确认": "Rollback confirmation",
   "确认回退": "Confirm rollback",
   "正在计算差异…": "Computing diff…",
@@ -1194,7 +1197,18 @@ rbOverlay.append(rbBox);
 root.append(rbOverlay);
 
 /** 回退弹窗状态:当前模式与期望的 requestId(过滤过期回复)。 */
-const rbState: { mode: "review" | "checkpoints" | "undo"; requestId: string; confirmTurn?: number; afterConfirm?: () => void } = { mode: "review", requestId: "" };
+const rbState: {
+  mode: "review" | "checkpoints" | "undo";
+  requestId: string;
+  confirmTurn?: number;
+  afterConfirm?: () => void;
+  /** 「还原检查点」执行目标:与本会话不同时(兜底走父会话快照)由宿主下发 */
+  targetSessionId?: string;
+  /** 「还原检查点」直接按检查点提交恢复(分叉兜底路径,经 /rollback <sha>) */
+  targetCommit?: string;
+  /** 当前弹窗是否为分叉分隔线的「还原检查点」模式 */
+  forkMode: boolean;
+} = { mode: "review", requestId: "", forkMode: false };
 /** diff 请求 id → 目标 diff 容器元素(多文件展开互不串扰)。 */
 const rbDiffTargets = new Map<string, HTMLDivElement>();
 
@@ -1210,6 +1224,9 @@ function rbClose() {
   rbState.requestId = "";
   rbState.confirmTurn = undefined;
   rbState.afterConfirm = undefined;
+  rbState.targetSessionId = undefined;
+  rbState.targetCommit = undefined;
+  rbState.forkMode = false;
 }
 
 function fmtRbTime(time: number): string {
@@ -1315,12 +1332,39 @@ function renderRollbackReview(preview: RbPreview) {
   rbConfirm.onclick = () => {
     const turn = rbState.confirmTurn;
     const after = rbState.afterConfirm;
+    const commit = rbState.targetCommit;
+    const sessionId = rbState.targetSessionId ?? state.current;
     rbClose();
-    if (typeof turn === "number") {
-      vscode.postMessage({ kind: "command", line: `/rollback ${turn}` });
+    if (commit) {
+      // 分叉兜底:直接按检查点提交恢复(/rollback <sha>)
+      vscode.postMessage({ kind: "rollbackApply", sessionId, commit });
+    } else if (typeof turn === "number") {
+      vscode.postMessage({ kind: "rollbackApply", sessionId, turn });
     }
     after?.();
   };
+}
+
+/** 请求「还原检查点」预览:回到分叉点(对话 B 创建前)的检查点;数据经 rollbackPreviewData 返回。 */
+function openForkRestore() {
+  const requestId = `rb:${Date.now()}`;
+  rbState.mode = "review";
+  rbState.requestId = requestId;
+  rbState.confirmTurn = undefined;
+  rbState.afterConfirm = undefined;
+  rbState.targetSessionId = undefined;
+  rbState.targetCommit = undefined;
+  rbState.forkMode = true;
+  rbTitle.textContent = t("还原检查点");
+  rbMeta.textContent = t("正在计算差异…");
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbConfirm.hidden = true;
+  rbCancel.textContent = t("取消");
+  rbCancel.onclick = () => rbClose();
+  rbConfirm.onclick = null;
+  rbOverlay.hidden = false;
+  vscode.postMessage({ kind: "rollbackForkPreview", requestId, sessionId: state.current });
 }
 
 /** 请求 /undo 精确撤销的预览(该回合自身产生的改动);turn 缺省 = 最近有结束快照的回合。 */
@@ -2233,6 +2277,18 @@ function renderNode(node: NodeState): HTMLElement {
       wrap.append(details);
       return wrap;
     }
+    case "fork-divider": {
+      // GitHub Copilot 同款:父会话(对话 A)与当前分叉会话(对话 B)之间的水平分隔线,
+      // 中间是「还原检查点」按钮,点击把工作区还原到 B 对话创建前的检查点
+      const wrap = el("div", "fork-divider");
+      const line = el("div", "fork-divider-line");
+      const btn = el("button", "fork-divider-btn", t("还原检查点"));
+      btn.title = t("还原到本对话开始前的检查点(撤销该对话产生的全部工作区改动)");
+      btn.addEventListener("click", () => openForkRestore());
+      line.append(btn);
+      wrap.append(line);
+      return wrap;
+    }
     case "queued": {
       const wrap = el("div", "msg msg-queued");
       const head = el("div", "msg-queued-head");
@@ -2540,18 +2596,6 @@ function renderActions(node: NodeState) {
     void navigator.clipboard?.writeText(text);
   });
 
-  // ↩ Git 回退到本回合之前(服务端插件在回合开始时快照工作区,宿主本地执行恢复)
-  if (
-    typeof node.turn === "number" &&
-    state.rollback?.available &&
-    state.rollback.sessionId === state.current &&
-    state.rollback.checkpoints.some((c) => c.turn === node.turn)
-  ) {
-    actionBtn(ICONS.rewind, t("Git 回退到本回合之前"), () => {
-      openRollbackReview(node.turn);
-    });
-  }
-
   // ↪ 分支 / 回退:单图标,点击弹出菜单(固定定位弹层,视口内自动钳制)
   if (typeof node.seq === "number") {
     const btn = actionBtn(ICONS.branch, t("分支 / 回退"), () => {
@@ -2831,6 +2875,12 @@ function handleEvent(wire: WireEvent) {
           }
         }
       }
+      break;
+    }
+    case "session/end-seed": {
+      // 分叉边界:此事件之前的事件来自父会话(对话 A),之后是当前分叉会话(对话 B)
+      // 自己的事件;在边界插入「还原检查点」分隔线(GitHub Copilot 同款交互)
+      appendNode({ kind: "fork-divider", key: `fork:${ev.seq}`, el: null });
       break;
     }
     case "turn/start": {
@@ -4505,12 +4555,23 @@ function handleMessage(msg: any) {
     }
     case "rollbackPreviewData": {
       if (typeof msg.requestId !== "string" || msg.requestId !== rbState.requestId) break;
+      rbState.targetSessionId = typeof msg.targetSessionId === "string" ? msg.targetSessionId : undefined;
+      rbState.targetCommit = typeof msg.targetCommit === "string" ? msg.targetCommit : undefined;
       if (msg.preview) {
         renderRollbackReview(msg.preview as RbPreview);
+        if (rbState.forkMode) {
+          rbState.forkMode = false;
+          rbTitle.textContent = t("还原检查点");
+          rbMeta.textContent = t("还原到本对话开始前的检查点") + ` · ${(msg.preview as RbPreview).commit.slice(0, 8)} · ${fmtRbTime((msg.preview as RbPreview).time)}`;
+        }
       } else {
+        const fork = rbState.forkMode;
+        rbState.forkMode = false;
         rbMeta.textContent = String(msg.error ?? t("差异不可用"));
         rbBody.innerHTML = "";
-        rbBody.append(el("div", "rb-empty", t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")));
+        rbBody.append(
+          el("div", "rb-empty", fork ? t("本对话还没有可还原的检查点") : t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")),
+        );
       }
       break;
     }

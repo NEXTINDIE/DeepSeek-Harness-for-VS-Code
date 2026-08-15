@@ -167,6 +167,34 @@ async function currentUntracked(cwd: string): Promise<string[]> {
   return res.stdout.split(/\r?\n/).filter(Boolean);
 }
 
+/** 相对任意检查点提交构造回退预览(逐文件增删行数 + 将删除的新建未跟踪文件)。 */
+async function previewFromCommit(
+  cwd: string,
+  commit: string,
+  untracked: string[],
+  truncated: boolean,
+  turn: number,
+  time: number,
+): Promise<RollbackPreview | undefined> {
+  const diff = await gitExec(cwd, ["diff", "--numstat", commit, "--"]);
+  if (!diff.ok) return undefined;
+  const stats = parseNumstat(diff.stdout);
+  const current = await currentUntracked(cwd);
+  const manifest = new Set(untracked ?? []);
+  const removedUntracked = truncated ? [] : current.filter((f) => !manifest.has(f));
+  return {
+    turn,
+    time,
+    commit,
+    files: stats.files,
+    addedTotal: stats.addedTotal,
+    deletedTotal: stats.deletedTotal,
+    removedUntracked: removedUntracked.slice(0, 200),
+    untrackedUnknown: truncated,
+    truncated: stats.truncated || removedUntracked.length > 200,
+  };
+}
+
 /**
  * 回退前的「代码审核」预览:工作区相对目标检查点的逐文件差异
  * (这些改动将在回退时被撤销),以及将被删除的新建未跟踪文件。
@@ -174,23 +202,16 @@ async function currentUntracked(cwd: string): Promise<string[]> {
 export async function rollbackPreview(cwd: string, record: RollbackRecord, turn?: number): Promise<RollbackPreview | undefined> {
   const entry = typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1];
   if (!entry) return undefined;
-  const diff = await gitExec(cwd, ["diff", "--numstat", entry.commit, "--"]);
-  if (!diff.ok) return undefined;
-  const stats = parseNumstat(diff.stdout);
-  const untracked = await currentUntracked(cwd);
-  const manifest = new Set(entry.untracked ?? []);
-  const removedUntracked = entry.truncated ? [] : untracked.filter((f) => !manifest.has(f));
-  return {
-    turn: entry.turn,
-    time: entry.time,
-    commit: entry.commit,
-    files: stats.files,
-    addedTotal: stats.addedTotal,
-    deletedTotal: stats.deletedTotal,
-    removedUntracked: removedUntracked.slice(0, 200),
-    untrackedUnknown: entry.truncated,
-    truncated: stats.truncated || removedUntracked.length > 200,
-  };
+  return previewFromCommit(cwd, entry.commit, entry.untracked ?? [], !!entry.truncated, entry.turn, entry.time);
+}
+
+/**
+ * 分叉分隔线「还原检查点」兜底预览:相对父会话某回合的**结束快照**(after)的差异
+ * —— 即分叉点(子会话创建前)的工作区状态;经 /rollback <sha> 恢复。
+ */
+export async function forkAfterPreview(cwd: string, entry: RollbackCheckpoint): Promise<RollbackPreview | undefined> {
+  if (!entry.after) return undefined;
+  return previewFromCommit(cwd, entry.after.commit, entry.untracked ?? [], !!entry.truncated, entry.turn, entry.after.time);
 }
 
 /** 单个文件的完整差异文本(点击展开时按需获取)。 */

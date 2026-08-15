@@ -348,3 +348,50 @@ test("/undo 缺结束快照与默认回合选择", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("/rollback <sha>:直接恢复到指定检查点提交(分叉分隔线「还原检查点」兜底路径)", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "a.txt"), "v1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    // 回合 1 前工作区已有状态(区别于 HEAD,否则开始快照会被判定无改动而跳过)
+    writeFileSync(join(dir, "a.txt"), "v1.5");
+    // 回合 1:开始快照 + 改动 + 结束快照(after = 分叉点状态)
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    writeFileSync(join(dir, "a.txt"), "turn1-edit");
+    writeFileSync(join(dir, "keep.txt"), "untracked-at-fork");
+    await checkpointTurnEnd(GIT, dir, SID, 1, 2000, OPTS);
+    const after = readRecord(dir, SID).checkpoints[0].after.commit;
+    // 回合 2 改动(类似对话 B 的工作)
+    writeFileSync(join(dir, "a.txt"), "turn2-edit");
+    writeFileSync(join(dir, "junk2.txt"), "created-in-b");
+    const headBefore = run(["rev-parse", "HEAD"]);
+
+    const res = await performRollback(GIT, dir, SID, after, OPTS);
+    assert.equal(res.kind, "success", JSON.stringify(res));
+    // 工作区回到 after 快照:回合 2 的改动消失,分叉时已有的未跟踪保留
+    assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "turn1-edit");
+    assert.ok(!existsSync(join(dir, "junk2.txt")));
+    assert.ok(existsSync(join(dir, "keep.txt")));
+    // 零污染:HEAD 未动、分支历史无 dsh 提交、保存点可 /redo
+    assert.equal(run(["rev-parse", "HEAD"]), headBefore);
+    assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
+    const rec = readRecord(dir, SID);
+    const roll = rec.rolls[rec.rolls.length - 1];
+    assert.equal(roll.turn, -1);
+    assert.equal(roll.to, after);
+    const redo = await performRedo(GIT, dir, SID, OPTS);
+    assert.equal(redo.kind, "success");
+    assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "turn2-edit");
+    // 无效 40 位十六进制(不可达提交)→ 明确报错,工作区不动
+    const bad = await performRollback(GIT, dir, SID, "f".repeat(40), OPTS);
+    assert.equal(bad.kind, "error");
+    assert.match(bad.text, /不存在或不可达/);
+    // 非十六进制 → 参数错误
+    const bad2 = await performRollback(GIT, dir, SID, "abc", OPTS);
+    assert.equal(bad2.kind, "error");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
