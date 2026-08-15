@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.68
+- Fix: forked conversations that already ran (store has live events via mux) no longer miss the `session/end-seed` boundary event — opening them now always pulls history, so the "Restore checkpoint" divider renders even after the branch has been active.
+- 修复:已经运行过的分叉会话(store 里已有 mux 实时事件)不再缺失 `session/end-seed` 边界事件——打开分叉会话时现在始终拉取历史,「还原检查点」分隔线在分支活动过后也能正常显示。
+
 ## 0.12.67
 - Bundles dsh-git-rollback@0.1.5 (identical code, version reset for the npm release flow); refreshed "model config compatibility" wording in the settings panel (EN + 12 languages).
 - 内置插件升级至 dsh-git-rollback@0.1.5(内容与 0.1.4 相同,版本号用于重新对齐 npm 发布流程);设置面板「模型配置兼容」相关文案更新(英文 + 12 语言)。

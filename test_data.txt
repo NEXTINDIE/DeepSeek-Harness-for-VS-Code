@@ -1,6 +1,0 @@
-This is a sample test data file.
-It contains a few lines of plain text.
-Line 1: Hello world
-Line 2: Testing file creation
-Line 3: Dummy content
-21312打撒十大

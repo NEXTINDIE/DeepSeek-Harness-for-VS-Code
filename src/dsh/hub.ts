@@ -223,7 +223,11 @@ export class DshHub {
   }
 
   private async loadInitialHistory(sessionId: string) {
-    if (this.store.eventsFor(sessionId).length === 0) {
+    // 分叉会话即使 store 已有事件(mux 实时推送的回合增量)也必须拉历史:
+    // session/end-seed 边界事件只存在于历史日志,实时推送永远不会携带它;
+    // 不拉的话「还原检查点」分隔线就永远渲染不出来。
+    const isForked = !!this.store.sessions.get(sessionId)?.parentSessionId;
+    if (this.store.eventsFor(sessionId).length === 0 || isForked) {
       try {
         const { events, hasMore } = await this.client.sessionHistory({ sessionId, maxMessages: HISTORY_PAGE_MESSAGES });
         this.store.mergeHistory(sessionId, events.map((e) => ({ event: e.event, view: e.view })));
