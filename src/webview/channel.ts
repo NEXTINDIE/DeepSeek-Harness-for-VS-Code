@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import { loadRollbackRecord } from "../dsh/rollback";
+import { checkpointSummaries, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
 
@@ -972,6 +972,61 @@ export class ChatChannel {
         const turn = typeof msg.turn === "number" ? msg.turn : NaN;
         if (!sid || !Number.isFinite(turn)) break;
         await this.runCommandAndNotify(sid, `/rollback ${turn}`);
+        break;
+      }
+      case "rollbackPreview": {
+        // 回退前「代码审核」:工作区相对目标检查点的逐文件差异 + 将删除的未跟踪文件
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid) break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const turn = typeof msg.turn === "number" ? msg.turn : undefined;
+        const preview = cwd && record ? await rollbackPreview(cwd, record, turn) : undefined;
+        this.post({
+          kind: "rollbackPreviewData",
+          requestId,
+          sessionId: sid,
+          ...(preview ? { preview } : { error: t("rollback.noRecord") }),
+        });
+        break;
+      }
+      case "rollbackDiff": {
+        // 单个文件的完整差异(弹窗内点击展开时按需获取)
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid || typeof msg.path !== "string") break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const turn = typeof msg.turn === "number" ? msg.turn : undefined;
+        const entry = record && (typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1]);
+        const diff = cwd && entry ? await rollbackFileDiff(cwd, entry.commit, msg.path) : undefined;
+        this.post({
+          kind: "rollbackDiffData",
+          requestId,
+          sessionId: sid,
+          path: msg.path,
+          ...(diff !== undefined ? { diff } : { error: "diff unavailable" }),
+        });
+        break;
+      }
+      case "rollbackCheckpoints": {
+        // 检查点清单弹窗:每个检查点相对当前工作区的差异概览
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid) break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const summary = cwd && record ? await checkpointSummaries(cwd, record) : undefined;
+        this.post({
+          kind: "rollbackCheckpointsData",
+          requestId,
+          sessionId: sid,
+          ...(summary ? summary : { error: t("rollback.noRecord") }),
+        });
         break;
       }
       case "loadMore":

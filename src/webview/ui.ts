@@ -2156,6 +2156,15 @@ function updateToolSummary(node: NodeState) {
   }
 }
 
+/** 弹出菜单在消息滚动区内向下溢出时向上翻转(靠近底部的消息)。 */
+function flipPopoverUp(pop: HTMLElement) {
+  const container = messages.getBoundingClientRect();
+  const rect = pop.getBoundingClientRect();
+  if (rect.bottom > container.bottom - 8 && rect.height < container.height) {
+    pop.classList.add("popover-up");
+  }
+}
+
 // ---------- 消息操作条(复制 / ↪分支回退 / 点赞 / 点踩 / 产物) ----------
 
 function renderActions(node: NodeState) {
@@ -2237,6 +2246,7 @@ function renderActions(node: NodeState) {
           picker.append(row);
         }
         node.el?.append(picker);
+        flipPopoverUp(picker);
         picker.addEventListener("click", (e) => e.stopPropagation());
         const closePicker = () => picker.remove();
         setTimeout(() => document.addEventListener("click", closePicker, { once: true }), 0);
@@ -2249,6 +2259,7 @@ function renderActions(node: NodeState) {
         });
       }
       node.el?.append(menu);
+      flipPopoverUp(menu);
       menu.addEventListener("click", (e) => e.stopPropagation());
       const closeMenu = () => menu.remove();
       setTimeout(() => document.addEventListener("click", closeMenu, { once: true }), 0);

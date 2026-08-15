@@ -1,13 +1,16 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import * as vscode from "vscode";
 
 /**
  * 回合级 Git 回退(扩展侧只读部分)。
  *
  * 快照与回退执行全部由 DSH 服务端插件 `dsh-git-rollback` 负责
  * (/rollback /redo /checkpoints 命令,经 commands/execute 通道);
- * 扩展只读取插件写入工作区的记录文件 `.dsh/rollback/<sessionId>.json`,
- * 用于在消息操作条上显示每回合的回退按钮与状态。
+ * 扩展读取插件写入工作区的记录文件 `.dsh/rollback/<sessionId>.json`,
+ * 并在回退前用 git diff 计算「代码审核」预览(逐文件增删行数 + 可展开差异),
+ * 供 webview 弹窗确认。
  */
 
 export interface RollbackCheckpoint {
@@ -29,7 +32,41 @@ export interface RollbackRecord {
   rolls: { turn: number; to: string; redo: string; removed: number; time: number }[];
 }
 
+/** 回退预览里的一行文件差异(相对检查点,工作区的当前改动)。 */
+export interface RollbackFileStat {
+  path: string;
+  added: number;
+  deleted: number;
+  binary: boolean;
+}
+
+export interface RollbackPreview {
+  turn: number;
+  time: number;
+  commit: string;
+  files: RollbackFileStat[];
+  addedTotal: number;
+  deletedTotal: number;
+  /** 回退将删除的新建未跟踪文件(当前未跟踪 ∖ 检查点清单)。 */
+  removedUntracked: string[];
+  /** 未跟踪清单不可用(检查点记录截断)时为 true。 */
+  untrackedUnknown: boolean;
+  truncated: boolean;
+}
+
+export interface CheckpointSummary {
+  turn: number;
+  time: number;
+  commit: string;
+  files: RollbackFileStat[];
+  addedTotal: number;
+  deletedTotal: number;
+  truncated: boolean;
+}
+
 const RECORD_DIR = ".dsh/rollback";
+const MAX_PREVIEW_FILES = 300;
+const MAX_DIFF_CHARS = 60_000;
 
 /** 与服务端插件一致的记录文件名清理规则(跨进程契约)。 */
 export function sanitizeRecordName(value: string): string {
@@ -66,4 +103,117 @@ export async function loadRollbackRecord(cwd: string, sessionId: string): Promis
   } catch {
     return undefined;
   }
+}
+
+/** 优先使用 VS Code 内置 git 扩展提供的可执行路径,回退 PATH 上的 git。 */
+function resolveGitPath(): string {
+  try {
+    const gitExt = vscode.extensions.getExtension<{ getAPI(version: 1): { git: { path: string } } }>("vscode.git");
+    const path = gitExt?.exports?.getAPI(1)?.git?.path;
+    if (path) return path;
+  } catch {
+    // 内置 git 扩展不可用时回退 PATH
+  }
+  return "git";
+}
+
+function gitExec(cwd: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      resolveGitPath(),
+      args,
+      { cwd, timeout: 30000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          stdout: String(stdout ?? ""),
+          stderr: String(stderr ?? "").trim(),
+        });
+      },
+    );
+  });
+}
+
+/** 解析 `git diff --numstat` 输出为文件行数列表(工作区相对 commit 的改动)。 */
+function parseNumstat(stdout: string): { files: RollbackFileStat[]; addedTotal: number; deletedTotal: number; truncated: boolean } {
+  const files: RollbackFileStat[] = [];
+  let addedTotal = 0;
+  let deletedTotal = 0;
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line) continue;
+    const parts = line.split("\t");
+    if (parts.length < 3) continue;
+    const path = parts.slice(2).join("\t");
+    const binary = parts[0] === "-" || parts[1] === "-";
+    const added = binary ? 0 : Number.parseInt(parts[0], 10) || 0;
+    const deleted = binary ? 0 : Number.parseInt(parts[1], 10) || 0;
+    addedTotal += added;
+    deletedTotal += deleted;
+    files.push({ path, added, deleted, binary });
+    if (files.length >= MAX_PREVIEW_FILES) return { files, addedTotal, deletedTotal, truncated: true };
+  }
+  return { files, addedTotal, deletedTotal, truncated: false };
+}
+
+/** 当前未跟踪文件清单(与服务端插件一致:排除 ignored 与记录目录)。 */
+async function currentUntracked(cwd: string): Promise<string[]> {
+  const res = await gitExec(cwd, ["ls-files", "-o", "--exclude-standard", "--exclude=.dsh/rollback"]);
+  if (!res.ok) return [];
+  return res.stdout.split(/\r?\n/).filter(Boolean);
+}
+
+/**
+ * 回退前的「代码审核」预览:工作区相对目标检查点的逐文件差异
+ * (这些改动将在回退时被撤销),以及将被删除的新建未跟踪文件。
+ */
+export async function rollbackPreview(cwd: string, record: RollbackRecord, turn?: number): Promise<RollbackPreview | undefined> {
+  const entry = typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1];
+  if (!entry) return undefined;
+  const diff = await gitExec(cwd, ["diff", "--numstat", entry.commit, "--"]);
+  if (!diff.ok) return undefined;
+  const stats = parseNumstat(diff.stdout);
+  const untracked = await currentUntracked(cwd);
+  const manifest = new Set(entry.untracked ?? []);
+  const removedUntracked = entry.truncated ? [] : untracked.filter((f) => !manifest.has(f));
+  return {
+    turn: entry.turn,
+    time: entry.time,
+    commit: entry.commit,
+    files: stats.files,
+    addedTotal: stats.addedTotal,
+    deletedTotal: stats.deletedTotal,
+    removedUntracked: removedUntracked.slice(0, 200),
+    untrackedUnknown: entry.truncated,
+    truncated: stats.truncated || removedUntracked.length > 200,
+  };
+}
+
+/** 单个文件的完整差异文本(点击展开时按需获取)。 */
+export async function rollbackFileDiff(cwd: string, commit: string, path: string): Promise<string | undefined> {
+  const res = await gitExec(cwd, ["diff", "--no-color", commit, "--", path]);
+  if (!res.ok) return undefined;
+  const text = res.stdout.length > MAX_DIFF_CHARS ? `${res.stdout.slice(0, MAX_DIFF_CHARS)}\n…(差异过长,已截断)` : res.stdout;
+  return text || undefined;
+}
+
+/** 检查点清单:每个检查点相对当前工作区的差异概览(文件数、增删行数)。 */
+export async function checkpointSummaries(cwd: string, record: RollbackRecord): Promise<{ head: string; dirty: number; checkpoints: CheckpointSummary[] }> {
+  const head = await gitExec(cwd, ["rev-parse", "--short", "HEAD"]);
+  const status = await gitExec(cwd, ["status", "--porcelain"]);
+  const dirty = status.ok ? status.stdout.split(/\r?\n/).filter(Boolean).length : 0;
+  const list: CheckpointSummary[] = [];
+  for (const entry of [...record.checkpoints].slice(-20)) {
+    const diff = await gitExec(cwd, ["diff", "--numstat", entry.commit, "--"]);
+    const stats = diff.ok ? parseNumstat(diff.stdout) : { files: [], addedTotal: 0, deletedTotal: 0, truncated: false };
+    list.push({
+      turn: entry.turn,
+      time: entry.time,
+      commit: entry.commit,
+      files: stats.files,
+      addedTotal: stats.addedTotal,
+      deletedTotal: stats.deletedTotal,
+      truncated: stats.truncated || entry.truncated,
+    });
+  }
+  return { head: head.stdout, dirty, checkpoints: list.reverse() };
 }

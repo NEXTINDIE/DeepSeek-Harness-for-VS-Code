@@ -953,6 +953,12 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
+/* 靠近消息区底部时向上展开,避免被滚动区裁剪 */
+.msg-popover.popover-up {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+
 .msg-popover .plus-menu-item {
   display: flex;
   align-items: center;
