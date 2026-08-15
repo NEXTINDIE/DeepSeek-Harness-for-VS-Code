@@ -6,6 +6,11 @@
 _chrome_profile*/**
 dsh-git-rollback/**
 git-checkpoint-test/**
+rollback-test/**
+config.json
+hello.py
+notes.md
+utils.js
 plan-*.json
 plan-*.mjs
 Releases/**

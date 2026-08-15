@@ -188,6 +188,227 @@ body {
   background: var(--dsh-btn-bg);
 }
 
+/* ---------- 回退确认(代码审核)与检查点清单弹窗 ---------- */
+.rb-box {
+  width: min(620px, 100%);
+  max-height: min(78vh, 720px);
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--dsh-border);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.rb-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.rb-meta {
+  font-size: 11px;
+  color: var(--dsh-muted);
+  margin-bottom: 8px;
+}
+
+.rb-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-top: 1px solid var(--dsh-border);
+  border-bottom: 1px solid var(--dsh-border);
+  padding: 8px 2px;
+}
+
+.rb-hint {
+  font-size: 12px;
+  color: var(--dsh-muted);
+  margin-bottom: 6px;
+}
+
+.rb-empty {
+  font-size: 12px;
+  color: var(--dsh-muted);
+  padding: 8px 2px;
+}
+
+.rb-file {
+  margin-bottom: 2px;
+}
+
+.rb-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  list-style: none;
+}
+
+.rb-file-head::-webkit-details-marker {
+  display: none;
+}
+
+.rb-file-head:hover {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.rb-file-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11.5px;
+}
+
+.rb-add {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #89d185);
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.rb-del {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c);
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.rb-bin {
+  color: var(--vscode-charts-orange, #d18616);
+  font-size: 11px;
+}
+
+.rb-zero {
+  color: var(--dsh-muted);
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.rb-diff {
+  margin: 2px 6px 6px 14px;
+  padding: 6px 8px;
+  background: var(--vscode-textCodeBlock-background, #1e1e1e);
+  border: 1px solid var(--dsh-border);
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre;
+  overflow: auto;
+  max-height: 240px;
+}
+
+.rb-untracked {
+  margin-top: 6px;
+}
+
+.rb-untracked-head {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-charts-orange, #d18616);
+  list-style: none;
+}
+
+.rb-untracked-head::-webkit-details-marker {
+  display: none;
+}
+
+.rb-untracked-list {
+  margin: 4px 6px 6px 14px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.rb-untracked-item {
+  font-size: 11.5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--dsh-fg);
+  padding: 1px 0;
+}
+
+.rb-note {
+  font-size: 11px;
+  color: var(--dsh-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.rb-stats {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.rb-footer {
+  padding-top: 6px;
+}
+
+.rb-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rb-cp {
+  border-bottom: 1px solid var(--dsh-border);
+  padding: 2px 0;
+}
+
+.rb-cp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 2px;
+}
+
+.rb-cp-toggle {
+  background: transparent;
+  border: none;
+  color: var(--dsh-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+.rb-cp-title {
+  font-weight: 600;
+}
+
+.rb-cp-meta {
+  color: var(--dsh-muted);
+  font-size: 11px;
+}
+
+.rb-cp-stats {
+  color: var(--dsh-muted);
+  font-size: 11px;
+  flex: 1 1 auto;
+}
+
+.rb-cp-rollback {
+  font-size: 11px;
+}
+
+.rb-cp-body {
+  margin: 2px 4px 6px 20px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.rb-cp-file {
+  display: flex;
+  gap: 8px;
+  padding: 1px 0;
+  font-size: 11.5px;
+}
+
 .session-select-wrap {
   flex: 1 1 150px;
   min-width: 0;
@@ -1754,10 +1975,110 @@ body {
 
 .btn-allow {
   background: #2ea043;
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.btn-allow:hover {
+  background: #3fb950;
+  filter: none;
 }
 
 .btn-reject {
-  background: #d1242f;
+  background: transparent;
+  color: #f48771;
+  border: 1px solid #f48771;
+}
+
+.btn-reject:hover {
+  background: rgba(244, 135, 113, 0.12);
+  color: #f48771;
+  filter: none;
+}
+
+/* ---------- 审批卡片(网页端 ApprovalFlow 同款:色点条 + 工具徽标 + 原因 + 命令预览) ---------- */
+.approval-card {
+  border-color: rgba(244, 135, 113, 0.55);
+  background: rgba(244, 135, 113, 0.05);
+  padding: 0;
+  overflow: hidden;
+}
+
+.approval-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--dsh-border);
+}
+
+.approval-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e9950c;
+  flex: none;
+  animation: approval-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes approval-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.approval-title {
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.approval-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.approval-tool {
+  align-self: flex-start;
+  font-size: 10.5px;
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: rgba(244, 135, 113, 0.12);
+  color: #f48771;
+  border: 1px solid rgba(244, 135, 113, 0.4);
+  white-space: nowrap;
+}
+
+.approval-headline {
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.approval-command {
+  margin: 0;
+  font-size: 11.5px;
+  background: var(--dsh-code-bg);
+  border: 1px solid var(--dsh-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  opacity: 0.9;
+}
+
+.approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 10px 10px;
 }
 
 /* ---------- 输入区(Codex 风格大输入框) ---------- */

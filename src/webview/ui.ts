@@ -435,7 +435,7 @@ const BUILT_IN_PRESET_TEXTS: Record<string, { name: string; description: string 
     description: "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。",
   },
   code: {
-    name: "PTC 模式",
+    name: "编码模式",
     description: "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。",
   },
   minimal: {
@@ -498,6 +498,27 @@ const EN_TEXT: Record<string, string> = {
   "撤销本回合文件改动": "Undo this turn's file changes",
   "查看检查点": "View checkpoints",
   "Git 回退到本回合之前": "Git rollback to before this turn",
+  "回退确认": "Rollback confirmation",
+  "确认回退": "Confirm rollback",
+  "正在计算差异…": "Computing diff…",
+  "回退到回合 {turn} 之前": "Rollback to before turn {turn}",
+  "将撤销自该检查点以来的以下改动:": "The following changes since this checkpoint will be reverted:",
+  "无文件差异": "No file differences",
+  "二进制文件": "Binary file",
+  "加载差异…": "Loading diff…",
+  "未跟踪文件清单不可用(检查点记录截断),回退后请手动检查工作区": "Untracked-file list unavailable (checkpoint record truncated); check the workspace manually after rollback",
+  "将删除新建的未跟踪文件({count} 个)": "Will delete {count} untracked file(s) created after the checkpoint",
+  "共 {files} 个文件,+{added} 行,−{deleted} 行": "{files} files, +{added} −{deleted} lines",
+  "差异过大,仅显示前 300 个文件": "Diff too large; showing the first 300 files only",
+  "回退前状态会先存入保存点,/redo 可恢复;忽略文件不受影响": "The pre-rollback state is saved first (/redo restores it); ignored files are never touched",
+  "检查点": "Checkpoints",
+  "会话共 {count} 个检查点 · HEAD {head} · 未提交改动 {dirty} 项": "{count} checkpoints · HEAD {head} · {dirty} uncommitted changes",
+  "回合 {turn}": "Turn {turn}",
+  "个文件": "files",
+  "回退到此回合前": "Rollback to before this turn",
+  "暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)": "No checkpoints yet. Checkpoints are created automatically when each turn starts (workspace snapshot at turn/start)",
+  "/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "/rollback [N] rolls back directly; /redo restores the last rollback; cleanup: git update-ref -d refs/dsh/checkpoints|saves/<sessionId> plus the .dsh/rollback record",
+  "差异不可用": "Diff unavailable",
   "从此处新建分支": "Branch from here",
   "分支并回退到更早位置": "Branch and rewind to an earlier point",
   "回到主线(父会话)": "Back to main line (parent session)",
@@ -798,6 +819,8 @@ const EN_TEXT: Record<string, string> = {
   "子代理 {name}({status}) · 点击打开对话(可追问 / 打断)": "Subagent {name} ({status}) · click to open its conversation (prompt / interrupt)",
   "已连接 · {model}": "Connected · {model}",
   "⏸️ 等待审批:{name}": "⏸️ Waiting for approval: {name}",
+  "允许一次": "Allow once",
+  "工具 {toolName} 请求越权执行": "Tool {toolName} requests privileged execution",
   "✅ 允许": "✅ Allow",
   "❌ 拒绝": "❌ Reject",
   "子代理": "Subagent",
@@ -830,7 +853,7 @@ const EN_TEXT: Record<string, string> = {
   // ---- 内置 Agent 预设(按 id 本地化,与网页端一致) ----
   "标准模式": "Standard mode",
   "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.",
-  "PTC 模式": "Code mode",
+  "编码模式": "Code mode",
   "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "All Standard mode capabilities, with tools exposed through the Code Mode SDK so the model can combine multi-step operations in one TypeScript program.",
   "极简模式": "Minimal mode",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Two-tool coding agent with persistent bash and str_replace_editor.",
@@ -1035,6 +1058,248 @@ function showDialog(opts: { title: string; text: string; input?: boolean; confir
       }
     };
   });
+}
+
+// ---------- 回合级 Git 回退:回退确认(代码审核)与检查点清单弹窗 ----------
+
+interface RbPreviewFile {
+  path: string;
+  added: number;
+  deleted: number;
+  binary: boolean;
+}
+
+interface RbPreview {
+  turn: number;
+  time: number;
+  commit: string;
+  files: RbPreviewFile[];
+  addedTotal: number;
+  deletedTotal: number;
+  removedUntracked: string[];
+  untrackedUnknown: boolean;
+  truncated: boolean;
+}
+
+interface RbCheckpointRow {
+  turn: number;
+  time: number;
+  commit: string;
+  files: RbPreviewFile[];
+  addedTotal: number;
+  deletedTotal: number;
+  truncated: boolean;
+}
+
+const rbOverlay = el("div", "dialog-overlay");
+rbOverlay.hidden = true;
+const rbBox = el("div", "rb-box");
+const rbTitle = el("div", "rb-title");
+const rbMeta = el("div", "rb-meta");
+const rbBody = el("div", "rb-body");
+const rbFooter = el("div", "rb-footer");
+const rbCancel = el("button", "btn dialog-cancel", t("取消"));
+const rbConfirm = el("button", "btn dialog-confirm", t("确认回退"));
+rbConfirm.hidden = true;
+const rbActions = el("div", "rb-actions");
+rbActions.append(rbCancel, rbConfirm);
+rbBox.append(rbTitle, rbMeta, rbBody, rbFooter, rbActions);
+rbOverlay.append(rbBox);
+root.append(rbOverlay);
+
+/** 回退弹窗状态:当前模式与期望的 requestId(过滤过期回复)。 */
+const rbState: { mode: "review" | "checkpoints"; requestId: string; confirmTurn?: number } = { mode: "review", requestId: "" };
+/** diff 请求 id → 目标 pre 元素(多文件展开互不串扰)。 */
+const rbDiffTargets = new Map<string, HTMLPreElement>();
+
+function rbClose() {
+  rbOverlay.hidden = true;
+  rbConfirm.hidden = true;
+  rbCancel.textContent = t("取消");
+  rbConfirm.onclick = null;
+  rbCancel.onclick = null;
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbDiffTargets.clear();
+  rbState.requestId = "";
+  rbState.confirmTurn = undefined;
+}
+
+function fmtRbTime(time: number): string {
+  return new Date(time).toLocaleString();
+}
+
+/** 请求回退预览(代码审核)数据;turn 缺省 = 最近检查点。 */
+function openRollbackReview(turn?: number) {
+  const requestId = `rb:${Date.now()}`;
+  rbState.mode = "review";
+  rbState.requestId = requestId;
+  rbTitle.textContent = t("回退确认");
+  rbMeta.textContent = t("正在计算差异…");
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbConfirm.hidden = true;
+  rbCancel.textContent = t("取消");
+  rbCancel.onclick = () => rbClose();
+  rbConfirm.onclick = null;
+  rbOverlay.hidden = false;
+  vscode.postMessage({ kind: "rollbackPreview", requestId, sessionId: state.current, ...(typeof turn === "number" ? { turn } : {}) });
+}
+
+/** 渲染回退确认弹窗:逐文件增删行数、点击展开完整差异、未跟踪删除清单。 */
+function renderRollbackReview(preview: RbPreview) {
+  const short = preview.commit.slice(0, 8);
+  rbTitle.textContent = t("回退确认");
+  rbMeta.textContent = t("回退到回合 {turn} 之前", { turn: preview.turn }) + ` · ${short} · ${fmtRbTime(preview.time)}`;
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+
+  rbBody.append(el("div", "rb-hint", t("将撤销自该检查点以来的以下改动:")));
+
+  if (preview.files.length === 0 && preview.removedUntracked.length === 0) {
+    rbBody.append(el("div", "rb-empty", t("无文件差异")));
+  }
+
+  // 逐文件行:summary 显示 +N/−M,展开时按需加载完整 diff
+  preview.files.forEach((f, index) => {
+    const details = el("details", "rb-file");
+    const summary = el("summary", "rb-file-head");
+    summary.append(el("span", "rb-file-path", f.path));
+    if (f.binary) {
+      summary.append(el("span", "rb-bin", t("二进制文件")));
+    } else {
+      if (f.added > 0) summary.append(el("span", "rb-add", `+${f.added}`));
+      if (f.deleted > 0) summary.append(el("span", "rb-del", `−${f.deleted}`));
+      if (f.added === 0 && f.deleted === 0) summary.append(el("span", "rb-zero", "0"));
+    }
+    details.append(summary);
+    const pre = el("pre", "rb-diff");
+    details.append(pre);
+    details.addEventListener("toggle", () => {
+      if (!details.open || pre.dataset.loaded) return;
+      pre.dataset.loaded = "1";
+      pre.textContent = t("加载差异…");
+      const diffId = `d:${preview.turn}:${index}`;
+      rbDiffTargets.set(diffId, pre);
+      vscode.postMessage({ kind: "rollbackDiff", requestId: diffId, sessionId: state.current, turn: preview.turn, path: f.path });
+    });
+    rbBody.append(details);
+  });
+
+  // 将删除的新建未跟踪文件清单
+  if (preview.untrackedUnknown) {
+    rbBody.append(el("div", "rb-note", t("未跟踪文件清单不可用(检查点记录截断),回退后请手动检查工作区")));
+  } else if (preview.removedUntracked.length > 0) {
+    const ud = el("details", "rb-untracked");
+    ud.append(el("summary", "rb-untracked-head", t("将删除新建的未跟踪文件({count} 个)", { count: preview.removedUntracked.length })));
+    const list = el("div", "rb-untracked-list");
+    for (const name of preview.removedUntracked) list.append(el("div", "rb-untracked-item", name));
+    ud.append(list);
+    rbBody.append(ud);
+  }
+
+  // 汇总与提示
+  rbFooter.append(
+    el(
+      "div",
+      "rb-stats",
+      t("共 {files} 个文件,+{added} 行,−{deleted} 行", {
+        files: preview.files.length,
+        added: preview.addedTotal,
+        deleted: preview.deletedTotal,
+      }),
+    ),
+  );
+  if (preview.truncated) rbFooter.append(el("div", "rb-note", t("差异过大,仅显示前 300 个文件")));
+  rbFooter.append(el("div", "rb-note", t("回退前状态会先存入保存点,/redo 可恢复;忽略文件不受影响")));
+
+  rbState.confirmTurn = preview.turn;
+  rbConfirm.hidden = false;
+  rbConfirm.textContent = t("确认回退");
+  rbConfirm.onclick = () => {
+    const turn = rbState.confirmTurn;
+    rbClose();
+    if (typeof turn === "number") {
+      vscode.postMessage({ kind: "command", line: `/rollback ${turn}` });
+    }
+  };
+}
+
+/** 请求检查点清单数据并打开弹窗。 */
+function openCheckpointsDialog() {
+  const requestId = `rcp:${Date.now()}`;
+  rbState.mode = "checkpoints";
+  rbState.requestId = requestId;
+  rbTitle.textContent = t("检查点");
+  rbMeta.textContent = t("正在计算差异…");
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbConfirm.hidden = true;
+  rbCancel.textContent = t("关闭");
+  rbCancel.onclick = () => rbClose();
+  rbOverlay.hidden = false;
+  vscode.postMessage({ kind: "rollbackCheckpoints", requestId, sessionId: state.current });
+}
+
+/** 渲染检查点清单弹窗:每行可展开查看逐文件差异,并可一键进入回退确认。 */
+function renderCheckpointsDialog(data: { head: string; dirty: number; checkpoints: RbCheckpointRow[] }) {
+  rbTitle.textContent = t("检查点");
+  rbMeta.textContent = t("会话共 {count} 个检查点 · HEAD {head} · 未提交改动 {dirty} 项", {
+    count: data.checkpoints.length,
+    head: data.head,
+    dirty: data.dirty,
+  });
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+
+  if (data.checkpoints.length === 0) {
+    rbBody.append(el("div", "rb-empty", t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")));
+  }
+
+  for (const cp of data.checkpoints) {
+    const row = el("div", "rb-cp");
+    const head = el("div", "rb-cp-head");
+    const toggle = el("button", "rb-cp-toggle", "▸");
+    head.append(toggle);
+    head.append(el("span", "rb-cp-title", t("回合 {turn}", { turn: cp.turn })));
+    head.append(el("span", "rb-cp-meta", `${cp.commit.slice(0, 8)} · ${fmtRbTime(cp.time)}`));
+    head.append(el("span", "rb-cp-stats", `${cp.files.length} ${t("个文件")} `));
+    if (cp.addedTotal > 0) head.append(el("span", "rb-add", `+${cp.addedTotal}`));
+    if (cp.deletedTotal > 0) head.append(el("span", "rb-del", `−${cp.deletedTotal}`));
+    const rollbackBtn = el("button", "mini-btn rb-cp-rollback", t("回退到此回合前"));
+    rollbackBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      rbClose();
+      openRollbackReview(cp.turn);
+    });
+    head.append(rollbackBtn);
+    row.append(head);
+    const body = el("div", "rb-cp-body");
+    body.hidden = true;
+    if (cp.files.length === 0) {
+      body.append(el("div", "rb-empty", t("无文件差异")));
+    }
+    for (const f of cp.files) {
+      const line = el("div", "rb-cp-file");
+      line.append(el("span", "rb-file-path", f.path));
+      if (f.binary) line.append(el("span", "rb-bin", t("二进制文件")));
+      else {
+        if (f.added > 0) line.append(el("span", "rb-add", `+${f.added}`));
+        if (f.deleted > 0) line.append(el("span", "rb-del", `−${f.deleted}`));
+      }
+      body.append(line);
+    }
+    if (cp.truncated) body.append(el("div", "rb-note", t("差异过大,仅显示前 300 个文件")));
+    row.append(body);
+    toggle.addEventListener("click", () => {
+      body.hidden = !body.hidden;
+      toggle.textContent = body.hidden ? "▸" : "▾";
+    });
+    rbBody.append(row);
+  }
+
+  rbFooter.append(el("div", "rb-note", t("/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录")));
+  rbConfirm.hidden = true;
 }
 
 // goal 进度卡
@@ -1923,7 +2188,7 @@ function renderActions(node: NodeState) {
     state.rollback.checkpoints.some((c) => c.turn === node.turn)
   ) {
     actionBtn(ICONS.rewind, t("Git 回退到本回合之前"), () => {
-      vscode.postMessage({ kind: "rollbackApply", sessionId: state.current, turn: node.turn });
+      openRollbackReview(node.turn);
     });
   }
 
@@ -1940,12 +2205,12 @@ function renderActions(node: NodeState) {
         });
         menu.append(row);
       };
-      // 工作区回退(服务端 dsh-git-rollback 插件命令):真正恢复文件,与对话级 fork 并存
+      // 工作区回退(服务端 dsh-git-rollback 插件命令):先弹「代码审核」确认窗口,再真正回退
       add(ICONS.rewind, t("撤销本回合文件改动"), () => {
-        vscode.postMessage({ kind: "command", line: "/rollback" });
+        openRollbackReview();
       });
       add(ICONS.ledger, t("查看检查点"), () => {
-        vscode.postMessage({ kind: "command", line: "/checkpoints" });
+        openCheckpointsDialog();
       });
       // 从此处新建分支(保留到此;回退语义由"分支并回退到更早位置"承载,不再提供重复的"回退到此处")
       add(ICONS.branch, t("从此处新建分支"), () => {
@@ -3215,12 +3480,31 @@ function renderLoadMoreButton() {
 function renderPending() {
   pendingArea.innerHTML = "";
   for (const approval of state.approvals.values()) {
-    const card = el("div", "pending-card pending-approval");
-    card.append(el("div", "pending-title", t("⏸️ 等待审批:{name}", { name: approval.toolName })));
-    if (approval.reason) card.append(el("div", "pending-detail", approval.reason));
-    const row = el("div", "pending-actions");
-    const allow = el("button", "btn btn-allow", t("✅ 允许"));
-    const reject = el("button", "btn btn-reject", t("❌ 拒绝"));
+    // 网页端 ApprovalFlow 同款:色点条 + 工具徽标 + 原因(缺省越权说明)+ 命令预览 + [拒绝][允许一次]
+    const card = el("div", "pending-card pending-approval approval-card");
+    const head = el("div", "approval-head");
+    head.append(el("span", "approval-dot"), el("span", "approval-title", t("等待审批")));
+    card.append(head);
+    const body = el("div", "approval-body");
+    const toolChip = el("span", "approval-tool", `${toolIcon(approval.toolName)} ${approval.toolName ?? "tool"}`);
+    body.append(toolChip);
+    const headline = el(
+      "div",
+      "approval-headline",
+      approval.reason ?? t("工具 {toolName} 请求越权执行", { toolName: approval.toolName ?? "" }),
+    );
+    body.append(headline);
+    // 命令预览:从对话中查找该调用的参数(网页端 command 行同款)
+    const callNode = approval.callId ? state.nodes.find((n) => n.kind === "tool" && n.callId === approval.callId) : undefined;
+    const args = callNode?.args ?? "";
+    if (args) {
+      const pre = el("pre", "approval-command", String(args).replace(/\s+/g, " ").slice(0, 160));
+      body.append(pre);
+    }
+    card.append(body);
+    const actions = el("div", "approval-actions");
+    const reject = el("button", "btn btn-reject", t("拒绝"));
+    const allow = el("button", "btn btn-allow", t("允许一次"));
     allow.addEventListener("click", () => {
       vscode.postMessage({ kind: "respond", approvalId: approval.approvalId, outcome: "allowed-once" });
       state.approvals.delete(approval.approvalId);
@@ -3231,8 +3515,8 @@ function renderPending() {
       state.approvals.delete(approval.approvalId);
       renderPending();
     });
-    row.append(allow, reject);
-    card.append(row);
+    actions.append(reject, allow);
+    card.append(actions);
     pendingArea.append(card);
   }
   for (const question of state.questions.values()) {
@@ -3852,6 +4136,36 @@ function handleMessage(msg: any) {
             if (n.kind === "assistant" && n.actionsEl && typeof n.turn === "number") renderActions(n);
           }
         }
+      }
+      break;
+    }
+    case "rollbackPreviewData": {
+      if (typeof msg.requestId !== "string" || msg.requestId !== rbState.requestId) break;
+      if (msg.preview) {
+        renderRollbackReview(msg.preview as RbPreview);
+      } else {
+        rbMeta.textContent = String(msg.error ?? t("差异不可用"));
+        rbBody.innerHTML = "";
+        rbBody.append(el("div", "rb-empty", t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")));
+      }
+      break;
+    }
+    case "rollbackDiffData": {
+      if (typeof msg.requestId !== "string") break;
+      const pre = rbDiffTargets.get(msg.requestId);
+      if (!pre) break;
+      rbDiffTargets.delete(msg.requestId);
+      if (typeof msg.diff === "string" && msg.diff) pre.textContent = msg.diff;
+      else pre.textContent = t("差异不可用");
+      break;
+    }
+    case "rollbackCheckpointsData": {
+      if (typeof msg.requestId !== "string" || msg.requestId !== rbState.requestId) break;
+      if (msg.head && Array.isArray(msg.checkpoints)) {
+        renderCheckpointsDialog(msg as { head: string; dirty: number; checkpoints: RbCheckpointRow[] });
+      } else {
+        rbMeta.textContent = String(msg.error ?? t("差异不可用"));
+        rbBody.innerHTML = "";
       }
       break;
     }
