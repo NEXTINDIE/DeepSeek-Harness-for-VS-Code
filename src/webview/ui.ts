@@ -552,10 +552,7 @@ const EN_TEXT: Record<string, string> = {
   "对比": "Compare",
   "查看检查点": "View checkpoints",
   "还原检查点": "Restore checkpoint",
-  "回退到本回合开始前的检查点": "Restore to the checkpoint before this turn began",
-  "回退到本回合开始前的检查点(撤销本回合及其后的工作区改动)": "Restore the workspace to the checkpoint before this turn began (undo this turn's and later changes)",
-  "本回合还没有可还原的检查点": "No restorable checkpoint for this turn",
-  "本回合还没有可还原的检查点(回合开始前工作区无改动时自动跳过)": "No restorable checkpoint for this turn (auto-skipped when the workspace had no changes before the turn)",
+  "仅撤销本回合产生的文件改动;你自己的提交与 HEAD 不受影响": "Only reverts the files changed by this turn; your own commits and HEAD stay untouched",
   "切换权限": "Switch permission",
   "回退回合改动": "Undo this turn's changes",
   "重做回退": "Redo rollback",
@@ -2255,13 +2252,15 @@ function renderNode(node: NodeState): HTMLElement {
     }
     case "turn-divider": {
       // 回合边界:上一回合与本回合之间的水平分隔线,中间是「还原检查点」按钮
-      // (GitHub Copilot 同款交互)。点击把工作区回退到本回合开始前的检查点。
+      // (GitHub Copilot 同款交互)。点击**只撤销本回合自身产生的文件改动**
+      // (反向应用 回合开始→回合结束 的差异),你手动改的文件、其他回合的
+      // 改动以及你自己的提交与 HEAD 都完全不受影响 —— 与 Copilot 检查点语义一致。
       const wrap = el("div", "fork-divider");
       const line = el("div", "fork-divider-line");
       const btn = el("button", "fork-divider-btn", t("还原检查点"));
-      btn.title = t("回退到本回合开始前的检查点(撤销本回合及其后的工作区改动)");
+      btn.title = t("仅撤销本回合产生的文件改动;你自己的提交与 HEAD 不受影响");
       btn.addEventListener("click", () => {
-        if (typeof node.turn === "number" && node.turn > 0) openRollbackReview(node.turn);
+        if (typeof node.turn === "number" && node.turn > 0) openRollbackUndo(node.turn);
       });
       line.append(btn);
       wrap.append(line);
@@ -4539,9 +4538,7 @@ function handleMessage(msg: any) {
       } else {
         rbMeta.textContent = String(msg.error ?? t("差异不可用"));
         rbBody.innerHTML = "";
-        rbBody.append(
-          el("div", "rb-empty", t("本回合还没有可还原的检查点(回合开始前工作区无改动时自动跳过)")),
-        );
+        rbBody.append(el("div", "rb-empty", t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")));
       }
       break;
     }

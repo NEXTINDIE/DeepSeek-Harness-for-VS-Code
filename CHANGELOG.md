@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.70
+- "Restore checkpoint" now matches GitHub Copilot semantics: clicking a turn divider only reverts the files changed by that turn (reverse-applies the turn-start → turn-end diff), leaving files you changed manually, other turns' changes, and your own commits/HEAD untouched — no more whole-workspace rollback.
+- 「还原检查点」改为 GitHub Copilot 同款语义:点击回合分隔线**只撤销该回合自身产生的文件改动**(反向应用 回合开始→回合结束 的差异);你手动改的文件、其他回合的改动以及你自己的提交与 HEAD 完全不受影响——不再整体回滚工作区。
+
 ## 0.12.69
 - Turn-level "Restore checkpoint" dividers (GitHub Copilot style): every turn boundary inside a conversation now shows a horizontal line with a centered 「还原检查点」 button — clicking it previews and restores the workspace to the checkpoint before that turn began. Also fixed forked sessions missing the `session/end-seed` boundary event after they had been active (always pull history on open).
 - 回合级「还原检查点」分隔线(GitHub Copilot 同款):同一对话内每个回合边界都显示水平线 + 居中「还原检查点」按钮——点击预览并回退到该回合开始前的检查点。同时修复分叉会话活动过后缺失 `session/end-seed` 边界事件的问题(打开会话时始终拉取历史)。
