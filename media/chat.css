@@ -306,14 +306,62 @@ body {
 
 .rb-diff {
   margin: 2px 6px 6px 14px;
-  padding: 6px 8px;
   background: var(--vscode-textCodeBlock-background, #1e1e1e);
   border: 1px solid var(--dsh-border);
   border-radius: 4px;
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.5;
+  max-height: 340px;
+  overflow: auto;
+}
+
+/* git 风格差异视图:行号 + 新增绿 / 删除红 */
+.diff-row {
+  display: flex;
   white-space: pre;
+  min-width: max-content;
+}
+
+.diff-num {
+  width: 44px;
+  flex: none;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--dsh-muted);
+  opacity: 0.75;
+  user-select: none;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.diff-content {
+  flex: 1;
+  min-width: 0;
+  padding-right: 10px;
+}
+
+.diff-add {
+  background: rgba(46, 160, 67, 0.28);
+}
+
+.diff-del {
+  background: rgba(248, 81, 73, 0.26);
+}
+
+.diff-hunk {
+  background: rgba(56, 139, 253, 0.14);
+  color: #79b8ff;
+}
+
+.diff-meta {
+  color: var(--dsh-muted);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.diff-note {
+  color: var(--dsh-muted);
+  background: rgba(0, 0, 0, 0.12);
+}
   overflow: auto;
   max-height: 240px;
 }

@@ -312,6 +312,54 @@ function setHtml(node: HTMLElement, text: string) {
   node.innerHTML = markdownHtml(text);
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * 把 git 统一 diff 文本渲染为「行号 + 新增绿 / 删除红」的代码视图(git 风格)。
+ * 识别 +++/---(文件头)、@@ -a,b +c,d @@(hunk 头)、+/-/上下文/反斜杠行,并维护新旧行号。
+ */
+function renderGitDiffHtml(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const out: string[] = [];
+  let oldNo = 0;
+  let newNo = 0;
+  const row = (cls: string, oldNum: string, newNum: string, content: string) =>
+    `<div class="diff-row ${cls}"><span class="diff-num">${oldNum}</span><span class="diff-num">${newNum}</span><span class="diff-content">${content}</span></div>`;
+  for (const line of lines) {
+    if (line.startsWith("+++") || line.startsWith("---")) {
+      out.push(row("diff-meta", "", "", escapeHtml(line)));
+      continue;
+    }
+    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) {
+      oldNo = Number(hunk[1]);
+      newNo = Number(hunk[2]);
+      out.push(row("diff-hunk", "", "", escapeHtml(line)));
+      continue;
+    }
+    if (line.startsWith("+")) {
+      out.push(row("diff-add", "", String(newNo || ""), escapeHtml(line)));
+      newNo += 1;
+      continue;
+    }
+    if (line.startsWith("-")) {
+      out.push(row("diff-del", String(oldNo || ""), "", escapeHtml(line)));
+      oldNo += 1;
+      continue;
+    }
+    if (line.startsWith("\\")) {
+      out.push(row("diff-note", "", "", escapeHtml(line)));
+      continue;
+    }
+    out.push(row("", String(oldNo || ""), String(newNo || ""), escapeHtml(line)));
+    oldNo += 1;
+    newNo += 1;
+  }
+  return out.join("\n");
+}
+
 // ---------- 简约线条图标(统一 stroke 风格) ----------
 
 const ICONS = {
@@ -1117,8 +1165,8 @@ root.append(rbOverlay);
 
 /** 回退弹窗状态:当前模式与期望的 requestId(过滤过期回复)。 */
 const rbState: { mode: "review" | "checkpoints"; requestId: string; confirmTurn?: number; afterConfirm?: () => void } = { mode: "review", requestId: "" };
-/** diff 请求 id → 目标 pre 元素(多文件展开互不串扰)。 */
-const rbDiffTargets = new Map<string, HTMLPreElement>();
+/** diff 请求 id → 目标 diff 容器元素(多文件展开互不串扰)。 */
+const rbDiffTargets = new Map<string, HTMLDivElement>();
 
 function rbClose() {
   rbOverlay.hidden = true;
@@ -1191,7 +1239,7 @@ function renderRollbackReview(preview: RbPreview) {
       summary.append(compareBtn);
     }
     details.append(summary);
-    const pre = el("pre", "rb-diff");
+    const pre = el("div", "rb-diff");
     details.append(pre);
     details.addEventListener("toggle", () => {
       if (!details.open || pre.dataset.loaded) return;
@@ -4206,7 +4254,7 @@ function handleMessage(msg: any) {
       const pre = rbDiffTargets.get(msg.requestId);
       if (!pre) break;
       rbDiffTargets.delete(msg.requestId);
-      if (typeof msg.diff === "string" && msg.diff) pre.textContent = msg.diff;
+      if (typeof msg.diff === "string" && msg.diff) pre.innerHTML = renderGitDiffHtml(msg.diff);
       else pre.textContent = t("差异不可用");
       break;
     }

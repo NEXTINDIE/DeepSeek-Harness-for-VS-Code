@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { createTranslator, effectiveLanguage, SUPPORTED_LANGUAGES } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
@@ -1448,7 +1449,7 @@ export class ChatChannel {
 
   /** 按当前开关重新扫描智能体配置目录并推送前端。 */
   private async rescanAgentConfigs() {
-    const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [] };
+    const empty = { claudeMd: false, commands: [], skills: [], codexConfig: false, codexSkills: [], copilotInstructions: null, copilotInstructionFiles: [], copilotAgents: [], copilotPrompts: [], dshSkills: [], dshAgents: [], dshMemory: [] };
     try {
       const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
       const value = folder ? await scanAgentConfigs(folder, this.agentDirsConfig()) : empty;
@@ -1691,22 +1692,28 @@ async function scanAgentConfigs(
   };
 
   // CLAUDE.md / AGENTS.md(工作区根,DSH 核心自动加载;这里仅报告存在性)
+  // 每个工具的开关同时控制「项目目录 + 用户全局目录」:禁用后两者都不再读取/展示
+  const home = process.env.USERPROFILE ?? homedir();
+  const homeUri = vscode.Uri.file(home);
+
   if (dirs.claude) {
     result.claudeMd = (await exists(vscode.Uri.joinPath(folder, "CLAUDE.md"))) || (await exists(vscode.Uri.joinPath(folder, "AGENTS.md")));
-    // .claude/commands/*.md
+    // .claude/commands/*.md + .claude/skills/*/SKILL.md(项目 + 用户全局 ~/.claude)
     result.commands = await scanMdFiles(vscode.Uri.joinPath(folder, ".claude", "commands"));
-    // .claude/skills/*/SKILL.md
     result.skills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".claude", "skills"));
+    result.commands.push(...(await scanMdFiles(vscode.Uri.joinPath(homeUri, ".claude", "commands"))));
+    result.skills.push(...(await scanSkillDirs(vscode.Uri.joinPath(homeUri, ".claude", "skills"))));
   }
 
   if (dirs.codex) {
-    // .codex:config.toml 存在性 + skills
-    result.codexConfig = await exists(vscode.Uri.joinPath(folder, ".codex", "config.toml"));
+    // .codex:config.toml 存在性 + skills(项目 + 用户全局 ~/.codex)
+    result.codexConfig = (await exists(vscode.Uri.joinPath(folder, ".codex", "config.toml"))) || (await exists(vscode.Uri.joinPath(homeUri, ".codex", "config.toml")));
     result.codexSkills = await scanSkillDirs(vscode.Uri.joinPath(folder, ".codex", "skills"));
+    result.codexSkills.push(...(await scanSkillDirs(vscode.Uri.joinPath(homeUri, ".codex", "skills"))));
   }
 
   if (dirs.githubCopilot) {
-    // .github(Copilot):copilot-instructions.md / instructions/*.md / agents/*.md / prompts/*.prompt.md
+    // .github(Copilot):copilot-instructions.md / instructions/*.md / agents/*.md / prompts/*.prompt.md(项目 + 用户全局 ~/.github)
     const copilotInstructionsUri = vscode.Uri.joinPath(folder, ".github", "copilot-instructions.md");
     if (await exists(copilotInstructionsUri)) {
       const content = await readText(copilotInstructionsUri, 12_000);
@@ -1715,6 +1722,14 @@ async function scanAgentConfigs(
     result.copilotInstructionFiles = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "instructions"));
     result.copilotAgents = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "agents"));
     result.copilotPrompts = await scanMdFiles(vscode.Uri.joinPath(folder, ".github", "prompts"), ".prompt.md");
+    const homeInstructions = vscode.Uri.joinPath(homeUri, ".github", "copilot-instructions.md");
+    if (result.copilotInstructions === null && (await exists(homeInstructions))) {
+      const content = await readText(homeInstructions, 12_000);
+      if (content) result.copilotInstructions = content;
+    }
+    result.copilotInstructionFiles.push(...(await scanMdFiles(vscode.Uri.joinPath(homeUri, ".github", "instructions"))));
+    result.copilotAgents.push(...(await scanMdFiles(vscode.Uri.joinPath(homeUri, ".github", "agents"))));
+    result.copilotPrompts.push(...(await scanMdFiles(vscode.Uri.joinPath(homeUri, ".github", "prompts"), ".prompt.md")));
   }
 
   // .dsh 自身约定(始终扫描,与计划文件同级):项目级智能体 .dsh/agent/*.md、技能 .dsh/skills/*/SKILL.md、记忆 .dsh/memory/*.md
