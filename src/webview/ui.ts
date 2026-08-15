@@ -196,7 +196,7 @@ const state = {
   attachments: [] as { kind: "file" | "folder"; path: string; label: string; auto?: boolean }[],
   autoAttachActive: true,
   activeFile: null as { path: string; label: string; languageId?: string } | null,
-  skills: null as { name: string; description: string; whenToUse?: string; modelInvocable: boolean }[] | null,
+  skills: null as { name: string; description: string; whenToUse?: string; modelInvocable: boolean; source?: string }[] | null,
   subagents: null as { kind: string; id: string; mode?: string; activity?: string; label?: string }[] | null,
   /** 会话统计(sessionStats / tokenUsage 投影) */
   stats: undefined as { sessionStats?: any; tokenUsage?: any } | undefined,
@@ -211,7 +211,7 @@ const state = {
   /** 用户配置的语言偏好(auto / zh-cn / en) */
   languagePref: "auto" as string,
   /** 智能体配置目录扫描开关(dsh.agentConfigDirs) */
-  agentDirs: { claude: true, codex: true, githubCopilot: true } as { claude: boolean; codex: boolean; githubCopilot: boolean },
+  agentDirs: { claude: true, codex: true, githubCopilot: true, dshUserSkills: true } as { claude: boolean; codex: boolean; githubCopilot: boolean; dshUserSkills: boolean },
   /** 每步开始时间,用于计算每条回答的思考耗时 */
   stepStarts: new Map<string, number>(),
   /** 当前流式回合,用于回合边界切分节点 */
@@ -551,6 +551,9 @@ const EN_TEXT: Record<string, string> = {
   "撤销本回合改动并新建分支": "Undo this turn's changes and branch from here",
   "对比": "Compare",
   "查看检查点": "View checkpoints",
+  "切换权限": "Switch permission",
+  "回退回合改动": "Undo this turn's changes",
+  "重做回退": "Redo rollback",
   "Git 回退到本回合之前": "Git rollback to before this turn",
   "回退确认": "Rollback confirmation",
   "确认回退": "Confirm rollback",
@@ -565,6 +568,7 @@ const EN_TEXT: Record<string, string> = {
   "共 {files} 个文件,+{added} 行,−{deleted} 行": "{files} files, +{added} −{deleted} lines",
   "差异过大,仅显示前 300 个文件": "Diff too large; showing the first 300 files only",
   "回退前状态会先存入保存点,/redo 可恢复;忽略文件不受影响": "The pre-rollback state is saved first (/redo restores it); ignored files are never touched",
+  "「撤销该回合改动」只回退该回合自身产生的文件改动,不动你自己提交的内容;「回退到此回合前」为整体回退。/undo 与 /redo 命令同样可用。清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "\"Undo this turn\" only reverts file changes produced by that turn, never your own commits; \"Rollback to before this turn\" reverts everything. /undo and /redo work too. Clean up refs/dsh/checkpoints|saves/<sessionId> and .dsh/rollback records",
   "检查点": "Checkpoints",
   "会话共 {count} 个检查点 · HEAD {head} · 未提交改动 {dirty} 项": "{count} checkpoints · HEAD {head} · {dirty} uncommitted changes",
   "回合 {turn}": "Turn {turn}",
@@ -573,6 +577,13 @@ const EN_TEXT: Record<string, string> = {
   "暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)": "No checkpoints yet. Checkpoints are created automatically when each turn starts (workspace snapshot at turn/start)",
   "/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "/rollback [N] rolls back directly; /redo restores the last rollback; cleanup: git update-ref -d refs/dsh/checkpoints|saves/<sessionId> plus the .dsh/rollback record",
   "差异不可用": "Diff unavailable",
+  "撤销回合改动": "Undo turn's changes",
+  "将撤销该回合产生的以下改动(你的提交与 HEAD 不受影响):": "The following changes produced by that turn will be reverted (your commits and HEAD are untouched):",
+  "该回合没有文件改动": "That turn changed no files",
+  "确认撤销": "Confirm undo",
+  "撤销仅反向应用该回合自身的改动;你自己提交的内容与 HEAD 保持不变。": "The undo only reverses that turn's own changes; your commits and HEAD stay untouched.",
+  "撤销该回合改动": "Undo this turn's changes",
+  "该回合没有可精确撤销的快照;可用「回退到此回合前」整体回退": "No undoable snapshot for that turn; use \"Rollback to before this turn\" instead",
   "从此处新建分支": "Branch from here",
   "回到主线(父会话)": "Back to main line (parent session)",
   "重命名会话": "Rename session",
@@ -636,6 +647,9 @@ const EN_TEXT: Record<string, string> = {
   "更新于": "updated",
   "第 {n}/{m} 轮": "round {n}/{m}",
   "请使用技能「{name}」处理:": "Use the skill \"{name}\" for:",
+  "命令 / 技能": "Commands / skills",
+  "命令 {name}": "Command {name}",
+  "插入 /名称 调用技能(发送时自动展开技能正文)": "Insert /name to invoke the skill (the body is expanded when sending)",
   "子代理 {label}({state}) · 点击查看最近回复": "Subagent {label} ({state}) · click to view recent reply",
   "运行中": "running",
   "已结束": "finished",
@@ -955,6 +969,9 @@ const EN_TEXT: Record<string, string> = {
   "智能体配置目录": "Agent config directories",
   "扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md": "Scan .claude (commands, skills) and report CLAUDE.md / AGENTS.md",
   "扫描 .codex(config.toml、技能)": "Scan .codex (config.toml, skills)",
+  "DSH 用户技能": "DSH user skills",
+  "显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills)",
+  "全局": "global",
   "扫描 .github Copilot 文件(指令、智能体、提示词)": "Scan .github Copilot files (instructions, agents, prompts)",
   "控制 / 菜单中扫描列出的目录族;全部勾选则全部扫描。": "Controls which directory families are scanned and listed in the / menu; check all to scan all.",
 };
@@ -1145,6 +1162,19 @@ interface RbCheckpointRow {
   addedTotal: number;
   deletedTotal: number;
   truncated: boolean;
+  /** 是否有回合结束快照(/undo 精确撤销可用)。 */
+  hasAfter: boolean;
+}
+
+interface RbUndoPreview {
+  turn: number;
+  time: number;
+  before: string;
+  after: string;
+  files: RbPreviewFile[];
+  addedTotal: number;
+  deletedTotal: number;
+  truncated: boolean;
 }
 
 const rbOverlay = el("div", "dialog-overlay");
@@ -1164,7 +1194,7 @@ rbOverlay.append(rbBox);
 root.append(rbOverlay);
 
 /** 回退弹窗状态:当前模式与期望的 requestId(过滤过期回复)。 */
-const rbState: { mode: "review" | "checkpoints"; requestId: string; confirmTurn?: number; afterConfirm?: () => void } = { mode: "review", requestId: "" };
+const rbState: { mode: "review" | "checkpoints" | "undo"; requestId: string; confirmTurn?: number; afterConfirm?: () => void } = { mode: "review", requestId: "" };
 /** diff 请求 id → 目标 diff 容器元素(多文件展开互不串扰)。 */
 const rbDiffTargets = new Map<string, HTMLDivElement>();
 
@@ -1293,6 +1323,88 @@ function renderRollbackReview(preview: RbPreview) {
   };
 }
 
+/** 请求 /undo 精确撤销的预览(该回合自身产生的改动);turn 缺省 = 最近有结束快照的回合。 */
+function openRollbackUndo(turn?: number, afterConfirm?: () => void) {
+  const requestId = `rb:${Date.now()}`;
+  rbState.mode = "undo";
+  rbState.requestId = requestId;
+  rbState.afterConfirm = afterConfirm;
+  rbTitle.textContent = t("撤销回合改动");
+  rbMeta.textContent = t("正在计算差异…");
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbConfirm.hidden = true;
+  rbCancel.textContent = t("取消");
+  rbCancel.onclick = () => rbClose();
+  rbConfirm.onclick = null;
+  rbOverlay.hidden = false;
+  vscode.postMessage({ kind: "rollbackUndoPreview", requestId, sessionId: state.current, ...(typeof turn === "number" ? { turn } : {}) });
+}
+
+/** 渲染 /undo 精确撤销弹窗:只撤销该回合自身产生的改动,你的提交与 HEAD 不受影响。 */
+function renderUndoReview(preview: RbUndoPreview) {
+  rbTitle.textContent = t("撤销回合改动");
+  rbMeta.textContent = t("回合 {turn}", { turn: preview.turn }) + ` · ${preview.after.slice(0, 8)} · ${fmtRbTime(preview.time)}`;
+  rbBody.innerHTML = "";
+  rbFooter.innerHTML = "";
+  rbBody.append(el("div", "rb-hint", t("将撤销该回合产生的以下改动(你的提交与 HEAD 不受影响):")));
+
+  if (preview.files.length === 0) {
+    rbBody.append(el("div", "rb-empty", t("该回合没有文件改动")));
+  }
+
+  preview.files.forEach((f, index) => {
+    const details = el("details", "rb-file");
+    const summary = el("summary", "rb-file-head");
+    summary.append(el("span", "rb-file-path", f.path));
+    if (f.binary) summary.append(el("span", "rb-bin", t("二进制文件")));
+    else {
+      if (f.added > 0) summary.append(el("span", "rb-add", `+${f.added}`));
+      if (f.deleted > 0) summary.append(el("span", "rb-del", `−${f.deleted}`));
+      if (f.added === 0 && f.deleted === 0) summary.append(el("span", "rb-zero", "0"));
+    }
+    details.append(summary);
+    const pre = el("div", "rb-diff");
+    details.append(pre);
+    details.addEventListener("toggle", () => {
+      if (!details.open || pre.dataset.loaded) return;
+      pre.dataset.loaded = "1";
+      pre.textContent = t("加载差异…");
+      const diffId = `u:${preview.turn}:${index}`;
+      rbDiffTargets.set(diffId, pre);
+      vscode.postMessage({ kind: "rollbackUndoDiff", requestId: diffId, sessionId: state.current, turn: preview.turn, path: f.path });
+    });
+    rbBody.append(details);
+  });
+
+  rbFooter.append(
+    el(
+      "div",
+      "rb-stats",
+      t("共 {files} 个文件,+{added} 行,−{deleted} 行", {
+        files: preview.files.length,
+        added: preview.addedTotal,
+        deleted: preview.deletedTotal,
+      }),
+    ),
+  );
+  if (preview.truncated) rbFooter.append(el("div", "rb-note", t("差异过大,仅显示前 300 个文件")));
+  rbFooter.append(el("div", "rb-note", t("撤销仅反向应用该回合自身的改动;你自己提交的内容与 HEAD 保持不变。")));
+
+  rbState.confirmTurn = preview.turn;
+  rbConfirm.hidden = false;
+  rbConfirm.textContent = t("确认撤销");
+  rbConfirm.onclick = () => {
+    const turn = rbState.confirmTurn;
+    const after = rbState.afterConfirm;
+    rbClose();
+    if (typeof turn === "number") {
+      vscode.postMessage({ kind: "rollbackUndoApply", sessionId: state.current, turn });
+    }
+    after?.();
+  };
+}
+
 /** 请求检查点清单数据并打开弹窗。 */
 function openCheckpointsDialog() {
   const requestId = `rcp:${Date.now()}`;
@@ -1309,71 +1421,92 @@ function openCheckpointsDialog() {
   vscode.postMessage({ kind: "rollbackCheckpoints", requestId, sessionId: state.current });
 }
 
-/** 渲染检查点清单弹窗:每行可展开查看逐文件差异,并可一键进入回退确认。 */
-function renderCheckpointsDialog(data: { head: string; dirty: number; checkpoints: RbCheckpointRow[] }) {
+/** 渲染检查点清单弹窗:跨会话分组,每行可展开查看逐文件差异;支持「撤销该回合改动」与「回退到此回合前」。 */
+function renderCheckpointsDialog(data: { head: string; dirty: number; sessions: { sessionId: string; checkpoints: RbCheckpointRow[] }[] }) {
   rbTitle.textContent = t("检查点");
+  const total = data.sessions.reduce((n, s) => n + s.checkpoints.length, 0);
   rbMeta.textContent = t("会话共 {count} 个检查点 · HEAD {head} · 未提交改动 {dirty} 项", {
-    count: data.checkpoints.length,
+    count: total,
     head: data.head,
     dirty: data.dirty,
   });
   rbBody.innerHTML = "";
   rbFooter.innerHTML = "";
 
-  if (data.checkpoints.length === 0) {
+  if (total === 0) {
     rbBody.append(el("div", "rb-empty", t("暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)")));
   }
 
-  for (const cp of data.checkpoints) {
-    const row = el("div", "rb-cp");
-    const head = el("div", "rb-cp-head");
-    const toggle = el("button", "rb-cp-toggle", "▸");
-    head.append(toggle);
-    head.append(el("span", "rb-cp-title", t("回合 {turn}", { turn: cp.turn })));
-    head.append(el("span", "rb-cp-meta", `${cp.commit.slice(0, 8)} · ${fmtRbTime(cp.time)}`));
-    head.append(el("span", "rb-cp-stats", `${cp.files.length} ${t("个文件")} `));
-    if (cp.addedTotal > 0) head.append(el("span", "rb-add", `+${cp.addedTotal}`));
-    if (cp.deletedTotal > 0) head.append(el("span", "rb-del", `−${cp.deletedTotal}`));
-    const rollbackBtn = el("button", "mini-btn rb-cp-rollback", t("回退到此回合前"));
-    rollbackBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      rbClose();
-      openRollbackReview(cp.turn);
-    });
-    head.append(rollbackBtn);
-    row.append(head);
-    const body = el("div", "rb-cp-body");
-    body.hidden = true;
-    if (cp.files.length === 0) {
-      body.append(el("div", "rb-empty", t("无文件差异")));
-    }
-    for (const f of cp.files) {
-      const line = el("div", "rb-cp-file");
-      line.append(el("span", "rb-file-path", f.path));
-      if (f.binary) line.append(el("span", "rb-bin", t("二进制文件")));
-      else {
-        if (f.added > 0) line.append(el("span", "rb-add", `+${f.added}`));
-        if (f.deleted > 0) line.append(el("span", "rb-del", `−${f.deleted}`));
-        // 「对比」:VS Code 内置 diff 视图打开 检查点版本 ↔ 工作区当前版本
-        const compareBtn = el("button", "mini-btn rb-compare", t("对比"));
-        compareBtn.addEventListener("click", (e) => {
+  for (const session of data.sessions) {
+    const groupLabel = el("div", "rb-cp-group", `▣ ${session.sessionId.slice(0, 8)}`);
+    rbBody.append(groupLabel);
+    for (const cp of session.checkpoints) {
+      const row = el("div", "rb-cp");
+      const head = el("div", "rb-cp-head");
+      const toggle = el("button", "rb-cp-toggle", "▸");
+      head.append(toggle);
+      head.append(el("span", "rb-cp-title", t("回合 {turn}", { turn: cp.turn })));
+      head.append(el("span", "rb-cp-meta", `${cp.commit.slice(0, 8)} · ${fmtRbTime(cp.time)}`));
+      head.append(el("span", "rb-cp-stats", `${cp.files.length} ${t("个文件")} `));
+      if (cp.addedTotal > 0) head.append(el("span", "rb-add", `+${cp.addedTotal}`));
+      if (cp.deletedTotal > 0) head.append(el("span", "rb-del", `−${cp.deletedTotal}`));
+      if (cp.hasAfter) {
+        // 精确撤销:只撤销该回合自身改动(不动用户提交内容)
+        const undoBtn = el("button", "mini-btn rb-cp-rollback", t("撤销该回合改动"));
+        undoBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          vscode.postMessage({ kind: "rollbackCompare", sessionId: state.current, turn: cp.turn, path: f.path });
+          rbClose();
+          openRollbackUndo(cp.turn, () => {
+            vscode.postMessage({ kind: "select", sessionId: session.sessionId });
+          });
         });
-        line.append(compareBtn);
+        head.append(undoBtn);
       }
-      body.append(line);
+      const rollbackBtn = el("button", "mini-btn rb-cp-rollback", t("回退到此回合前"));
+      rollbackBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rbClose();
+        openRollbackReview(cp.turn, () => {
+          vscode.postMessage({ kind: "select", sessionId: session.sessionId });
+        });
+      });
+      head.append(rollbackBtn);
+      row.append(head);
+      const body = el("div", "rb-cp-body");
+      body.hidden = true;
+      if (cp.files.length === 0) {
+        body.append(el("div", "rb-empty", t("无文件差异")));
+      }
+      for (const f of cp.files) {
+        const line = el("div", "rb-cp-file");
+        line.append(el("span", "rb-file-path", f.path));
+        if (f.binary) line.append(el("span", "rb-bin", t("二进制文件")));
+        else {
+          if (f.added > 0) line.append(el("span", "rb-add", `+${f.added}`));
+          if (f.deleted > 0) line.append(el("span", "rb-del", `−${f.deleted}`));
+          // 「对比」:VS Code 内置 diff 视图打开 检查点版本 ↔ 工作区当前版本
+          const compareBtn = el("button", "mini-btn rb-compare", t("对比"));
+          compareBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            vscode.postMessage({ kind: "rollbackCompare", sessionId: state.current, turn: cp.turn, path: f.path });
+          });
+          line.append(compareBtn);
+        }
+        body.append(line);
+      }
+      if (cp.truncated) body.append(el("div", "rb-note", t("差异过大,仅显示前 300 个文件")));
+      row.append(body);
+      toggle.addEventListener("click", () => {
+        body.hidden = !body.hidden;
+        toggle.textContent = body.hidden ? "▸" : "▾";
+      });
+      rbBody.append(row);
     }
-    if (cp.truncated) body.append(el("div", "rb-note", t("差异过大,仅显示前 300 个文件")));
-    row.append(body);
-    toggle.addEventListener("click", () => {
-      body.hidden = !body.hidden;
-      toggle.textContent = body.hidden ? "▸" : "▾";
-    });
-    rbBody.append(row);
   }
 
-  rbFooter.append(el("div", "rb-note", t("/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录")));
+  rbFooter.append(
+    el("div", "rb-note", t("「撤销该回合改动」只回退该回合自身产生的文件改动,不动你自己提交的内容;「回退到此回合前」为整体回退。/undo 与 /redo 命令同样可用。清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录")),
+  );
   rbConfirm.hidden = true;
 }
 
@@ -1566,8 +1699,102 @@ function updateMention() {
     closeMention();
     return;
   }
+  closeSlash(); // @ 提及优先
   mentionState = { start: pos - m[0].length, query: m[1], items, selected: 0 };
   renderMentionMenu();
+}
+
+// ---------- / 命令与技能自动补全(输入 / 自动展示计划模式、技能等) ----------
+
+/** 斜杠补全弹层(与提及弹层同款外观)。 */
+const slashMenu = el("div", "mention-menu slash-menu");
+slashMenu.hidden = true;
+composer.append(slashMenu);
+
+let slashState: { start: number; query: string; items: { token: string; label: string }[]; selected: number } | null = null;
+
+function closeSlash() {
+  slashState = null;
+  slashMenu.hidden = true;
+}
+
+/** 斜杠候选:主要命令优先展示;输入过滤词后追加技能与 .claude 命令。 */
+function slashCandidates(query: string): { token: string; label: string }[] {
+  const fixed: { token: string; label: string }[] = [
+    { token: "/plan", label: t("计划模式") },
+    { token: "/plan off", label: t("退出计划模式") },
+    { token: "/goal ", label: t("设置目标") },
+    { token: "/compact", label: t("压缩上下文") },
+    { token: "/feedback ", label: t("记录反馈") },
+    { token: "/permission ", label: t("切换权限") },
+    { token: "/rollback ", label: t("回退回合改动") },
+    { token: "/redo", label: t("重做回退") },
+    { token: "/checkpoints", label: t("查看检查点") },
+  ];
+  // 刚输入 /(无过滤词)时:只展示主要命令列表,技能等展开到列表后段
+  const out = query === "" ? [...fixed] : fixed.filter((c) => c.token.slice(1).toLowerCase().startsWith(query));
+  let skills = state.skills ?? [];
+  if (state.agentDirs.dshUserSkills === false) {
+    skills = skills.filter((s) => s.source !== "user-dsh" && s.source !== "user-agents" && s.source !== "custom");
+  }
+  for (const s of skills) out.push({ token: `/${s.name} `, label: t("技能 {name}", { name: s.name }) });
+  const cfg = state.claudeConfig;
+  for (const s of cfg?.skills ?? []) out.push({ token: `/${s.name} `, label: t("技能 {name}", { name: s.name }) });
+  for (const s of cfg?.codexSkills ?? []) out.push({ token: `/${s.name} `, label: t("技能 {name}", { name: s.name }) });
+  for (const c of cfg?.commands ?? []) out.push({ token: `/${c.name} `, label: t("命令 {name}", { name: c.name }) });
+  // 有过滤词时,技能/命令也参与过滤
+  return query === "" ? out : out.filter((c) => c.token.slice(1).toLowerCase().startsWith(query));
+}
+
+function renderSlashMenu() {
+  if (!slashState) return;
+  slashMenu.innerHTML = "";
+  slashMenu.append(el("div", "plus-menu-label", t("命令 / 技能")));
+  slashState.items.forEach((item, i) => {
+    const row = el("button", "plus-menu-item" + (i === slashState!.selected ? " mention-selected" : ""));
+    const main = el("span", "mention-item-main");
+    main.append(el("span", "mention-item-name", item.token.trim()));
+    main.append(el("span", "mention-item-desc", item.label));
+    row.append("⌘ ", main);
+    row.addEventListener("mousedown", (e) => e.preventDefault());
+    row.addEventListener("click", () => selectSlash(item.token));
+    slashMenu.append(row);
+  });
+  slashMenu.hidden = false;
+}
+
+/** 用所选命令/技能替换当前部分 /token。 */
+function selectSlash(token: string) {
+  if (!slashState) return;
+  const pos = input.selectionStart ?? input.value.length;
+  input.value = input.value.slice(0, slashState.start) + token + input.value.slice(pos);
+  closeSlash();
+  input.focus();
+  autoResize();
+  updateSendButton();
+}
+
+/** 按光标前的 /partial 更新命令/技能候选(斜杠前需是行首或空白,避免误伤路径)。 */
+function updateSlash() {
+  if (mentionState) {
+    closeSlash();
+    return;
+  }
+  const pos = input.selectionStart ?? input.value.length;
+  const before = input.value.slice(0, pos);
+  const m = before.match(/(?:^|\s)\/([a-zA-Z][\w-]*)?$/);
+  if (!m) {
+    closeSlash();
+    return;
+  }
+  const query = (m[1] ?? "").toLowerCase();
+  const items = slashCandidates(query).slice(0, 8);
+  if (items.length === 0) {
+    closeSlash();
+    return;
+  }
+  slashState = { start: pos - m[0].length, query: m[1] ?? "", items, selected: 0 };
+  renderSlashMenu();
 }
 
 input.rows = 1;
@@ -1575,6 +1802,7 @@ input.addEventListener("input", () => {
   autoResize();
   updateSendButton();
   updateMention();
+  updateSlash();
 });
 input.addEventListener("keydown", (e) => {
   // 提及弹层打开时:方向键导航、Enter 选择、Esc 关闭(不触发发送)
@@ -1602,12 +1830,41 @@ input.addEventListener("keydown", (e) => {
       return;
     }
   }
+  // 斜杠补全弹层打开时:同样支持方向键 / Enter / Esc
+  if (slashState) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      slashState.selected = Math.min(slashState.items.length - 1, slashState.selected + 1);
+      renderSlashMenu();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      slashState.selected = Math.max(0, slashState.selected - 1);
+      renderSlashMenu();
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeSlash();
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      selectSlash(slashState.items[slashState.selected].token);
+      return;
+    }
+  }
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     sendCurrent();
   }
 });
-input.addEventListener("blur", () => closeMention());
+input.addEventListener("blur", () => {
+  closeMention();
+  closeSlash();
+});
+
 btnSendStop.addEventListener("click", () => {
   const hasText = input.value.trim().length > 0 || state.images.length > 0;
   if (state.running && !hasText) {
@@ -1762,7 +2019,11 @@ function renderPlusMenu() {
   }
   // 技能列表(来自 DSH skill.list):与网页端一致,选中插入字面 "/名称 " 文本,
   // 由宿主 pre-step 边界注入技能正文;列表默认收起到前 6 个,展开全部走菜单滚动。
-  const skills = state.skills ?? [];
+  // 「DSH 用户技能」开关关闭时,过滤掉用户全局目录(~/.dsh/skills、~/.agents/skills)与自定义目录的技能。
+  let skills = state.skills ?? [];
+  if (state.agentDirs.dshUserSkills === false) {
+    skills = skills.filter((s) => s.source !== "user-dsh" && s.source !== "user-agents" && s.source !== "custom");
+  }
   if (skills.length > 0) {
     const group = el("div", "plus-menu-label", t("技能(选中插入 /名称 调用)"));
     plusMenu.append(group);
@@ -1774,6 +2035,10 @@ function renderPlusMenu() {
       for (const skill of shown) {
         const b = el("button", "plus-menu-item", `🧩 /${skill.name}`);
         b.title = skill.description || skill.whenToUse || skill.name;
+        // 来源标注:用户全局技能显示「全局」标签,便于区分(默认展示,可在设置关闭)
+        if (skill.source === "user-dsh" || skill.source === "user-agents") {
+          b.append(el("span", "skill-source-tag", t("全局")));
+        }
         b.addEventListener("click", () => insert(`/${skill.name} `));
         list.append(b);
       }
@@ -1827,8 +2092,9 @@ function renderPlusMenu() {
     for (const cmd of claude!.commands) {
       item("⚡", `/${cmd.name}`, () => insert(cmd.content), t("插入 .claude 命令模板"));
     }
+    // 技能一律按 /名称 token 插入(与所有技能一致):宿主或扩展在发送时展开正文,不再整文塞入输入框
     for (const skill of claude!.skills) {
-      item("🎓", t("技能 {name}", { name: skill.name }), () => insert(skill.content), t("插入 .claude 技能说明(SKILL.md)"));
+      item("🎓", t("技能 {name}", { name: skill.name }), () => insert(`/${skill.name} `), t("插入 /名称 调用技能(发送时自动展开技能正文)"));
     }
   }
   if (hasCodex) {
@@ -1841,7 +2107,7 @@ function renderPlusMenu() {
       plusMenu.append(info);
     }
     for (const skill of claude!.codexSkills) {
-      item("🎓", t("技能 {name}", { name: skill.name }), () => insert(skill.content), t("插入 .codex 技能说明(SKILL.md)"));
+      item("🎓", t("技能 {name}", { name: skill.name }), () => insert(`/${skill.name} `), t("插入 /名称 调用技能(发送时自动展开技能正文)"));
     }
   }
   if (hasCopilot) {
@@ -2299,9 +2565,9 @@ function renderActions(node: NodeState) {
           });
           menu.append(row);
         };
-        // 工作区回退(服务端 dsh-git-rollback 插件命令):先弹「代码审核」确认窗口,再真正回退
+        // 工作区回退(服务端 dsh-git-rollback 插件命令):先弹「精确撤销」确认窗口,只撤销该回合自身产生的文件改动,不动你自己的提交
         add(ICONS.rewind, t("撤销本回合文件改动"), () => {
-          openRollbackReview();
+          openRollbackUndo();
         });
         add(ICONS.ledger, t("查看检查点"), () => {
           openCheckpointsDialog();
@@ -2310,10 +2576,10 @@ function renderActions(node: NodeState) {
         add(ICONS.branch, t("从此处新建分支"), () => {
           vscode.postMessage({ kind: "forkAt", seq: node.seq });
         });
-        // 撤销本回合改动并新建分支:先弹该回合的「代码审核」回退确认,确认后回退工作区 + 从此处新建会话分支
+        // 撤销本回合改动并新建分支:先弹该回合的「精确撤销」确认,确认后回退该回合改动 + 从此处新建会话分支
         add(ICONS.corner, t("撤销本回合改动并新建分支"), () => {
           if (typeof node.turn === "number" && node.turn > 0) {
-            openRollbackReview(node.turn, () => {
+            openRollbackUndo(node.turn, () => {
               vscode.postMessage({ kind: "forkAt", seq: node.seq });
             });
           } else {
@@ -4047,7 +4313,7 @@ function handleMessage(msg: any) {
       // 骨架期创建的静态控件文案(输入框 placeholder、按钮 title、工具标签等)在
       // 构建时用的是默认 zh-cn,init 拿到真实语言后必须就地刷新,否则首次打开显示中文
       applyStaticLabels();
-      state.agentDirs = msg.agentDirs ?? { claude: true, codex: true, githubCopilot: true };
+      state.agentDirs = msg.agentDirs ?? { claude: true, codex: true, githubCopilot: true, dshUserSkills: true };
       state.models = null;
       state.presets = null;
       // 切换会话时清空技能与子代理,避免旧会话数据残留导致 / 菜单显示空标题
@@ -4260,12 +4526,32 @@ function handleMessage(msg: any) {
     }
     case "rollbackCheckpointsData": {
       if (typeof msg.requestId !== "string" || msg.requestId !== rbState.requestId) break;
-      if (msg.head && Array.isArray(msg.checkpoints)) {
-        renderCheckpointsDialog(msg as { head: string; dirty: number; checkpoints: RbCheckpointRow[] });
+      if (msg.head && Array.isArray(msg.sessions)) {
+        renderCheckpointsDialog(msg as { head: string; dirty: number; sessions: { sessionId: string; checkpoints: RbCheckpointRow[] }[] });
       } else {
         rbMeta.textContent = String(msg.error ?? t("差异不可用"));
         rbBody.innerHTML = "";
       }
+      break;
+    }
+    case "rollbackUndoPreviewData": {
+      if (typeof msg.requestId !== "string" || msg.requestId !== rbState.requestId) break;
+      if (msg.preview) {
+        renderUndoReview(msg.preview as RbUndoPreview);
+      } else {
+        rbMeta.textContent = String(msg.error ?? t("差异不可用"));
+        rbBody.innerHTML = "";
+        rbBody.append(el("div", "rb-empty", t("该回合没有可精确撤销的快照;可用「回退到此回合前」整体回退")));
+      }
+      break;
+    }
+    case "rollbackUndoDiffData": {
+      if (typeof msg.requestId !== "string") break;
+      const pre = rbDiffTargets.get(msg.requestId);
+      if (!pre) break;
+      rbDiffTargets.delete(msg.requestId);
+      if (typeof msg.diff === "string" && msg.diff) pre.innerHTML = renderGitDiffHtml(msg.diff);
+      else pre.textContent = t("差异不可用");
       break;
     }
     case "planFile": {
@@ -4419,7 +4705,7 @@ function handleMessage(msg: any) {
       break;
     }
     case "agentDirs": {
-      state.agentDirs = msg.value ?? state.agentDirs;
+      state.agentDirs = { claude: true, codex: true, githubCopilot: true, dshUserSkills: true, ...(msg.value ?? {}) };
       panels.refreshSettings();
       break;
     }

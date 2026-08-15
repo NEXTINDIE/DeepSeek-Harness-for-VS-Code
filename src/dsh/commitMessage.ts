@@ -96,14 +96,18 @@ function commitSessionKey(root: vscode.Uri): string {
   return `dsh.commit.session:${root.toString()}`;
 }
 
-/** 创建提交信息专用会话并立即归档(静默)。 */
+/** 创建提交信息专用会话并立即归档(静默);全程不打断用户当前对话(保存并恢复原当前会话)。 */
 async function createCommitSession(hub: DshHub, root: vscode.Uri): Promise<string> {
+  // 保存用户当前会话:提交会话绝不激活到对话列表
+  const prev = hub.store.currentSessionId;
   const sessionId = await hub.createSession(root.fsPath);
   try {
     await hub.archiveSession(sessionId);
   } catch (error) {
     console.error("[dsh] archive commit session failed:", error);
   }
+  // 恢复原当前会话(提交会话保持归档 + 非当前,下拉列表与对话区都不出现)
+  hub.store.selectSession(prev);
   return sessionId;
 }
 

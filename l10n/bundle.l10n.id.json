@@ -144,6 +144,7 @@
   "rollback.confirmYes": "Pulihkan",
   "rollback.done": "Ruang kerja dipulihkan ke kondisi sebelum giliran {turn}",
   "rollback.noRecord": "Tidak ada snapshot rollback per giliran untuk sesi ini (memerlukan plugin server DSH)",
+  "rollback.noUndoable": "Tidak ada snapshot yang dapat dibatalkan secara presisi untuk giliran itu (memerlukan snapshot akhir giliran; gunakan /rollback N untuk membatalkan semuanya)",
   "rollback.noCheckpoint": "Tidak ada titik rollback untuk giliran {turn}",
   "rollback.noGit": "Bukan repositori Git: {cwd}",
   "rollback.snapshotFailed": "Tidak dapat membuat snapshot pengaman, rollback dibatalkan: {error}",

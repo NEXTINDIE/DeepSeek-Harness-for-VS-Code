@@ -144,6 +144,7 @@
   "rollback.confirmYes": "Zurücksetzen",
   "rollback.done": "Arbeitsbereich auf den Stand vor Runde {turn} zurückgesetzt",
   "rollback.noRecord": "Keine rundenbezogenen Rollback-Snapshots für diese Sitzung (DSH-Server-Plugin erforderlich)",
+  "rollback.noUndoable": "Kein präzise rückgängig machbarer Schnappschuss für diese Runde (Runden-End-Snapshot erforderlich; für Gesamt-Rollback /rollback N nutzen)",
   "rollback.noCheckpoint": "Kein Rollback-Checkpoint für Runde {turn}",
   "rollback.noGit": "Kein Git-Repository: {cwd}",
   "rollback.snapshotFailed": "Sicherungs-Snapshot fehlgeschlagen, Rollback abgebrochen: {error}",

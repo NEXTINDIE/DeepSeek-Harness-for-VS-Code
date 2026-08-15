@@ -144,6 +144,7 @@
   "rollback.confirmYes": "Geri al",
   "rollback.done": "Çalışma alanı {turn}. turdan önceki duruma geri yüklendi",
   "rollback.noRecord": "Bu oturum için tur bazlı geri alma anlık görüntüsü yok (DSH sunucu eklentisi gerekli)",
+  "rollback.noUndoable": "Bu tur için hassas geri alınabilir bir anlık görüntü yok (tur sonu anlık görüntüsü gerekir; tümünü geri almak için /rollback N kullanın)",
   "rollback.noCheckpoint": "{turn}. tur için geri alma noktası yok",
   "rollback.noGit": "Bir Git deposu değil: {cwd}",
   "rollback.snapshotFailed": "Güvenlik anlık görüntüsü alınamadı, geri alma iptal edildi: {error}",

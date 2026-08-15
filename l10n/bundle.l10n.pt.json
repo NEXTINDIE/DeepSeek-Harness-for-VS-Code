@@ -144,6 +144,7 @@
   "rollback.confirmYes": "Restaurar",
   "rollback.done": "Espaço de trabalho restaurado para o estado anterior ao turno {turn}",
   "rollback.noRecord": "Nenhum instantâneo de reversão por turno para esta sessão (requer o plugin de servidor do DSH)",
+  "rollback.noUndoable": "Não há snapshot desfazível com precisão para esse turno (requer snapshot de fim de turno; use /rollback N para reverter tudo)",
   "rollback.noCheckpoint": "Nenhum ponto de restauração para o turno {turn}",
   "rollback.noGit": "Não é um repositório Git: {cwd}",
   "rollback.snapshotFailed": "Não foi possível criar o instantâneo de segurança, reversão cancelada: {error}",

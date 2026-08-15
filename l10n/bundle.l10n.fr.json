@@ -144,6 +144,7 @@
   "rollback.confirmYes": "Restaurer",
   "rollback.done": "Espace de travail restauré à l'état antérieur au tour {turn}",
   "rollback.noRecord": "Aucun instantané de restauration par tour pour cette session (plugin serveur DSH requis)",
+  "rollback.noUndoable": "Aucune capture annulable avec précision pour ce tour (capture de fin de tour requise ; utilisez /rollback N pour un retour global)",
   "rollback.noCheckpoint": "Aucun point de restauration pour le tour {turn}",
   "rollback.noGit": "Ce n'est pas un dépôt Git : {cwd}",
   "rollback.snapshotFailed": "Impossible de créer l'instantané de sécurité, restauration annulée : {error}",

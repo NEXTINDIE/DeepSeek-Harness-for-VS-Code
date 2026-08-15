@@ -1,4 +1,4 @@
-import { checkpointTurn } from "./checkpoint.js";
+import { checkpointTurn, checkpointTurnEnd } from "./checkpoint.js";
 import { registerCommands } from "./command.js";
 import { DEFAULT_COMMIT_PREFIX, DEFAULT_REF_PREFIX } from "./types.js";
 export const name = "dsh-git-rollback";
@@ -18,8 +18,6 @@ export function apply(ctx, config = {}) {
         queues.set(cwd, run.then(() => undefined, () => undefined));
     };
     ctx.on("session/event", (session, event) => {
-        if (event.type !== "turn/start")
-            return;
         const data = event.data;
         const turn = typeof data.turn === "number" ? data.turn : 0;
         if (!turn)
@@ -30,7 +28,13 @@ export function apply(ctx, config = {}) {
         const isTop = (header.delegationDepth ?? 0) === 0;
         if (!sid || !cwd || !isTop)
             return;
-        enqueue(cwd, () => checkpointTurn(gitBin, cwd, sid, turn, event.time, opts));
+        if (event.type === "turn/start") {
+            enqueue(cwd, () => checkpointTurn(gitBin, cwd, sid, turn, event.time, opts));
+        }
+        else if (event.type === "turn/end") {
+            // 回合结束快照:记录该回合自身改动,供 /undo 精确撤销(只撤销会话改动,不动用户提交内容)
+            enqueue(cwd, () => checkpointTurnEnd(gitBin, cwd, sid, turn, event.time, opts));
+        }
     });
     registerCommands(ctx, opts);
 }

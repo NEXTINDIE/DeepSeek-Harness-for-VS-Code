@@ -45,5 +45,6 @@
   "config.language.id": "Indonesia",
   "config.language.tr": "Turki",
   "config.language.ar": "Arab",
-  "config.installRollbackPlugin": "Instal otomatis plugin rollback Git per giliran ke profil web DSH (mengaktifkan /rollback, /redo, /checkpoints; berlaku setelah server DSH dimulai ulang)"
+  "config.installRollbackPlugin": "Instal otomatis plugin rollback Git per giliran ke profil web DSH (mengaktifkan /rollback, /redo, /checkpoints; berlaku setelah server DSH dimulai ulang)",
+  "config.agentDirs.dshUserSkills": "Tampilkan / sembunyikan skill global pengguna DSH di daftar skill (~/.dsh/skills, ~/.agents/skills)"
 }

@@ -45,5 +45,6 @@
   "config.language.id": "Endonezce",
   "config.language.tr": "Türkçe",
   "config.language.ar": "Arapça",
-  "config.installRollbackPlugin": "Turn bazlı Git geri alma eklentisini DSH web profiline otomatik kur (/rollback, /redo, /checkpoints etkinleştirilir; DSH sunucusu yeniden başlatıldığında etkili olur)"
+  "config.installRollbackPlugin": "Turn bazlı Git geri alma eklentisini DSH web profiline otomatik kur (/rollback, /redo, /checkpoints etkinleştirilir; DSH sunucusu yeniden başlatıldığında etkili olur)",
+  "config.agentDirs.dshUserSkills": "Beceri listesinde DSH kullanıcı genel becerilerini göster / gizle (~/.dsh/skills, ~/.agents/skills)"
 }

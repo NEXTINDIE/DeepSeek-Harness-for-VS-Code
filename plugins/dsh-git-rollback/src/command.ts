@@ -5,7 +5,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { Agent } from "@deepseek-ai/dsh-agent";
 import type { CommandDefinition, CommandInvocation } from "@deepseek-ai/dsh-commands";
-import { listCheckpoints, performRedo, performRollback, type RollbackOptions } from "./rollback.js";
+import { listCheckpoints, performRedo, performRollback, performUndo, type RollbackOptions } from "./rollback.js";
 
 interface SessionHeaderView {
   cwd?: string;
@@ -54,6 +54,18 @@ export function registerCommands(ctx: Context, opts: RollbackOptions): void {
     },
   };
 
+  const undoDef: CommandDefinition = {
+    name: "undo",
+    description: "精确撤销某回合产生的文件改动(反向应用回合开始→结束的差异,不动你自己提交的内容)",
+    input: { hint: "[N]" },
+    async handler(invocation) {
+      const info = sessionInfo(invocation);
+      if (!info.cwd || !info.sid) return { kind: "error", text: "当前会话没有工作目录,无法撤销" };
+      if (info.running) return { kind: "error", text: "回合正在运行中,请等它结束后再撤销" };
+      return performUndo(opts.gitBin, info.cwd, info.sid, invocation.rawInput, opts);
+    },
+  };
+
   const checkpointsDef: CommandDefinition = {
     name: "checkpoints",
     description: "列出本会话的回合检查点与清理指引",
@@ -66,5 +78,6 @@ export function registerCommands(ctx: Context, opts: RollbackOptions): void {
 
   ctx.effect(() => ctx.commands.register(rollbackDef), "cmd /rollback");
   ctx.effect(() => ctx.commands.register(redoDef), "cmd /redo");
+  ctx.effect(() => ctx.commands.register(undoDef), "cmd /undo");
   ctx.effect(() => ctx.commands.register(checkpointsDef), "cmd /checkpoints");
 }

@@ -45,5 +45,6 @@
   "config.language.id": "Indonesisch",
   "config.language.tr": "Türkisch",
   "config.language.ar": "Arabisch",
-  "config.installRollbackPlugin": "Das Git-Rollback-Plugin pro Runde automatisch im DSH-Webprofil installieren (aktiviert /rollback, /redo, /checkpoints; wirkt nach einem Neustart des DSH-Servers)"
+  "config.installRollbackPlugin": "Das Git-Rollback-Plugin pro Runde automatisch im DSH-Webprofil installieren (aktiviert /rollback, /redo, /checkpoints; wirkt nach einem Neustart des DSH-Servers)",
+  "config.agentDirs.dshUserSkills": "DSH-Benutzerskills global in der Skillliste anzeigen/ausblenden (~/.dsh/skills, ~/.agents/skills)"
 }

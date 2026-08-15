@@ -45,5 +45,6 @@
   "config.language.id": "インドネシア語",
   "config.language.tr": "トルコ語",
   "config.language.ar": "アラビア語",
-  "config.installRollbackPlugin": "ターン単位の Git ロールバックプラグインを DSH web profile に自動インストールします(/rollback、/redo、/checkpoints が有効化;DSH サーバー再起動後に有効)"
+  "config.installRollbackPlugin": "ターン単位の Git ロールバックプラグインを DSH web profile に自動インストールします(/rollback、/redo、/checkpoints が有効化;DSH サーバー再起動後に有効)",
+  "config.agentDirs.dshUserSkills": "利用可能なスキル一覧で DSH ユーザー全体スキルを表示/非表示(~/.dsh/skills、~/.agents/skills)"
 }

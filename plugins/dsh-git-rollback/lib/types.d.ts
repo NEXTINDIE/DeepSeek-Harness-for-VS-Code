@@ -22,6 +22,11 @@ export interface CheckpointEntry {
     untracked: string[];
     /** 清单超限截断时置 true,回退跳过精确清理并提示。 */
     truncated: boolean;
+    /** 回合结束快照:该回合产生的改动 = diff(commit → after.commit),供 /undo 精确撤销。 */
+    after?: {
+        commit: string;
+        time: number;
+    };
 }
 export interface RollEntry {
     /** 回退目标回合。 */
@@ -45,6 +50,11 @@ export interface RollbackRecord {
     updatedAt?: number;
     checkpoints: CheckpointEntry[];
     rolls: RollEntry[];
+    /** 精确撤销记录(/undo 成功执行过的回合)。 */
+    undos?: {
+        turn: number;
+        time: number;
+    }[];
 }
 export declare const RECORD_DIR = ".dsh/rollback";
 export declare const DEFAULT_REF_PREFIX = "refs/dsh";

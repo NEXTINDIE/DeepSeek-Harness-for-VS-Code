@@ -21,6 +21,8 @@ export interface RollbackCheckpoint {
   time: number;
   untracked: string[];
   truncated: boolean;
+  /** v2.1:回合结束快照(/undo 精确撤销的依据);旧记录可能没有。 */
+  after?: { commit: string; time: number };
 }
 
 export interface RollbackRecord {
@@ -63,6 +65,8 @@ export interface CheckpointSummary {
   addedTotal: number;
   deletedTotal: number;
   truncated: boolean;
+  /** 是否有回合结束快照(/undo 精确撤销可用)。 */
+  hasAfter: boolean;
 }
 
 const RECORD_DIR = ".dsh/rollback";
@@ -250,7 +254,66 @@ export async function checkpointSummaries(cwd: string, record: RollbackRecord): 
       addedTotal: stats.addedTotal,
       deletedTotal: stats.deletedTotal,
       truncated: stats.truncated || entry.truncated,
+      hasAfter: !!entry.after,
     });
   }
   return { head: head.stdout, dirty, checkpoints: list.reverse() };
+}
+
+/** 跨会话检查点清单:扫描工作区 .dsh/rollback 下全部会话记录(用户可在任意对话中撤销别的对话产生的改动)。 */
+export async function allCheckpointSummaries(
+  cwd: string,
+): Promise<{ head: string; dirty: number; sessions: { sessionId: string; checkpoints: CheckpointSummary[] }[] }> {
+  const head = await gitExec(cwd, ["rev-parse", "--short", "HEAD"]);
+  const status = await gitExec(cwd, ["status", "--porcelain"]);
+  const dirty = status.ok ? status.stdout.split(/\r?\n/).filter(Boolean).length : 0;
+  const sessions: { sessionId: string; checkpoints: CheckpointSummary[] }[] = [];
+  try {
+    const { readdir } = await import("node:fs/promises");
+    const dir = join(cwd, RECORD_DIR);
+    const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
+    for (const file of files) {
+      const sessionId = file.slice(0, -5);
+      const record = await loadRollbackRecord(cwd, sessionId);
+      if (!record) continue;
+      const summary = await checkpointSummaries(cwd, record);
+      sessions.push({ sessionId, checkpoints: summary.checkpoints });
+    }
+  } catch {
+    // 目录不存在或不可读:返回空
+  }
+  sessions.sort((a, b) => (b.checkpoints[b.checkpoints.length - 1]?.time ?? 0) - (a.checkpoints[a.checkpoints.length - 1]?.time ?? 0));
+  return { head: head.stdout, dirty, sessions };
+}
+
+/** /undo 精确撤销的预览:该回合自身产生的改动 = diff(回合开始检查点 → 回合结束快照)。 */
+export async function scopedTurnStats(
+  cwd: string,
+  record: RollbackRecord,
+  turn?: number,
+): Promise<{ turn: number; time: number; before: string; after: string; files: RollbackFileStat[]; addedTotal: number; deletedTotal: number; truncated: boolean } | undefined> {
+  const entry = typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : undefined;
+  const candidate = entry ?? [...record.checkpoints].reverse().find((c) => c.after);
+  if (!candidate || !candidate.after) return undefined;
+  const diff = await gitExec(cwd, ["diff", "--numstat", candidate.commit, candidate.after.commit, "--"]);
+  if (!diff.ok) return undefined;
+  const stats = parseNumstat(diff.stdout);
+  return {
+    turn: candidate.turn,
+    time: candidate.time,
+    before: candidate.commit,
+    after: candidate.after.commit,
+    files: stats.files,
+    addedTotal: stats.addedTotal,
+    deletedTotal: stats.deletedTotal,
+    truncated: stats.truncated,
+  };
+}
+
+/** /undo 预览里单个文件的完整差异(回合开始 → 回合结束)。 */
+export async function scopedTurnFileDiff(cwd: string, before: string, after: string, path: string): Promise<string | undefined> {
+  const res = await gitExec(cwd, ["diff", "--no-color", before, after, "--", path]);
+  if (!res.ok) return undefined;
+  const text = res.stdout.length > MAX_DIFF_CHARS ? `${res.stdout.slice(0, MAX_DIFF_CHARS)}\n…(差异过长,已截断)` : res.stdout;
+  return text || undefined;
 }

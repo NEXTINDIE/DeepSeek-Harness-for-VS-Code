@@ -1,4 +1,4 @@
-import { listCheckpoints, performRedo, performRollback } from "./rollback.js";
+import { listCheckpoints, performRedo, performRollback, performUndo } from "./rollback.js";
 /** 从命令调用上下文解析会话/工作区事实(仅读叶子字段)。 */
 function sessionInfo(invocation) {
     const agent = invocation.agent;
@@ -37,6 +37,19 @@ export function registerCommands(ctx, opts) {
             return performRedo(opts.gitBin, info.cwd, info.sid, opts);
         },
     };
+    const undoDef = {
+        name: "undo",
+        description: "精确撤销某回合产生的文件改动(反向应用回合开始→结束的差异,不动你自己提交的内容)",
+        input: { hint: "[N]" },
+        async handler(invocation) {
+            const info = sessionInfo(invocation);
+            if (!info.cwd || !info.sid)
+                return { kind: "error", text: "当前会话没有工作目录,无法撤销" };
+            if (info.running)
+                return { kind: "error", text: "回合正在运行中,请等它结束后再撤销" };
+            return performUndo(opts.gitBin, info.cwd, info.sid, invocation.rawInput, opts);
+        },
+    };
     const checkpointsDef = {
         name: "checkpoints",
         description: "列出本会话的回合检查点与清理指引",
@@ -49,5 +62,6 @@ export function registerCommands(ctx, opts) {
     };
     ctx.effect(() => ctx.commands.register(rollbackDef), "cmd /rollback");
     ctx.effect(() => ctx.commands.register(redoDef), "cmd /redo");
+    ctx.effect(() => ctx.commands.register(undoDef), "cmd /undo");
     ctx.effect(() => ctx.commands.register(checkpointsDef), "cmd /checkpoints");
 }

@@ -9,6 +9,9 @@
  * /redo:同样以内容级恢复回保存点。任何提交/文件状态都不丢失:回退前的
  *   完整状态(含未跟踪)在保存点提交树内,分支指针从未移动。
  */
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { gitExec, readRecord, saveRef, shortHash, untrackedList, writeRecord } from "./git.js";
 import { MAX_ROLLS } from "./types.js";
 /** 解析 /rollback 的回合号参数:空 = 最近一回合。 */
@@ -144,6 +147,69 @@ export async function performRedo(gitBin, cwd, sid, opts) {
     writeRecord(cwd, sid, record);
     const removedText = removed < 0 ? "已按保存点清理新建的未跟踪文件" : `删除回退后新建的未跟踪文件 ${removed} 个`;
     return { kind: "success", text: `已恢复到回退前的状态(保存点 ${shortHash(roll.redo)}),${removedText};HEAD 与分支历史保持不变。` };
+}
+/**
+ * 精确撤销 /undo [N]:只撤销该会话某个回合自身产生的文件改动
+ * (反向应用 diff(回合开始检查点 → 回合结束快照)),**不触碰你自己提交的内容**。
+ * 回合结束后你自己手动改动的文件若与撤销补丁冲突,会明确报错并保留补丁供手动处理。
+ */
+export async function performUndo(gitBin, cwd, sid, rawInput, opts) {
+    const top = await gitExec(gitBin, cwd, ["rev-parse", "--show-toplevel"]);
+    if (!top.ok || !top.stdout)
+        return { kind: "error", text: "工作区不是 git 仓库,无法撤销" };
+    const record = readRecord(cwd, sid);
+    if (!record || record.checkpoints.length === 0) {
+        return { kind: "error", text: "本会话还没有检查点(每个回合开始前自动快照)" };
+    }
+    const raw = rawInput.trim();
+    let turn;
+    if (raw === "") {
+        const last = [...record.checkpoints].reverse().find((c) => c.after);
+        if (!last)
+            return { kind: "error", text: "没有可撤销的回合(需要该回合结束后的快照;旧记录的回合无结束快照,可用 /rollback N 整体回退)" };
+        turn = last.turn;
+    }
+    else {
+        if (!/^\d+$/.test(raw))
+            return { kind: "error", text: `无效的回合号:「${raw}」` };
+        turn = Number.parseInt(raw, 10);
+    }
+    const entry = record.checkpoints.find((c) => c.turn === turn);
+    if (!entry)
+        return { kind: "error", text: `没有回合 ${turn} 的检查点(用 /checkpoints 查看可用回合)` };
+    if (!entry.after) {
+        return { kind: "error", text: `回合 ${turn} 没有结束快照(该回合无改动或记录来自旧版本),无法精确撤销;可用 /rollback ${turn} 整体回退` };
+    }
+    const stats = await gitExec(gitBin, cwd, ["diff", "--numstat", entry.commit, entry.after.commit, "--"]);
+    const diff = await gitExec(gitBin, cwd, ["diff", "--no-color", "--binary", entry.commit, entry.after.commit, "--"]);
+    if (!diff.ok || !stats.ok)
+        return { kind: "error", text: `生成回合 ${turn} 的改动失败:${diff.stderr || "git diff failed"}` };
+    if (!diff.stdout.trim())
+        return { kind: "success", text: `回合 ${turn} 没有可撤销的文件改动。` };
+    const fileCount = stats.stdout.split(/\r?\n/).filter(Boolean).length;
+    // 反向应用:先 --check 验证,避免应用中途失败留下半成品
+    const check = await gitExec(gitBin, cwd, ["apply", "-R", "--check", "--binary", "-"], {
+        stdin: diff.stdout,
+    });
+    if (!check.ok) {
+        const patchFile = join(tmpdir(), `dsh-undo-${sid}-${turn}.patch`);
+        writeFileSync(patchFile, diff.stdout, "utf8");
+        return {
+            kind: "error",
+            text: `撤销回合 ${turn} 的改动失败:当前工作区与该回合结束时不一致(可能你自己改过相同文件)。\n` +
+                `补丁已保存到 ${patchFile},可手动执行 git apply -R ${patchFile} 处理冲突。`,
+        };
+    }
+    const apply = await gitExec(gitBin, cwd, ["apply", "-R", "--binary", "-"], { stdin: diff.stdout });
+    if (!apply.ok)
+        return { kind: "error", text: `撤销失败:${apply.stderr || "git apply failed"}` };
+    record.undos = [...(record.undos ?? []), { turn, time: Date.now() }];
+    record.updatedAt = Date.now();
+    writeRecord(cwd, sid, record);
+    return {
+        kind: "success",
+        text: `已撤销回合 ${turn} 产生的改动(共 ${fileCount} 个文件)。你自己提交的内容与 HEAD 不受影响;如需整体回退请用 /rollback ${turn}。`,
+    };
 }
 export async function listCheckpoints(gitBin, cwd, sid, opts) {
     const top = await gitExec(gitBin, cwd, ["rev-parse", "--show-toplevel"]);

@@ -144,6 +144,7 @@
   "rollback.confirmYes": "復元",
   "rollback.done": "ワークスペースを第 {turn} ターン以前の状態に復元しました",
   "rollback.noRecord": "このセッションにはターン単位のロールバックスナップショットがありません(DSH サーバープラグインが必要です)",
+  "rollback.noUndoable": "このターンには正確に元に戻せるスナップショットがありません(ターン終了スナップショットが必要です;全体ロールバックには /rollback N を使用)",
   "rollback.noCheckpoint": "第 {turn} ターンのロールバックスナップショットがありません",
   "rollback.noGit": "Git リポジトリではありません:{cwd}",
   "rollback.snapshotFailed": "安全スナップショットを作成できないため、ロールバックを中止しました:{error}",

@@ -4,7 +4,12 @@ export interface GitResult {
     stdout: string;
     stderr: string;
 }
-export declare function gitExec(gitBin: string, cwd: string, args: string[], timeoutMs?: number): Promise<GitResult>;
+export interface GitExecOptions {
+    timeoutMs?: number;
+    /** 写入 stdin 后关闭(如 git apply - 的补丁管道)。 */
+    stdin?: string;
+}
+export declare function gitExec(gitBin: string, cwd: string, args: string[], opts?: GitExecOptions): Promise<GitResult>;
 /** commit-tree 的身份兜底:缺失 user.name/email 时以插件身份重试。(-c 必须在子命令之前) */
 export declare function commitTree(gitBin: string, cwd: string, tree: string, parent: string | undefined, message: string): Promise<GitResult>;
 export declare function sanitizeRefPart(value: string): string;

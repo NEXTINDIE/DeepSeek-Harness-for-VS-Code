@@ -144,6 +144,7 @@
   "rollback.confirmYes": "ย้อนกลับ",
   "rollback.done": "กู้คืนพื้นที่ทำงานเป็นสถานะก่อนเทิร์น {turn} แล้ว",
   "rollback.noRecord": "ไม่มีสแนปช็อตย้อนกลับรายเทิร์นสำหรับเซสชันนี้ (ต้องใช้ปลั๊กอินฝั่งเซิร์ฟเวอร์ DSH)",
+  "rollback.noUndoable": "ไม่มี snapshot ที่เลิกทำได้อย่างแม่นยำสำหรับเทิร์นนั้น (ต้องมี snapshot ตอนจบเทิร์น; ใช้ /rollback N เพื่อย้อนกลับทั้งหมด)",
   "rollback.noCheckpoint": "ไม่มีจุดย้อนกลับสำหรับเทิร์น {turn}",
   "rollback.noGit": "ไม่ใช่ที่เก็บ Git: {cwd}",
   "rollback.snapshotFailed": "สร้างสแนปช็อตความปลอดภัยไม่ได้ ยกเลิกการย้อนกลับ: {error}",

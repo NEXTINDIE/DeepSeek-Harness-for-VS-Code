@@ -107,6 +107,35 @@ export async function checkpointTurn(gitBin, cwd, sid, turn, time, opts) {
     writeRecord(cwd, sid, record);
 }
 /**
+ * 回合结束快照:记录该回合自身产生的改动(after)。
+ * 该回合的改动 = diff(回合开始检查点 → after),供 /undo 精确撤销——只撤销会话自己的改动,
+ * 用户回合之后自行提交的内容不受影响。无改动回合不记录 after(撤销时视为无可撤销)。
+ */
+export async function checkpointTurnEnd(gitBin, cwd, sid, turn, time, opts) {
+    const top = await gitExec(gitBin, cwd, ["rev-parse", "--show-toplevel"]);
+    if (!top.ok || !top.stdout)
+        return; // 非 git 仓库:不检查点
+    const record = readRecord(cwd, sid) ?? { version: 2, sessionId: sid, cwd, checkpoints: [], rolls: [] };
+    const entry = record.checkpoints.find((c) => c.turn === turn);
+    if (!entry || entry.after)
+        return; // 无开始检查点或已记录
+    const snap = await snapshotCommit(gitBin, cwd, entry.commit, `${opts.commitPrefix}-end ${sid} turn ${turn}`);
+    if (!snap.ok || snap.unchanged) {
+        if (!snap.ok)
+            console.error("[dsh-git-rollback] turn-end checkpoint failed:", snap.reason);
+        return; // 无改动:不记录 after
+    }
+    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid)]);
+    const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid), snap.commit, tip.ok ? tip.stdout : ""]);
+    if (!refResult.ok) {
+        console.error("[dsh-git-rollback] turn-end ref update failed:", refResult.stderr);
+        return;
+    }
+    entry.after = { commit: snap.commit, time };
+    record.updatedAt = Date.now();
+    writeRecord(cwd, sid, record);
+}
+/**
  * 从链重建检查点清单(记录文件丢失时的兜底):沿提交父链走,
  * 解析提交信息里的 `turn <N>`,越新越靠后。
  */

@@ -49,5 +49,6 @@
   "config.agentDirs.claude": "Scan .claude (commands, skills) and report CLAUDE.md / AGENTS.md",
   "config.agentDirs.codex": "Scan .codex (config.toml, skills)",
   "config.agentDirs.githubCopilot": "Scan .github Copilot files (instructions, agents, prompts)",
-  "config.installRollbackPlugin": "Automatically install the turn-level Git rollback plugin into the DSH web profile (enables /rollback, /redo, /checkpoints; takes effect after the DSH server restarts)"
+  "config.installRollbackPlugin": "Automatically install the turn-level Git rollback plugin into the DSH web profile (enables /rollback, /redo, /checkpoints; takes effect after the DSH server restarts)",
+  "config.agentDirs.dshUserSkills": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills) in the available-skills list"
 }

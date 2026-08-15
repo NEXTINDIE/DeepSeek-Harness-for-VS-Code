@@ -5,7 +5,17 @@ import { homedir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { folderCwd } from "../dsh/participantSessions";
-import { checkpointSummaries, gitHeadUriForFile, gitShowContent, loadRollbackRecord, rollbackFileDiff, rollbackPreview } from "../dsh/rollback";
+import {
+  allCheckpointSummaries,
+  checkpointSummaries,
+  gitHeadUriForFile,
+  gitShowContent,
+  loadRollbackRecord,
+  rollbackFileDiff,
+  rollbackPreview,
+  scopedTurnFileDiff,
+  scopedTurnStats,
+} from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
 
@@ -138,8 +148,15 @@ export class ChatChannel {
       { dispose: () => activeEditorSub.dispose() },
       // 语言设置变更:通知前端重载界面
       { dispose: () => configSub.dispose() },
-      // 工作区文件夹变更:通知前端(会话下拉按当前目录过滤)
-      { dispose: () => vscode.workspace.onDidChangeWorkspaceFolders(() => this.post({ kind: "workspaceFolder", path: this.workspaceFolder() })) },
+      // 工作区文件夹变更:通知前端(会话下拉按当前目录过滤)+ 对话隔离(切走其他目录的会话)
+      {
+        dispose: () =>
+          vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            const path = this.workspaceFolder();
+            this.post({ kind: "workspaceFolder", path });
+            void this.clearCrossFolderSession(path);
+          }),
+      },
       { dispose: store.on("sessionsChanged", () => this.post({ kind: "sessions", sessions: this.serializeSessions() })) },
       { dispose: store.on("jobs", (sid: string, jobs: unknown) => this.post({ kind: "jobs", sessionId: sid, jobs })) },
       {
@@ -257,9 +274,29 @@ export class ChatChannel {
 
   private async ensureAndPush() {
     await this.hub.ensureReady();
+    // 启动/激活时:不主动选中任何会话(下拉保持「— 选择会话 —」),仅清理跨目录残留选择
+    await this.clearCrossFolderSession(this.workspaceFolder());
     const current = this.hub.store.currentSessionId;
     if (current) void this.hub.updateCurrentModel(current);
     await this.pushFullState();
+  }
+
+  /**
+   * 对话隔离:切换工作区目录后,若当前会话不属于新目录(或其子目录),
+   * 取消选择(下拉回到「— 选择会话 —」),由用户主动选择 —— 与 Claude Code 的目录隔离一致。
+   */
+  private async clearCrossFolderSession(path: string | null) {
+    if (!path) return;
+    const store = this.hub.store;
+    const norm = (p: string) => p.replace(/[\\/]+$/, "").replace(/\\/g, "/").toLowerCase();
+    const folder = norm(path);
+    const current = store.currentSessionId;
+    if (current === undefined) return;
+    const cur = store.sessions.get(current);
+    if (!cur) return;
+    const c = norm(cur.cwd ?? "");
+    if (!c || c === folder || c.startsWith(folder + "/")) return; // 属于新目录,保留
+    store.selectSession(undefined);
   }
 
   /**
@@ -491,8 +528,14 @@ export class ChatChannel {
           try {
             // @智能体名 提及:注入智能体定义上下文(折叠为附件上下文),并从可见文本中移除 @token
             const mention = await this.composeAgentMentions(msg.text);
-            const baseText = mention ? mention.text : msg.text;
+            let baseText = mention ? mention.text : msg.text;
             const images: { data: string; mediaType: string; name?: string }[] = Array.isArray(msg.images) ? msg.images.slice(0, 8) : [];
+            // /技能名 token 展开(仅非纯命令消息;宿主注册技能由 pre-step 边界展开,这里只补本地扫描技能)
+            const cmdRaw = baseText.trim();
+            const isCmdLine = isCommandLine(cmdRaw) && !(msg.attachments?.length > 0);
+            const skillCtx = isCmdLine ? undefined : await this.composeSkillTokens(current, baseText);
+            if (skillCtx) baseText = skillCtx.text;
+            const contextParts = [mention?.agentParts, skillCtx?.parts].filter(Boolean).join("\n\n") || undefined;
             if (images.length > 0) {
               // 带图片的消息:直接以内容块发送(官方 session.prompt image 通道)
               const content: PromptContentPart[] = images.map((img) => ({
@@ -501,7 +544,7 @@ export class ChatChannel {
                 data: img.data,
                 ...(img.name ? { name: img.name } : {}),
               }));
-              const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
+              const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
               content.push({ type: "text", text });
               await this.hub.sendParts(current, content);
             } else {
@@ -514,11 +557,11 @@ export class ChatChannel {
                 if (await this.hub.isKnownCommand(current, cmdName)) {
                   await this.runCommandAndNotify(current, raw);
                 } else {
-                  const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
+                  const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
                   await this.hub.send(current, text);
                 }
               } else {
-                const text = await this.composeWithAttachments(baseText, msg.attachments, mention?.agentParts);
+                const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
                 await this.hub.send(current, text);
               }
             }
@@ -1049,20 +1092,65 @@ export class ChatChannel {
         break;
       }
       case "rollbackCheckpoints": {
-        // 检查点清单弹窗:每个检查点相对当前工作区的差异概览
+        // 检查点清单弹窗:跨会话扫描全部记录(可在任意对话撤销别的对话产生的改动)
         const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
         if (!sid) break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
         const cwd = session?.cwd ?? folderCwd();
-        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
-        const summary = cwd && record ? await checkpointSummaries(cwd, record) : undefined;
+        const summary = cwd ? await allCheckpointSummaries(cwd) : undefined;
         this.post({
           kind: "rollbackCheckpointsData",
           requestId,
           sessionId: sid,
           ...(summary ? summary : { error: t("rollback.noRecord") }),
         });
+        break;
+      }
+      case "rollbackUndoPreview": {
+        // /undo 精确撤销预览:该回合自身产生的改动(diff 回合开始→结束),不动用户提交内容
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid) break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const turn = typeof msg.turn === "number" ? msg.turn : undefined;
+        const preview = cwd && record ? await scopedTurnStats(cwd, record, turn) : undefined;
+        this.post({
+          kind: "rollbackUndoPreviewData",
+          requestId,
+          sessionId: sid,
+          ...(preview ? { preview } : { error: t("rollback.noUndoable") }),
+        });
+        break;
+      }
+      case "rollbackUndoDiff": {
+        // /undo 预览里单个文件的完整差异(回合开始 → 回合结束)
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        if (!sid || typeof msg.path !== "string") break;
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const session = store.sessions.get(sid);
+        const cwd = session?.cwd ?? folderCwd();
+        const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
+        const turn = typeof msg.turn === "number" ? msg.turn : undefined;
+        const stats = cwd && record ? await scopedTurnStats(cwd, record, turn) : undefined;
+        const diff = cwd && stats ? await scopedTurnFileDiff(cwd, stats.before, stats.after, msg.path) : undefined;
+        this.post({
+          kind: "rollbackUndoDiffData",
+          requestId,
+          sessionId: sid,
+          path: msg.path,
+          ...(diff !== undefined ? { diff } : { error: "diff unavailable" }),
+        });
+        break;
+      }
+      case "rollbackUndoApply": {
+        // 确认执行精确撤销:走服务端 /undo 命令(结果摘要经 runCommandAndNotify 透传)
+        const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
+        const turn = typeof msg.turn === "number" ? msg.turn : NaN;
+        if (!sid || !Number.isFinite(turn)) break;
+        await this.runCommandAndNotify(sid, `/undo ${turn}`);
         break;
       }
       case "rollbackCompare": {
@@ -1297,6 +1385,7 @@ export class ChatChannel {
             claude: value.claude !== false,
             codex: value.codex !== false,
             githubCopilot: value.githubCopilot !== false,
+            dshUserSkills: value.dshUserSkills !== false,
           };
           try {
             await vscode.workspace.getConfiguration("dsh").update("agentConfigDirs", next, vscode.ConfigurationTarget.Global);
@@ -1436,14 +1525,15 @@ export class ChatChannel {
   }
 
   /** 扫描目录开关(dsh.agentConfigDirs):默认全部勾选(全部扫描);配置未注册时回退扩展全局状态。 */
-  private agentDirsConfig(): { claude: boolean; codex: boolean; githubCopilot: boolean } {
-    const cfg = vscode.workspace.getConfiguration("dsh").get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean }>("agentConfigDirs", {});
-    const fallback = this.ctx.globalState.get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean }>("dsh.agentConfigDirs");
+  private agentDirsConfig(): { claude: boolean; codex: boolean; githubCopilot: boolean; dshUserSkills: boolean } {
+    const cfg = vscode.workspace.getConfiguration("dsh").get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean; dshUserSkills?: boolean }>("agentConfigDirs", {});
+    const fallback = this.ctx.globalState.get<{ claude?: boolean; codex?: boolean; githubCopilot?: boolean; dshUserSkills?: boolean }>("dsh.agentConfigDirs");
     const pick = (v: boolean | undefined, f: boolean | undefined) => v ?? f ?? true;
     return {
       claude: pick(cfg?.claude, fallback?.claude),
       codex: pick(cfg?.codex, fallback?.codex),
       githubCopilot: pick(cfg?.githubCopilot, fallback?.githubCopilot),
+      dshUserSkills: pick(cfg?.dshUserSkills, fallback?.dshUserSkills),
     };
   }
 
@@ -1486,6 +1576,48 @@ export class ChatChannel {
     }
     if (parts.length === 0) return undefined;
     return { agentParts: parts.join("\n\n"), text: cleaned.trim() };
+  }
+
+  /** 会话 → 宿主已注册技能名(小写)集合;本地扫描技能与宿主重名时由宿主展开,不重复注入。 */
+  private readonly hostSkillNames = new Map<string, Set<string>>();
+
+  /**
+   * 展开消息中的 /技能名 token:匹配本地扫描技能(.claude/.codex skills)且非宿主注册技能时,
+   * 注入技能正文并移除 token(与 @智能体提及同机制);宿主注册技能由 pre-step 边界展开,跳过。
+   */
+  private async composeSkillTokens(sessionId: string, text: string): Promise<{ parts: string; text: string } | undefined> {
+    const tokens = [...text.matchAll(/\/([A-Za-z0-9][\w.-]*)/g)].map((m) => m[1]);
+    if (tokens.length === 0) return undefined;
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!folder) return undefined;
+    let hostNames = this.hostSkillNames.get(sessionId);
+    if (!hostNames) {
+      try {
+        const res = await this.hub.getSkills(sessionId);
+        hostNames = new Set((res?.skills ?? []).map((s) => s.name.toLowerCase()));
+      } catch {
+        hostNames = new Set();
+      }
+      this.hostSkillNames.set(sessionId, hostNames);
+    }
+    let known: { name: string; content: string }[] = [];
+    try {
+      const cfg = await scanAgentConfigs(folder, this.agentDirsConfig());
+      known = [...cfg.skills, ...cfg.codexSkills];
+    } catch {
+      known = [];
+    }
+    const parts: string[] = [];
+    let cleaned = text;
+    for (const name of tokens) {
+      if (hostNames.has(name.toLowerCase())) continue; // 宿主会展开,不重复注入
+      const skill = known.find((s) => s.name === name);
+      if (!skill) continue;
+      cleaned = cleaned.replace(new RegExp(`/${escapeRegExp(name)}`, "g"), "");
+      parts.push(`**技能 ${skill.name}**\n${skill.content}`);
+    }
+    if (parts.length === 0) return undefined;
+    return { parts: parts.join("\n\n"), text: cleaned.trim() };
   }
 
   private async composeWithAttachments(text: string, attachments?: { kind: "file" | "folder"; path: string }[], agentParts?: string): Promise<string> {

@@ -78,7 +78,9 @@ export function activate(ctx: vscode.ExtensionContext) {
       const sessionId = hub.store.listSessions()[0]?.sessionId;
       if (!sessionId) return; // 尚无会话可查命令目录;下次激活再检
       const names = await hub.client.listCommands(sessionId);
-      if (names.includes("rollback")) return; // 插件已生效
+      // rollback 在 0.1.1 已有,undo 是 0.1.2 新增:两者都在才认为插件版本已生效,
+      // 否则运行中的服务器仍是旧插件(升级后必须重启才加载新命令)
+      if (names.includes("rollback") && names.includes("undo")) return; // 插件已生效
     } catch (error) {
       output.appendLine(`[rollback-plugin] 生效检测失败: ${String(error)}`);
       return;

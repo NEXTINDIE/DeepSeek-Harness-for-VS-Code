@@ -144,6 +144,7 @@
   "rollback.confirmYes": "복원",
   "rollback.done": "워크스페이스를 {turn} 턴 이전 상태로 복원했습니다",
   "rollback.noRecord": "이 세션에는 턴 단위 롤백 스냅샷이 없습니다(DSH 서버 플러그인 필요)",
+  "rollback.noUndoable": "해당 턴에는 정밀 실행 취소 가능한 스냅샷이 없습니다(턴 종료 스냅샷 필요; 전체 롤백은 /rollback N 사용)",
   "rollback.noCheckpoint": "{turn} 턴의 롤백 스냅샷이 없습니다",
   "rollback.noGit": "Git 저장소가 아닙니다: {cwd}",
   "rollback.snapshotFailed": "안전 스냅샷을 만들 수 없어 롤백을 중단했습니다: {error}",

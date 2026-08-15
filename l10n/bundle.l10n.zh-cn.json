@@ -149,6 +149,7 @@
   "rollback.confirmYes": "回退",
   "rollback.done": "工作区已恢复到第 {turn} 回合之前的状态",
   "rollback.noRecord": "该会话没有可用的回合级回退快照(需要 DSH 服务端插件)",
+  "rollback.noUndoable": "该回合没有可精确撤销的快照(需要回合结束快照;整体回退可用 /rollback N)",
   "rollback.noCheckpoint": "没有第 {turn} 回合的回退快照",
   "rollback.noGit": "不是 Git 仓库:{cwd}",
   "rollback.snapshotFailed": "无法创建安全快照,已中止回退:{error}",

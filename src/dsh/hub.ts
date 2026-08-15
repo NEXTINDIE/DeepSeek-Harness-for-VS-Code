@@ -112,14 +112,7 @@ export class DshHub {
     return this.readyPromise;
   }
 
-  /** 默认候选会话:最近活跃且未归档、非子代理。 */
-  private latestVisibleSession(): StoredSession | undefined {
-    return this.store
-      .listSessions()
-      .find((s) => !this.store.archivedSessionIds.has(s.sessionId) && s.origin !== "subagent");
-  }
-
-  /** 仅探测(不自动启动):服务器在线时刷新会话并选中最近会话。 */
+  /** 仅探测(不自动启动):服务器在线时刷新会话;不主动选中会话,由用户从下拉框选择。 */
   async probe(): Promise<boolean> {
     const describe = await this.client.ping();
     if (describe === undefined) {
@@ -133,10 +126,6 @@ export class DshHub {
     this.statusState.model = describe.model;
     this.emitStatus();
     await this.refreshSessions();
-    if (!this.store.currentSessionId) {
-      const latest = this.latestVisibleSession();
-      if (latest) this.store.selectSession(latest.sessionId);
-    }
     return true;
   }
 
@@ -157,11 +146,6 @@ export class DshHub {
     this.statusState.model = describe.model;
     this.emitStatus();
     await this.refreshSessions();
-    // 默认选中最近会话(不自动加载历史,打开面板时再加载)
-    if (!this.store.currentSessionId) {
-      const latest = this.latestVisibleSession();
-      if (latest) this.store.selectSession(latest.sessionId);
-    }
     return { ok: true };
   }
 

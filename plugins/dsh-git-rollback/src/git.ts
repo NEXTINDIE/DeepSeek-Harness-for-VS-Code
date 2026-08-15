@@ -2,7 +2,7 @@
  * git 执行封装:execFile Promise 化 + 常用子命令与记录文件 IO。
  * 真实插件运行在 dsh 宿主进程内,直接使用 node:child_process。
  */
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -17,15 +17,38 @@ export interface GitResult {
   stderr: string;
 }
 
-export function gitExec(gitBin: string, cwd: string, args: string[], timeoutMs = 30000): Promise<GitResult> {
+export interface GitExecOptions {
+  timeoutMs?: number;
+  /** 写入 stdin 后关闭(如 git apply - 的补丁管道)。 */
+  stdin?: string;
+}
+
+export function gitExec(gitBin: string, cwd: string, args: string[], opts: GitExecOptions = {}): Promise<GitResult> {
   return new Promise((resolve) => {
-    execFile(gitBin, args, { cwd, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
+    const child = spawn(gitBin, args, { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, opts.timeoutMs ?? 30000);
+    child.stdout.on("data", (d: Buffer) => stdout.push(d));
+    child.stderr.on("data", (d: Buffer) => stderr.push(d));
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      resolve({ ok: false, stdout: "", stderr: String(err) });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
       resolve({
-        ok: !error,
-        stdout: String(stdout ?? "").trim(),
-        stderr: String(stderr ?? "").trim(),
+        ok: code === 0 && !timedOut,
+        stdout: Buffer.concat(stdout).toString("utf8").trim(),
+        stderr: Buffer.concat(stderr).toString("utf8").trim(),
       });
     });
+    if (opts.stdin !== undefined) child.stdin.write(opts.stdin, "utf8");
+    child.stdin.end();
   });
 }
 
@@ -114,6 +137,9 @@ export function readRecord(cwd: string, sid: string): RollbackRecord | undefined
             (r): r is RollbackRecord["rolls"][number] =>
               !!r && typeof r.to === "string" && typeof r.redo === "string",
           )
+        : [],
+      undos: Array.isArray(value.undos)
+        ? value.undos.filter((u): u is NonNullable<RollbackRecord["undos"]>[number] => !!u && typeof u.turn === "number")
         : [],
     };
     return record;

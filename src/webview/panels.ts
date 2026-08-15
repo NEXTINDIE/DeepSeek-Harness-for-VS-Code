@@ -67,7 +67,7 @@ export interface PanelsContext {
     } | null;
     lang: string;
     languagePref: string;
-    agentDirs: { claude: boolean; codex: boolean; githubCopilot: boolean };
+    agentDirs: { claude: boolean; codex: boolean; githubCopilot: boolean; dshUserSkills: boolean };
   };
   post: (msg: Record<string, unknown>) => void;
   el: (tag: string, cls?: string, text?: string) => HTMLElement;
@@ -807,20 +807,29 @@ export function createPanels(ctx: PanelsContext) {
     const dirsSection = ctx.el("div", "settings-section");
     dirsSection.append(ctx.el("div", "settings-section-title", t("智能体配置目录")));
     const dirsRow = ctx.el("div", "settings-perm-row");
-    const dirOptions: { id: "claude" | "codex" | "githubCopilot"; label: string }[] = [
+    const dirOptions: { id: "claude" | "codex" | "githubCopilot" | "dshUserSkills"; label: string }[] = [
       { id: "claude", label: ".claude" },
       { id: "codex", label: ".codex" },
       { id: "githubCopilot", label: "GitHub Copilot" },
+      { id: "dshUserSkills", label: "DSH 用户技能" },
     ];
     for (const opt of dirOptions) {
       const on = state.agentDirs?.[opt.id] !== false;
       const b = ctx.el("button", "settings-tab" + (on ? " active" : ""), `${on ? "✅" : "☐"} ${opt.label}`) as HTMLButtonElement;
-      b.title = opt.id === "claude" ? t("扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md") : opt.id === "codex" ? t("扫描 .codex(config.toml、技能)") : t("扫描 .github Copilot 文件(指令、智能体、提示词)");
+      b.title =
+        opt.id === "claude"
+          ? t("扫描 .claude(命令、技能)并报告 CLAUDE.md / AGENTS.md")
+          : opt.id === "codex"
+            ? t("扫描 .codex(config.toml、技能)")
+            : opt.id === "githubCopilot"
+              ? t("扫描 .github Copilot 文件(指令、智能体、提示词)")
+              : t("显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)");
       b.addEventListener("click", () => {
         const next = {
           claude: state.agentDirs?.claude !== false,
           codex: state.agentDirs?.codex !== false,
           githubCopilot: state.agentDirs?.githubCopilot !== false,
+          dshUserSkills: state.agentDirs?.dshUserSkills !== false,
         };
         next[opt.id] = !on;
         post({ kind: "setAgentDirs", value: next });

@@ -2,19 +2,37 @@
  * git 执行封装:execFile Promise 化 + 常用子命令与记录文件 IO。
  * 真实插件运行在 dsh 宿主进程内,直接使用 node:child_process。
  */
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_UNTRACKED, RECORD_DIR, } from "./types.js";
-export function gitExec(gitBin, cwd, args, timeoutMs = 30000) {
+export function gitExec(gitBin, cwd, args, opts = {}) {
     return new Promise((resolve) => {
-        execFile(gitBin, args, { cwd, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (error, stdout, stderr) => {
+        const child = spawn(gitBin, args, { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+        const stdout = [];
+        const stderr = [];
+        let timedOut = false;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            child.kill();
+        }, opts.timeoutMs ?? 30000);
+        child.stdout.on("data", (d) => stdout.push(d));
+        child.stderr.on("data", (d) => stderr.push(d));
+        child.on("error", (err) => {
+            clearTimeout(timer);
+            resolve({ ok: false, stdout: "", stderr: String(err) });
+        });
+        child.on("close", (code) => {
+            clearTimeout(timer);
             resolve({
-                ok: !error,
-                stdout: String(stdout ?? "").trim(),
-                stderr: String(stderr ?? "").trim(),
+                ok: code === 0 && !timedOut,
+                stdout: Buffer.concat(stdout).toString("utf8").trim(),
+                stderr: Buffer.concat(stderr).toString("utf8").trim(),
             });
         });
+        if (opts.stdin !== undefined)
+            child.stdin.write(opts.stdin, "utf8");
+        child.stdin.end();
     });
 }
 /** commit-tree 的身份兜底:缺失 user.name/email 时以插件身份重试。(-c 必须在子命令之前) */
@@ -95,6 +113,9 @@ export function readRecord(cwd, sid) {
             checkpoints: value.checkpoints.filter((c) => !!c && typeof c.turn === "number" && typeof c.commit === "string" && c.commit.length > 0),
             rolls: Array.isArray(value.rolls)
                 ? value.rolls.filter((r) => !!r && typeof r.to === "string" && typeof r.redo === "string")
+                : [],
+            undos: Array.isArray(value.undos)
+                ? value.undos.filter((u) => !!u && typeof u.turn === "number")
                 : [],
         };
         return record;

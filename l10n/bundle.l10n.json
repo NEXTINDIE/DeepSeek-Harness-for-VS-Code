@@ -149,6 +149,7 @@
   "rollback.confirmYes": "Rollback",
   "rollback.done": "Workspace restored to the state before turn {turn}",
   "rollback.noRecord": "No turn-level rollback snapshots for this session (requires the DSH server-side plugin)",
+  "rollback.noUndoable": "No undoable snapshot for that turn (requires a turn-end snapshot; use /rollback N for a whole-workspace rollback)",
   "rollback.noCheckpoint": "No rollback checkpoint for turn {turn}",
   "rollback.noGit": "Not a Git repository: {cwd}",
   "rollback.snapshotFailed": "Cannot take a safety snapshot, rollback aborted: {error}",

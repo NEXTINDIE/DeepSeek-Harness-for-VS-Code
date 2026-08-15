@@ -330,7 +330,7 @@ export class DshApiClient {
 
   // skills / subagents
   listSkills(sessionId: string) {
-    return this.post<{ skills: { name: string; description: string; whenToUse?: string; modelInvocable: boolean }[] }>("skill.list", { sessionId });
+    return this.post<{ skills: { name: string; description: string; whenToUse?: string; modelInvocable: boolean; source?: string }[] }>("skill.list", { sessionId });
   }
   listSubagents(parentSessionId: string) {
     return this.post<{ entries: SubagentEntry[]; parentAvailable: boolean }>("subagent.list", { parentSessionId });

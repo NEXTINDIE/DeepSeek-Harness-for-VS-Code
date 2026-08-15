@@ -1,14 +1,15 @@
 // 插件 git 逻辑单元测试:临时 git 仓库实测,不依赖 DSH。
 // 覆盖:检查点创建 / 无改动跳过 / 身份兜底 / 暂存区未污染 / 链完整性 /
-//       回退目标选择 / 保存点可恢复 / 未跟踪精确清理 / ignored 不触碰 / redo 恢复 / 参数解析。
+//       回退目标选择 / 保存点可恢复 / 未跟踪精确清理 / ignored 不触碰 / redo 恢复 /
+//       回合结束快照 / undo 精确撤销(不碰用户提交)与冲突路径 / 参数解析。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkpointTurn } from "../lib/checkpoint.js";
-import { performRollback, performRedo, listCheckpoints, parseTurnArg } from "../lib/rollback.js";
+import { checkpointTurn, checkpointTurnEnd } from "../lib/checkpoint.js";
+import { performRollback, performRedo, performUndo, listCheckpoints, parseTurnArg } from "../lib/rollback.js";
 import { readRecord, writeRecord } from "../lib/git.js";
 
 const GIT = "git";
@@ -253,6 +254,96 @@ test("记录 v1 → v2 迁移", () => {
     const reread = readRecord(dir, SID);
     assert.equal(reread.version, 2);
     assert.ok(reread.checkpoints.length === 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("回合结束快照 + /undo 精确撤销:只撤销回合自身改动,用户提交与 HEAD 不受影响", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "a.txt"), "v1");
+    writeFileSync(join(dir, "b.txt"), "b1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    writeFileSync(join(dir, "c.txt"), "c1"); // 回合前工作区状态
+    // 回合 1 开始 → before 快照
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    // 回合内改动(会话产生的 A:改 a.txt + 新建 newfile.txt)
+    writeFileSync(join(dir, "a.txt"), "turn1-edit-A");
+    writeFileSync(join(dir, "newfile.txt"), "created-by-turn");
+    // 回合结束 → after 快照
+    await checkpointTurnEnd(GIT, dir, SID, 1, 2000, OPTS);
+    const rec0 = readRecord(dir, SID);
+    assert.ok(rec0.checkpoints[0].after, "应有回合结束快照(after)");
+    // 用户自己提交 N 轮,最后提交 B(只改 b.txt,不碰回合动过的文件)
+    writeFileSync(join(dir, "b.txt"), "user-b-commit");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "user commit B"]);
+    const headBefore = run(["rev-parse", "HEAD"]);
+
+    const res = await performUndo(GIT, dir, SID, "1", OPTS);
+    assert.equal(res.kind, "success", JSON.stringify(res));
+    // 回合改动被撤销:a.txt 回到回合前内容,newfile.txt 被删除
+    assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "v1");
+    assert.ok(!existsSync(join(dir, "newfile.txt")));
+    // 用户自己的提交内容不受影响:b.txt 保持 B 的内容,HEAD 未动,分支历史无 dsh 提交
+    assert.equal(readFileSync(join(dir, "b.txt"), "utf8"), "user-b-commit");
+    assert.equal(run(["rev-parse", "HEAD"]), headBefore);
+    assert.ok(run(["log", "--oneline", "HEAD"]).includes("user commit B"));
+    assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
+    const rec = readRecord(dir, SID);
+    assert.equal(rec.undos.length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/undo 冲突路径:用户之后手动改过同一文件 → 明确报错并保留补丁", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "a.txt"), "v1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    writeFileSync(join(dir, "a.txt"), "v1.5");
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS); // 回合 1 开始快照
+    writeFileSync(join(dir, "a.txt"), "turn1-edit-A");
+    await checkpointTurnEnd(GIT, dir, SID, 1, 2000, OPTS); // 回合 1 结束快照
+    // 用户之后又手动改了同一文件(上下文不再匹配)
+    writeFileSync(join(dir, "a.txt"), "user-manual-edit");
+    const res = await performUndo(GIT, dir, SID, "1", OPTS);
+    assert.equal(res.kind, "error");
+    assert.match(res.text, /不一致/);
+    assert.match(res.text, /\.patch/); // 补丁已保存供手动处理
+    assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "user-manual-edit"); // 工作区未被破坏
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/undo 缺结束快照与默认回合选择", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "a.txt"), "v1");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    // 只有开始检查点,没有回合结束快照(旧记录场景)
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    writeFileSync(join(dir, "a.txt"), "changed");
+    await checkpointTurn(GIT, dir, SID, 2, 2000, OPTS); // 回合 2 开始
+    // 无任何 after → /undo 报错并提示 /rollback
+    const none = await performUndo(GIT, dir, SID, "", OPTS);
+    assert.equal(none.kind, "error");
+    assert.match(none.text, /结束快照/);
+    // 回合 2 内产生改动后再结束:after 记录,默认选择最近的(回合 2)
+    writeFileSync(join(dir, "a.txt"), "changed-in-turn2");
+    await checkpointTurnEnd(GIT, dir, SID, 2, 3000, OPTS);
+    const ok = await performUndo(GIT, dir, SID, "", OPTS);
+    assert.equal(ok.kind, "success", JSON.stringify(ok));
+    assert.equal(readFileSync(join(dir, "a.txt"), "utf8"), "changed"); // 撤销回回合 2 开始前的内容
+    // 无效参数
+    const bad = await performUndo(GIT, dir, SID, "abc", OPTS);
+    assert.equal(bad.kind, "error");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
