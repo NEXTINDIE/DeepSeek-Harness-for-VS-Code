@@ -427,3 +427,30 @@ test("/rollback <sha>:直接恢复到指定检查点提交(分叉分隔线「还
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("中文文件名:/undo 不因 quotepath 转义/CRLF 而失败(回归)", async () => {
+  const { dir, run } = makeRepo();
+  try {
+    writeFileSync(join(dir, "base.txt"), "v1\n");
+    run(["add", "-A"]);
+    run(["commit", "-qm", "init"]);
+    writeFileSync(join(dir, "回合前.txt"), "pre-turn\n");
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    // 回合内新建中文名文件 + 修改中文名文件
+    writeFileSync(join(dir, "测试文本A.txt"), "内容一\n内容二\n内容三\n");
+    writeFileSync(join(dir, "回合前.txt"), "pre-turn-edited\n");
+    await checkpointTurnEnd(GIT, dir, SID, 1, 2000, OPTS);
+    const rec = readRecord(dir, SID);
+    assert.ok(rec.checkpoints[0].after, "应有 after 快照");
+    // /undo 应成功:中文路径不因 quotepath 转义、CRLF 行尾导致 apply 失败
+    const res = await performUndo(GIT, dir, SID, "1", OPTS);
+    assert.equal(res.kind, "success", JSON.stringify(res));
+    assert.ok(!existsSync(join(dir, "测试文本A.txt")), "中文新建文件应被撤销删除");
+    // Windows autocrlf 会把还原内容写成 CRLF,按去除行尾差异比较
+    assert.equal(readFileSync(join(dir, "回合前.txt"), "utf8").replace(/\r\n/g, "\n"), "pre-turn\n");
+    // HEAD 零污染
+    assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -126,9 +126,11 @@ function resolveGitPath(): string {
 
 function gitExec(cwd: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
+    // core.quotepath=false:中文等非 ASCII 路径在 diff/status 输出中保持原始 UTF-8,
+    // 避免解析出的路径是 "\346\265\213..." 转义串而无法用于后续 diff/apply。
     execFile(
       resolveGitPath(),
-      args,
+      ["-c", "core.quotepath=false", ...args],
       { cwd, timeout: 30000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
       (error, stdout, stderr) => {
         resolve({

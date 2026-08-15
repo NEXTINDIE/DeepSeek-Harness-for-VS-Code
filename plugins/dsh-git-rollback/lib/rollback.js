@@ -227,14 +227,17 @@ export async function performUndo(gitBin, cwd, sid, rawInput, opts) {
         return { kind: "error", text: `回合 ${turn} 没有结束快照(该回合无改动或记录来自旧版本),无法精确撤销;可用 /rollback ${turn} 整体回退` };
     }
     const stats = await gitExec(gitBin, cwd, ["diff", "--numstat", entry.commit, entry.after.commit, "--"]);
-    const diff = await gitExec(gitBin, cwd, ["diff", "--no-color", "--binary", entry.commit, entry.after.commit, "--"]);
+    // trim:false —— 补丁必须逐字节完整(git diff 以换行结尾,trim 会删掉它导致 apply 报 corrupt patch)
+    const diff = await gitExec(gitBin, cwd, ["diff", "--no-color", "--binary", entry.commit, entry.after.commit, "--"], { trim: false });
     if (!diff.ok || !stats.ok)
         return { kind: "error", text: `生成回合 ${turn} 的改动失败:${diff.stderr || "git diff failed"}` };
     if (!diff.stdout.trim())
         return { kind: "success", text: `回合 ${turn} 没有可撤销的文件改动。` };
     const fileCount = stats.stdout.split(/\r?\n/).filter(Boolean).length;
-    // 反向应用:先 --check 验证,避免应用中途失败留下半成品
-    const check = await gitExec(gitBin, cwd, ["apply", "-R", "--check", "--binary", "-"], {
+    // 反向应用:先 --check 验证,避免应用中途失败留下半成品。
+    // --ignore-whitespace:Windows core.autocrlf=true 时工作区是 CRLF 而补丁是 LF,
+    // 默认 apply 会因行尾不匹配而失败(中文/普通文件都一样),必须忽略行尾差异。
+    const check = await gitExec(gitBin, cwd, ["apply", "-R", "--check", "--binary", "--ignore-whitespace", "-"], {
         stdin: diff.stdout,
     });
     if (!check.ok) {
@@ -246,7 +249,7 @@ export async function performUndo(gitBin, cwd, sid, rawInput, opts) {
                 `补丁已保存到 ${patchFile},可手动执行 git apply -R ${patchFile} 处理冲突。`,
         };
     }
-    const apply = await gitExec(gitBin, cwd, ["apply", "-R", "--binary", "-"], { stdin: diff.stdout });
+    const apply = await gitExec(gitBin, cwd, ["apply", "-R", "--binary", "--ignore-whitespace", "-"], { stdin: diff.stdout });
     if (!apply.ok)
         return { kind: "error", text: `撤销失败:${apply.stderr || "git apply failed"}` };
     record.undos = [...(record.undos ?? []), { turn, time: Date.now() }];

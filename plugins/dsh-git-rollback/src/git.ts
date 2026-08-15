@@ -21,11 +21,20 @@ export interface GitExecOptions {
   timeoutMs?: number;
   /** 写入 stdin 后关闭(如 git apply - 的补丁管道)。 */
   stdin?: string;
+  /**
+   * 是否对 stdout 做 trim(去首尾空白)。默认 true;
+   * 取补丁等需逐字节完整的内容时设 false——git diff 输出以换行结尾,
+   * trim 会删掉末尾换行导致 `git apply` 报 "corrupt patch"。
+   */
+  trim?: boolean;
 }
 
 export function gitExec(gitBin: string, cwd: string, args: string[], opts: GitExecOptions = {}): Promise<GitResult> {
   return new Promise((resolve) => {
-    const child = spawn(gitBin, args, { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+    // core.quotepath=false:非 ASCII 路径(中文等)在 diff/status/ls-files 输出中
+    // 保持原始 UTF-8,不被转义成 "\346\265\213..." —— 否则解析出的路径无法
+    // 用于后续 diff/apply(报"差异不可用"/"工作区不一致")。
+    const child = spawn(gitBin, ["-c", "core.quotepath=false", ...args], { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let timedOut = false;
@@ -41,9 +50,10 @@ export function gitExec(gitBin: string, cwd: string, args: string[], opts: GitEx
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      const raw = Buffer.concat(stdout).toString("utf8");
       resolve({
         ok: code === 0 && !timedOut,
-        stdout: Buffer.concat(stdout).toString("utf8").trim(),
+        stdout: opts.trim === false ? raw : raw.trim(),
         stderr: Buffer.concat(stderr).toString("utf8").trim(),
       });
     });

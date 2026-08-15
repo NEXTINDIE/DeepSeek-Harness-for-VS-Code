@@ -8,7 +8,10 @@ import { join } from "node:path";
 import { MAX_UNTRACKED, RECORD_DIR, } from "./types.js";
 export function gitExec(gitBin, cwd, args, opts = {}) {
     return new Promise((resolve) => {
-        const child = spawn(gitBin, args, { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+        // core.quotepath=false:非 ASCII 路径(中文等)在 diff/status/ls-files 输出中
+        // 保持原始 UTF-8,不被转义成 "\346\265\213..." —— 否则解析出的路径无法
+        // 用于后续 diff/apply(报"差异不可用"/"工作区不一致")。
+        const child = spawn(gitBin, ["-c", "core.quotepath=false", ...args], { cwd, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
         const stdout = [];
         const stderr = [];
         let timedOut = false;
@@ -24,9 +27,10 @@ export function gitExec(gitBin, cwd, args, opts = {}) {
         });
         child.on("close", (code) => {
             clearTimeout(timer);
+            const raw = Buffer.concat(stdout).toString("utf8");
             resolve({
                 ok: code === 0 && !timedOut,
-                stdout: Buffer.concat(stdout).toString("utf8").trim(),
+                stdout: opts.trim === false ? raw : raw.trim(),
                 stderr: Buffer.concat(stderr).toString("utf8").trim(),
             });
         });

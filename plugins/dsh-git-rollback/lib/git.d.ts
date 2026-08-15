@@ -8,6 +8,12 @@ export interface GitExecOptions {
     timeoutMs?: number;
     /** 写入 stdin 后关闭(如 git apply - 的补丁管道)。 */
     stdin?: string;
+    /**
+     * 是否对 stdout 做 trim(去首尾空白)。默认 true;
+     * 取补丁等需逐字节完整的内容时设 false——git diff 输出以换行结尾,
+     * trim 会删掉末尾换行导致 `git apply` 报 "corrupt patch"。
+     */
+    trim?: boolean;
 }
 export declare function gitExec(gitBin: string, cwd: string, args: string[], opts?: GitExecOptions): Promise<GitResult>;
 /** commit-tree 的身份兜底:缺失 user.name/email 时以插件身份重试。(-c 必须在子命令之前) */
