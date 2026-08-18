@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "อัปเดตสวิตช์ไดเรกทอรีกำหนดค่าเอเจนต์ล้มเหลว: {error}",
   "plan.reviewHeader": "# ทบทวนแผน\n\n> **แผนรอตรวจสอบ**\n> เลือกข้อความแผนเพื่อเพิ่มความคิดเห็น ป้อนความเห็นในช่องทบทวนแผนของ DSH แล้วกด Enter",
   "notice.steerAccepted": "แทรกคิวแล้ว: จะถูกประมวลผลทันทีหลังจากคำตอบปัจจุบันเสร็จสิ้น",
-  "notice.steerUnavailable": "รอบปัจจุบันสิ้นสุดแล้ว ไม่สามารถแทรกคิวได้ ข้อความจะถูกส่งอัตโนมัติในรอบถัดไป"
+  "notice.steerUnavailable": "รอบปัจจุบันสิ้นสุดแล้ว ไม่สามารถแทรกคิวได้ ข้อความจะถูกส่งอัตโนมัติในรอบถัดไป",
+  "cordis.approved": "อนุมัติปลั๊กอินและเริ่มทำงานแล้ว",
+  "cordis.approveFailed": "ไม่สามารถอนุมัติปลั๊กอินได้:{message}",
+  "cordis.rejectFailed": "ไม่สามารถปฏิเสธปลั๊กอินได้:{message}",
+  "cordis.panelFailed": "ไม่สามารถเปิดแผง Cordis ได้:{message}",
+  "cordis.panelTitle": "ปลั๊กอิน Cordis",
+  "cordis.inventoryFailed": "ไม่สามารถอ่านรายการปลั๊กอินได้:{message}",
+  "cordis.requestGone": "คำขอการทำงานนี้ไม่อยู่ในสถานะรออนุมัติแล้ว",
+  "cordis.started": "เริ่มการทำงานปลั๊กอินแล้ว",
+  "cordis.runFailed": "ไม่สามารถเรียกใช้ปลั๊กอินได้:{message}",
+  "cordis.stopFailed": "ไม่สามารถหยุดปลั๊กอินได้:{message}",
+  "cordis.removed": "ลบปลั๊กอินแล้ว",
+  "cordis.removeFailed": "ไม่สามารถลบปลั๊กอินได้:{message}"
 }

@@ -1,13 +1,20 @@
 {
   "name": "dsh-git-rollback",
-  "version": "0.1.7",
-  "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints /undo commands, per-turn checkpoints in hidden refs, non-destructive workspace restore, scoped turn undo, checkpoint-SHA restore.",
+  "version": "0.1.8",
+  "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints /undo commands, per-turn checkpoints in hidden refs, non-destructive workspace restore, scoped turn undo, checkpoint-SHA restore; web client half adds turn-level Restore-checkpoint dividers to the DSH Web GUI.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./src/*": "./src/*"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
   },
   "files": [
     "lib",
@@ -32,7 +39,7 @@
     "@deepseek-ai/dsh-commands": "^0.1.0-rc.6"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node tools/bundle-client.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/git.test.mjs",
     "prepublishOnly": "npm run build && npm test"

@@ -20,6 +20,7 @@ import {
 } from "../dsh/rollback";
 import type { PendingApproval, PendingQuestion, StoredEvent, StoredSession } from "../dsh/sessionStore";
 import type { CommandExecutionView, PromptContentPart } from "../dsh/types";
+import type { CordisRequestRun } from "../dsh/cordisTypes";
 
 /** 宿主侧文案翻译(跟随 dsh.language 设置,配置变更即时生效)。 */
 const t = createTranslator();
@@ -203,6 +204,22 @@ export class ChatChannel {
         }),
       },
       { dispose: store.on("questionResolved", (frameRpcId: string) => this.post({ kind: "questionResolved", frameRpcId })) },
+      {
+        // Cordis 动态插件审批(网页端 Cordis 浮窗面板同款):
+        // 审批请求推给当前会话的浮窗卡片;审批请求解决/插件变化时同步卡片状态
+        dispose: this.hub.onRemoteEvent((event: string, args: unknown[]) => {
+          if (event === "cordis/request-run") {
+            const req = args[0] as { agentId?: string; requestId?: string };
+            if (req && req.agentId === store.currentSessionId) {
+              this.post({ kind: "cordisRequest", request: args[0] });
+            }
+          } else if (event === "cordis/request-run-resolved") {
+            this.post({ kind: "cordisResolved", resolved: args[0] });
+          } else if (event === "cordis/dynamic-retract" || event === "cordis/dynamic-package") {
+            this.post({ kind: "cordisRefresh" });
+          }
+        }),
+      },
       {
         dispose: store.on("goal", (sid: string, value: unknown) => {
           if (sid === store.currentSessionId) this.post({ kind: "goal", sessionId: sid, value });
@@ -985,6 +1002,35 @@ export class ChatChannel {
             }
             this.post({ kind: "notice", message: t("notice.queueActionFailed", { error: String(error) }), level: "error" });
           }
+        }
+        break;
+      }
+      case "cordisApprove": {
+        // Cordis 插件审批:授权当前包(approveFutureVersions=false)或授权后续版本(true)
+        if (typeof msg.request === "object" && msg.request && typeof msg.request.requestId === "string") {
+          const result = await this.hub.cordisApprove(msg.request as CordisRequestRun, msg.approveFutureVersions === true);
+          if (result.ok) {
+            this.post({ kind: "cordisNotice", message: t("cordis.approved"), level: "info" });
+          } else {
+            // 授权失败:把审批请求重新推回界面,卡片恢复可重试(网页端此时仍显示待审批)
+            this.post({ kind: "cordisRequest", request: msg.request });
+            this.post({ kind: "cordisNotice", message: t("cordis.approveFailed", { message: result.message ?? "" }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "cordisReject": {
+        if (typeof msg.requestId === "string") {
+          const result = await this.hub.cordisReject(msg.requestId);
+          if (!result.ok) this.post({ kind: "notice", message: t("cordis.rejectFailed", { message: result.message ?? "" }), level: "error" });
+        }
+        break;
+      }
+      case "openCordisPanel": {
+        try {
+          await vscode.commands.executeCommand("dsh.openCordisPanel");
+        } catch (error) {
+          this.post({ kind: "notice", message: t("cordis.panelFailed", { message: String(error) }), level: "error" });
         }
         break;
       }

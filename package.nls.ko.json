@@ -51,5 +51,6 @@
   "config.agentDirs.codex": "Codex 호환 — 작업 영역과 사용자 홈(~/.codex)의 .codex(config.toml, 스킬)를 스캔",
   "config.agentDirs.githubCopilot": "GitHub Copilot 호환 — 작업 영역과 사용자 홈(~/.github)의 .github(지시, 에이전트, 프롬프트)를 스캔",
   "config.agentDirs.dshUserSkills": "사용 가능한 스킬 목록에서 DSH 사용자 전역 스킬 표시/숨기기(~/.dsh/skills, ~/.agents/skills)",
-  "config.language.ru": "러시아어"
+  "config.language.ru": "러시아어",
+  "cmd.openCordisPanel.title": "Cordis 플러그인 패널 열기"
 }

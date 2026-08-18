@@ -1,0 +1,211 @@
+/* ---------- Cordis 动态插件面板(网页端 Cordis 浮窗面板同款) ---------- */
+
+:root {
+  color-scheme: light dark;
+  --cbg: var(--vscode-editor-background, #1e1e1e);
+  --cfg: var(--vscode-editor-foreground, #cccccc);
+  --cbd: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  --cmut: var(--vscode-descriptionForeground, #9d9d9d);
+  --cacc: var(--vscode-textLink-foreground, #3794ff);
+  --cdanger: var(--vscode-errorForeground, #f14c4c);
+  --cok: #4ec9b0;
+  --cwarn: #d7ba7d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 10px;
+  font-family: var(--vscode-font-family);
+  font-size: 12.5px;
+  color: var(--cfg);
+  background: transparent;
+}
+
+/* 头部 */
+.cordis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px 10px;
+  border-bottom: 1px solid var(--cbd);
+  margin-bottom: 8px;
+}
+
+.cordis-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.cordis-running {
+  font-size: 11px;
+  color: var(--cok);
+  background: rgba(78, 201, 176, 0.12);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.cordis-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--cbd);
+  color: var(--cfg);
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cordis-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15)); }
+.cordis-btn:disabled { opacity: 0.45; cursor: default; }
+
+.cordis-btn.btn-allow { color: var(--cok); border-color: rgba(78, 201, 176, 0.5); }
+.cordis-btn.btn-allow:hover { background: rgba(78, 201, 176, 0.12); }
+.cordis-btn.btn-warn { color: var(--cwarn); border-color: rgba(215, 186, 125, 0.5); }
+.cordis-btn.btn-reject { color: var(--cdanger); border-color: rgba(241, 76, 76, 0.5); }
+.cordis-btn.btn-reject:hover { background: rgba(241, 76, 76, 0.1); }
+.cordis-btn.btn-confirm { color: #ffffff; background: var(--cdanger); border-color: var(--cdanger); }
+.cordis-btn.btn-confirm:hover { background: var(--cdanger); opacity: 0.85; }
+.cordis-btn-mini { margin-left: auto; padding: 1px 8px; font-size: 11px; }
+
+/* 分组 */
+.cordis-group {
+  font-size: 11px;
+  color: var(--cmut);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 10px 2px 4px;
+}
+
+/* 插件行 */
+.cordis-row {
+  border: 1px solid var(--cbd);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.06));
+}
+
+.cordis-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cordis-row-name { font-weight: 600; }
+
+.cordis-row-id {
+  font-size: 11px;
+  color: var(--cmut);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.cordis-row-tag {
+  font-size: 10px;
+  color: var(--cacc);
+  border: 1px solid rgba(55, 148, 255, 0.4);
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
+.cordis-status {
+  margin-left: auto;
+  font-size: 11px;
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.st-running { color: var(--cok); background: rgba(78, 201, 176, 0.12); }
+.st-approval { color: var(--cwarn); background: rgba(215, 186, 125, 0.14); }
+.st-failed { color: var(--cdanger); background: rgba(241, 76, 76, 0.12); }
+.st-stopped { color: var(--cmut); background: rgba(128, 128, 128, 0.15); }
+.st-waiting { color: var(--cacc); background: rgba(55, 148, 255, 0.12); }
+
+.cordis-row-purpose {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--cmut);
+  line-height: 1.4;
+}
+
+.cordis-row-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cordis-row-actions .cordis-btn { margin-left: 0; }
+
+/* 版本列表 */
+.cordis-packages {
+  margin-top: 8px;
+  border-top: 1px dashed var(--cbd);
+  padding-top: 6px;
+}
+
+.cordis-packages-summary {
+  font-size: 11px;
+  color: var(--cmut);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cordis-package-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+
+.cordis-package {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: rgba(128, 128, 128, 0.07);
+}
+
+.cordis-package.pkg-current { border: 1px solid rgba(78, 201, 176, 0.45); }
+
+.cordis-pkg-id { font-family: var(--vscode-editor-font-family, monospace); color: var(--cmut); }
+.cordis-pkg-name { font-weight: 500; }
+.cordis-pkg-halves { font-size: 10px; color: var(--cacc); }
+
+.cordis-error {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--cdanger);
+  background: rgba(241, 76, 76, 0.08);
+  border-radius: 5px;
+  padding: 4px 8px;
+  word-break: break-all;
+}
+
+.cordis-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--cmut);
+}
+
+.cordis-empty {
+  color: var(--cmut);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.cordis-toast {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--vscode-notifications-background, #252526);
+  border: 1px solid var(--cbd);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  max-width: 90%;
+}
+
+.cordis-toast.toast-error { border-color: var(--cdanger); color: var(--cdanger); }

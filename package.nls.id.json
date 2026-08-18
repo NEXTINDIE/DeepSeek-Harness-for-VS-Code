@@ -51,5 +51,6 @@
   "config.agentDirs.codex": "Kompatibel dengan Codex — pindai .codex (config.toml, skill) di ruang kerja dan direktori pengguna (~/.codex)",
   "config.agentDirs.githubCopilot": "Kompatibel dengan GitHub Copilot — pindai .github (instruksi, agen, prompt) di ruang kerja dan direktori pengguna (~/.github)",
   "config.agentDirs.dshUserSkills": "Tampilkan / sembunyikan skill global pengguna DSH di daftar skill (~/.dsh/skills, ~/.agents/skills)",
-  "config.language.ru": "Rusia"
+  "config.language.ru": "Rusia",
+  "cmd.openCordisPanel.title": "Buka panel plugin Cordis"
 }

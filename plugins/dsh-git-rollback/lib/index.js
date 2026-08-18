@@ -1,5 +1,6 @@
 import { checkpointTurn, checkpointTurnEnd } from "./checkpoint.js";
 import { registerCommands } from "./command.js";
+import { registerWebRoutes } from "./webService.js";
 import { DEFAULT_COMMIT_PREFIX, DEFAULT_REF_PREFIX } from "./types.js";
 export const name = "dsh-git-rollback";
 export const inject = ["commands"];
@@ -37,6 +38,10 @@ export function apply(ctx, config = {}) {
         }
     });
     registerCommands(ctx, opts);
+    // 网页端「还原检查点」host 路由(/dsh-rollback/preview、/dsh-rollback/apply):
+    // 供随包分发的 client 半(dsh-git-rollback/client)调用,实现网页端回合分隔线 UI。
+    const disposeWeb = registerWebRoutes(ctx, { gitBin });
+    ctx.effect(() => disposeWeb, "web /dsh-rollback routes");
 }
 // 注意:不要添加 default 导出。DSH 的 loader(cordis-plugin-loader 的
 // `unwrapExports`)会优先取 `exports.default`,导致模块级 `inject`/`name`

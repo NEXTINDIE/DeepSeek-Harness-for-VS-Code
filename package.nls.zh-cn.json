@@ -51,5 +51,6 @@
   "config.agentDirs.githubCopilot": "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)",
   "config.installRollbackPlugin": "自动把回合级 Git 回退插件安装到 DSH web profile(启用 /rollback、/redo、/checkpoints;重启 DSH 服务器后生效)",
   "config.agentDirs.dshUserSkills": "在可用技能列表中显示 / 隐藏 DSH 用户全局技能(~/.dsh/skills、~/.agents/skills)",
-  "config.language.ru": "俄语"
+  "config.language.ru": "俄语",
+  "cmd.openCordisPanel.title": "打开 Cordis 插件面板"
 }

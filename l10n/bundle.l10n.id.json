@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "Gagal memperbarui sakelar direktori konfigurasi agen: {error}",
   "plan.reviewHeader": "# Tinjauan rencana\n\n> **Rencana menunggu persetujuan**\n> Pilih teks rencana untuk menambahkan komentar. Masukkan masukan di kolom tinjauan rencana DSH lalu tekan Enter.",
   "notice.steerAccepted": "Disisipkan: akan diproses dengan prioritas setelah respons saat ini selesai",
-  "notice.steerUnavailable": "Giliran saat ini telah berakhir dan tidak dapat disisipi; pesan akan dikirim otomatis pada giliran berikutnya"
+  "notice.steerUnavailable": "Giliran saat ini telah berakhir dan tidak dapat disisipi; pesan akan dikirim otomatis pada giliran berikutnya",
+  "cordis.approved": "Plugin disetujui dan dijalankan",
+  "cordis.approveFailed": "Gagal menyetujui plugin:{message}",
+  "cordis.rejectFailed": "Gagal menolak plugin:{message}",
+  "cordis.panelFailed": "Gagal membuka panel Cordis:{message}",
+  "cordis.panelTitle": "Plugin Cordis",
+  "cordis.inventoryFailed": "Gagal membaca daftar plugin:{message}",
+  "cordis.requestGone": "Permintaan eksekusi ini tidak lagi menunggu persetujuan",
+  "cordis.started": "Eksekusi plugin dimulai",
+  "cordis.runFailed": "Gagal menjalankan plugin:{message}",
+  "cordis.stopFailed": "Gagal menghentikan plugin:{message}",
+  "cordis.removed": "Plugin dihapus",
+  "cordis.removeFailed": "Gagal menghapus plugin:{message}"
 }

@@ -106,6 +106,7 @@ export class SessionStore {
   on(name: "jobs", fn: (sessionId: string, jobs: JobView[]) => void): () => void;
   on(name: "workspaces", fn: () => void): () => void;
   on(name: "currentChanged", fn: (sessionId: string | undefined) => void): () => void;
+  on(name: "remoteEvent", fn: (event: string, args: unknown[]) => void): () => void;
   on(name: string, fn: Listener): () => void {
     let set = this.listeners.get(name);
     if (!set) this.listeners.set(name, (set = new Set()));
@@ -233,6 +234,10 @@ export class SessionStore {
         break;
       }
       case "host/remote-event":
+        // 宿主远程事件转发(网页端 ctx.remote.$on 同款):
+        // cordis/request-run、cordis/request-run-resolved、cordis/dynamic-package、
+        // cordis/dynamic-retract 等,args 为位置参数数组
+        this.emit("remoteEvent", frame.event, frame.args);
         break;
       case "host/workspace-changed": {
         this.upsertWorkspace(frame.workspace);

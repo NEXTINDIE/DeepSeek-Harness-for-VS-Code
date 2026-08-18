@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "エージェント設定ディレクトリのスイッチを更新できませんでした: {error}",
   "plan.reviewHeader": "# 計画承認\n\n> **計画待審**\n> 計画テキストを選択してコメントを追加できます。修正意見は DSH パネルの計画承認入力欄に入力して Enter を押してください。",
   "notice.steerAccepted": "割り込み挿入しました:現在の回答が終わり次第、このメッセージを優先して処理します",
-  "notice.steerUnavailable": "現在のターンは終了しており、割り込みできません。メッセージは次のターンで自動送信されます"
+  "notice.steerUnavailable": "現在のターンは終了しており、割り込みできません。メッセージは次のターンで自動送信されます",
+  "cordis.approved": "プラグインを承認して起動しました",
+  "cordis.approveFailed": "プラグインの承認に失敗しました:{message}",
+  "cordis.rejectFailed": "プラグインの拒否に失敗しました:{message}",
+  "cordis.panelFailed": "Cordis パネルを開けませんでした:{message}",
+  "cordis.panelTitle": "Cordis プラグイン",
+  "cordis.inventoryFailed": "プラグイン一覧の読み取りに失敗しました:{message}",
+  "cordis.requestGone": "この実行リクエストは承認待ちではなくなりました",
+  "cordis.started": "プラグインの実行を開始しました",
+  "cordis.runFailed": "プラグインの実行に失敗しました:{message}",
+  "cordis.stopFailed": "プラグインの停止に失敗しました:{message}",
+  "cordis.removed": "プラグインを削除しました",
+  "cordis.removeFailed": "プラグインの削除に失敗しました:{message}"
 }

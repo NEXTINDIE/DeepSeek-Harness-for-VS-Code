@@ -51,5 +51,6 @@
   "config.agentDirs.codex": "Compatible con Codex — analizar .codex (config.toml, habilidades) en el espacio de trabajo y el directorio de usuario (~/.codex)",
   "config.agentDirs.githubCopilot": "Compatible con GitHub Copilot — analizar .github (instrucciones, agentes, indicaciones) en el espacio de trabajo y el directorio de usuario (~/.github)",
   "config.agentDirs.dshUserSkills": "Mostrar / ocultar habilidades globales de usuario DSH en la lista (~/.dsh/skills, ~/.agents/skills)",
-  "config.language.ru": "Ruso"
+  "config.language.ru": "Ruso",
+  "cmd.openCordisPanel.title": "Abrir el panel de plugins Cordis"
 }

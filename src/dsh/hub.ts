@@ -2,6 +2,15 @@ import { DshApiClient, DshApiError, type FrameEnvelope } from "./apiClient";
 import { ServerManager } from "./serverManager";
 import { SessionStore, type StoredSession } from "./sessionStore";
 import type { CommandExecutionView, HostFrame, MuxFrame, PromptContentPart } from "./types";
+import type {
+  CordisPluginRow,
+  CordisRequestRun,
+  CordisRequestRunResolved,
+  CordisRunHostHalfResult,
+  CordisRunResolution,
+  CordisStopResult,
+  CordisUndefineResult,
+} from "./cordisTypes";
 
 export interface HubStatus {
   serverUp: boolean;
@@ -666,6 +675,114 @@ export class DshHub {
         }, 1500);
       }
     });
+  }
+
+  // ---------- Cordis 动态插件(网页端 dynamicCordisRunner 同款) ----------
+
+  cordisInventory(): Promise<CordisPluginRow[]> {
+    return this.client.cordisInventory();
+  }
+
+  /** 宿主远程事件订阅(cordis/request-run 等;返回退订函数)。 */
+  onRemoteEvent(fn: (event: string, args: unknown[]) => void): () => void {
+    return this.store.on("remoteEvent", fn);
+  }
+
+  /**
+   * 响应一次审批请求(网页端 runner.approve 同款):
+   * 1) runHostHalf(requestId) 应用授权并启动宿主半段;
+   * 2) 宿主 activate 的返回**不带 status 字段**,须以权威清单确认运行是否处于
+   *    client-pending(含 Client 半段的包)—— 若是,用 resolveRequestRun 以
+   *    {ok:true, waitingFor: host 缺失服务} 结算 —— VS Code 无浏览器客户端,
+   *    Client 半段不加载,但运行被标记为 running(宿主半段生效)。
+   *    若跳过结算,审批请求会一直挂着,网页端会持续显示"待审批"。
+   */
+  async cordisApprove(request: CordisRequestRun, approveFutureVersions: boolean): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const started = await this.client.cordisRunHostHalf({
+        agentId: request.agentId,
+        pluginId: request.pluginId,
+        packageId: request.packageId,
+        mode: request.mode,
+        requestId: request.requestId,
+        approveFutureVersions,
+      });
+      if (!started.ok) return { ok: false, message: started.message };
+      if (await this.cordisNeedsClientSettlement(request.pluginId, started.pluginRunId)) {
+        const resolved = await this.client.cordisResolveRequestRun(request.requestId, {
+          ok: true,
+          pluginRunId: started.pluginRunId,
+          waitingFor: started.waitingFor ?? [],
+        });
+        if (!resolved.accepted) return { ok: false, message: "run request was already settled" };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: String(error) };
+    }
+  }
+
+  /** 拒绝一次审批请求(网页端 runner.decline 同款)。 */
+  async cordisReject(requestId: string): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const result = await this.client.cordisResolveRequestRun(requestId, {
+        ok: false,
+        reason: "rejected",
+        message: "declined in VS Code",
+      });
+      return result.accepted ? { ok: true } : { ok: false, message: "run request was already settled" };
+    } catch (error) {
+      return { ok: false, message: String(error) };
+    }
+  }
+
+  /**
+   * 面板直接运行/重启/切换版本(用户手势即授权,requestId 为 null):
+   * runHostHalf 后若权威清单显示 client-pending,立即 settleUserRun 结算(同上,Client 不加载)。
+   */
+  async cordisRun(agentId: string, pluginId: string, packageId: string, mode: "run" | "update"): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const started = await this.client.cordisRunHostHalf({
+        agentId,
+        pluginId,
+        packageId,
+        mode,
+        requestId: null,
+        approveFutureVersions: false,
+      });
+      if (!started.ok) return { ok: false, message: started.message };
+      if (await this.cordisNeedsClientSettlement(pluginId, started.pluginRunId)) {
+        const settled = await this.client.cordisSettleUserRun(agentId, pluginId, {
+          ok: true,
+          pluginRunId: started.pluginRunId,
+          waitingFor: started.waitingFor ?? [],
+        });
+        if (!settled.ok) return { ok: false, message: settled.message };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: String(error) };
+    }
+  }
+
+  /** 以权威清单确认该运行是否处于 client-pending(需要客户端结算)。 */
+  private async cordisNeedsClientSettlement(pluginId: string, pluginRunId: string): Promise<boolean> {
+    try {
+      const rows = await this.client.cordisInventory();
+      const row = rows.find((r) => r.pluginId === pluginId);
+      return row?.latestRun?.pluginRunId === pluginRunId && row.latestRun.status === "client-pending";
+    } catch {
+      // 清单读取失败时保守按需结算:再次确认失败仅提示,不影响已启动的宿主半段
+      return true;
+    }
+  }
+
+  cordisStop(agentId: string, pluginId: string): Promise<CordisStopResult> {
+    return this.client.cordisStopFromPanel(agentId, pluginId);
+  }
+
+  cordisUndefine(agentId: string, pluginId: string): Promise<CordisUndefineResult> {
+    return this.client.cordisUndefineFromPanel(agentId, pluginId);
   }
 
   dispose() {

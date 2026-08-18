@@ -51,5 +51,6 @@
   "config.agentDirs.codex": "เข้ากันได้กับ Codex — สแกน .codex (config.toml, ทักษะ) ในเวิร์กสเปซและไดเรกทอรีผู้ใช้ (~/.codex)",
   "config.agentDirs.githubCopilot": "เข้ากันได้กับ GitHub Copilot — สแกน .github (คำสั่ง เอเจนต์ พรอมต์) ในเวิร์กสเปซและไดเรกทอรีผู้ใช้ (~/.github)",
   "config.agentDirs.dshUserSkills": "แสดง / ซ่อนสกิลผู้ใช้ส่วนกลางของ DSH ในรายการสกิล (~/.dsh/skills, ~/.agents/skills)",
-  "config.language.ru": "รัสเซีย"
+  "config.language.ru": "รัสเซีย",
+  "cmd.openCordisPanel.title": "เปิดแผงปลั๊กอิน Cordis"
 }

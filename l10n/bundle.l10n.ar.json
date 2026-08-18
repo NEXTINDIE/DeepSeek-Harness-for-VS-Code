@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "فشل تحديث مفاتيح أدلة إعدادات الوكيل: {error}",
   "plan.reviewHeader": "# مراجعة الخطة\n\n> **الخطة بانتظار المراجعة**\n> حدد نص الخطة لإضافة تعليقات. اكتب ملاحظاتك في حقل مراجعة الخطة في DSH واضغط Enter.",
   "notice.steerAccepted": "تم التدخل: سيتم معالجة الرسالة بأولوية فور انتهاء الرد الحالي",
-  "notice.steerUnavailable": "انتهى الدور الحالي ولم يعد من الممكن التدخل؛ سيتم إرسال الرسالة تلقائيًا في الدور التالي"
+  "notice.steerUnavailable": "انتهى الدور الحالي ولم يعد من الممكن التدخل؛ سيتم إرسال الرسالة تلقائيًا في الدور التالي",
+  "cordis.approved": "تمت الموافقة على الإضافة وتشغيلها",
+  "cordis.approveFailed": "فشل الموافقة على الإضافة:{message}",
+  "cordis.rejectFailed": "فشل رفض الإضافة:{message}",
+  "cordis.panelFailed": "فشل فتح لوحة Cordis:{message}",
+  "cordis.panelTitle": "إضافات Cordis",
+  "cordis.inventoryFailed": "فشل قراءة قائمة الإضافات:{message}",
+  "cordis.requestGone": "لم يعد طلب التشغيل هذا قيد الانتظار",
+  "cordis.started": "بدأ تشغيل الإضافة",
+  "cordis.runFailed": "فشل تشغيل الإضافة:{message}",
+  "cordis.stopFailed": "فشل إيقاف الإضافة:{message}",
+  "cordis.removed": "تمت إزالة الإضافة",
+  "cordis.removeFailed": "فشل إزالة الإضافة:{message}"
 }

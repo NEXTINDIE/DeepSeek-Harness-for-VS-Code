@@ -51,5 +51,6 @@
   "config.agentDirs.codex": "Codex と互換 — ワークスペースとユーザーホーム(~/.codex)の .codex(config.toml、スキル)をスキャン",
   "config.agentDirs.githubCopilot": "GitHub Copilot と互換 — ワークスペースとユーザーホーム(~/.github)の .github(命令、エージェント、プロンプト)をスキャン",
   "config.agentDirs.dshUserSkills": "利用可能なスキル一覧で DSH ユーザー全体スキルを表示/非表示(~/.dsh/skills、~/.agents/skills)",
-  "config.language.ru": "ロシア語"
+  "config.language.ru": "ロシア語",
+  "cmd.openCordisPanel.title": "Cordis プラグインパネルを開く"
 }

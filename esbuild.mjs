@@ -27,11 +27,23 @@ const webviewBuild = {
   logLevel: "info",
 };
 
+/** @type {import('esbuild').BuildOptions} */
+const cordisBuild = {
+  entryPoints: ["src/webview/cordis.ts"],
+  bundle: true,
+  platform: "browser",
+  format: "iife",
+  target: "es2020",
+  outfile: "dist/webview/cordis.js",
+  sourcemap: false,
+  logLevel: "info",
+};
+
 if (watch) {
-  const ctxs = await Promise.all([esbuild.context(extensionBuild), esbuild.context(webviewBuild)]);
+  const ctxs = await Promise.all([esbuild.context(extensionBuild), esbuild.context(webviewBuild), esbuild.context(cordisBuild)]);
   await Promise.all(ctxs.map((ctx) => ctx.watch()));
   console.log("[esbuild] watching...");
 } else {
-  await Promise.all([esbuild.build(extensionBuild), esbuild.build(webviewBuild)]);
+  await Promise.all([esbuild.build(extensionBuild), esbuild.build(webviewBuild), esbuild.build(cordisBuild)]);
   console.log("[esbuild] build done");
 }

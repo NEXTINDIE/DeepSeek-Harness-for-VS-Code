@@ -2193,6 +2193,33 @@ body {
   overflow: hidden;
 }
 
+/* Cordis 插件审批卡(网页端 Cordis 浮窗面板同款:紫色点缀区分工具审批) */
+.cordis-approval-card {
+  border-color: rgba(139, 122, 214, 0.55);
+  background: rgba(139, 122, 214, 0.06);
+}
+
+.cordis-approval-card .cordis-dot {
+  background: #8b7ad6;
+}
+
+.cordis-meta {
+  margin-top: 5px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cordis-meta-item {
+  font-size: 10.5px;
+  color: var(--dsh-muted);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.btn-allow-plugin {
+  border-color: rgba(139, 122, 214, 0.6);
+}
+
 .approval-head {
   display: flex;
   align-items: center;

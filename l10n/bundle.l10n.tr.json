@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "Ajan yapılandırma dizini anahtarları güncellenemedi: {error}",
   "plan.reviewHeader": "# Plan incelemesi\n\n> **Plan incelenmeyi bekliyor**\n> Yorum eklemek için plan metnini seçin. Geri bildiriminizi DSH plan inceleme kutusuna yazıp Enter'a basın.",
   "notice.steerAccepted": "Araya eklendi: mevcut yanıt bittikten hemen sonra öncelikli olarak işlenecek",
-  "notice.steerUnavailable": "Mevcut tur sona erdi ve araya girilemiyor; mesaj bir sonraki turda otomatik gönderilecek"
+  "notice.steerUnavailable": "Mevcut tur sona erdi ve araya girilemiyor; mesaj bir sonraki turda otomatik gönderilecek",
+  "cordis.approved": "Eklenti onaylandı ve başlatıldı",
+  "cordis.approveFailed": "Eklenti onayı başarısız:{message}",
+  "cordis.rejectFailed": "Eklenti reddedilemedi:{message}",
+  "cordis.panelFailed": "Cordis paneli açılamadı:{message}",
+  "cordis.panelTitle": "Cordis eklentileri",
+  "cordis.inventoryFailed": "Eklenti listesi okunamadı:{message}",
+  "cordis.requestGone": "Bu çalıştırma isteği artık beklemede değil",
+  "cordis.started": "Eklenti çalıştırması başlatıldı",
+  "cordis.runFailed": "Eklenti çalıştırılamadı:{message}",
+  "cordis.stopFailed": "Eklenti durdurulamadı:{message}",
+  "cordis.removed": "Eklenti kaldırıldı",
+  "cordis.removeFailed": "Eklenti kaldırılamadı:{message}"
 }

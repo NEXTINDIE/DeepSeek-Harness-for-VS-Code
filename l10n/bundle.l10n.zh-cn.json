@@ -160,5 +160,17 @@
   "rollback.pluginRestarted": "DSH 服务器已重启,回合级回退插件已生效。",
   "rollback.pluginManualRestart": "当前 DSH 服务器不是由本扩展启动的,请在其启动终端中重启。",
   "notice.steerAccepted": "已插队:将在当前回答结束后优先处理该消息",
-  "notice.steerUnavailable": "当前回合已结束,无法插队;该消息将在下一轮自动发送"
+  "notice.steerUnavailable": "当前回合已结束,无法插队;该消息将在下一轮自动发送",
+  "cordis.approved": "插件已授权并启动",
+  "cordis.approveFailed": "插件授权失败:{message}",
+  "cordis.rejectFailed": "拒绝插件失败:{message}",
+  "cordis.panelFailed": "打开 Cordis 面板失败:{message}",
+  "cordis.panelTitle": "Cordis 插件",
+  "cordis.inventoryFailed": "读取插件清单失败:{message}",
+  "cordis.requestGone": "该运行请求已不再待审批",
+  "cordis.started": "插件运行已启动",
+  "cordis.runFailed": "运行插件失败:{message}",
+  "cordis.stopFailed": "停止插件失败:{message}",
+  "cordis.removed": "插件已移除",
+  "cordis.removeFailed": "移除插件失败:{message}"
 }

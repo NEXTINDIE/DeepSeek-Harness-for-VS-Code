@@ -87,6 +87,18 @@ interface QuestionInfo {
   questions: { id: string; question: string; detail?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean }[];
 }
 
+/** Cordis 动态插件审批请求(网页端 Cordis 浮窗面板同款)。 */
+interface CordisRequestRun {
+  requestId: string;
+  agentId: string;
+  pluginId: string;
+  packageId: string;
+  mode: "run" | "update";
+  name: string;
+  purpose: string;
+  requiresApproval: boolean;
+}
+
 interface ModelEffort {
   id: string;
   name: string;
@@ -177,6 +189,8 @@ const state = {
   queuedIds: new Map<string, NodeState>(),
   approvals: new Map<string, ApprovalInfo>(),
   questions: new Map<string, QuestionInfo>(),
+  /** Cordis 动态插件审批请求(requestId → 请求;网页端 Cordis 浮窗面板同款) */
+  cordisRequests: new Map<string, CordisRequestRun>(),
   hasMore: false,
   streamKey: null as string | null,
   streamBlock: null as BlockState | null,
@@ -732,6 +746,17 @@ const EN_TEXT: Record<string, string> = {
   "编辑排队消息": "Edit queued message",
   "修改后立即生效": "Applies immediately",
   "当前回合已结束,无法插队;消息将在下一轮自动处理": "The current turn has ended and no longer accepts steering; the message will be sent automatically in the next turn",
+  // ---- Cordis 插件审批(网页端 Cordis 浮窗面板同款) ----
+  "Cordis 插件": "Cordis plugins",
+  "Cordis 插件({n} 个待审批)": "Cordis plugins ({n} awaiting approval)",
+  "Cordis 插件审批": "Cordis plugin approval",
+  "(未填写用途)": "(no purpose given)",
+  "仅允许此版本": "Allow this version only",
+  "允许后续版本": "Allow future versions of this plugin",
+  "仅授权当前版本运行,后续版本更新时需再次审批": "Allows only the current version to run; future updates will ask again",
+  "授权此插件的所有后续版本自动运行,无需再次审批": "Allows all future versions of this plugin to run automatically without asking again",
+  "更新": "Update",
+  "运行": "Run",
   // ---- 目标创建 ----
   "🎯 设置目标": "🎯 Set goal",
   "创建一个长期目标(agent 自动多轮推进直至完成)": "Create a long-running goal (the agent keeps pushing until done)",
@@ -1052,6 +1077,13 @@ btnSettings.append(lineIcon(ICONS.gear, 15));
 const btnBrowser = el("button", "btn btn-icon");
 btnBrowser.title = t("在浏览器中打开");
 btnBrowser.append(lineIcon(ICONS.globe));
+// Cordis 动态插件面板(网页端 Cordis 浮窗面板同款:插件清单 / 审批 / 运行 / 停止 / 移除)
+const btnCordis = el("button", "btn btn-icon");
+btnCordis.title = t("Cordis 插件");
+btnCordis.append(el("span", "btn-emoji", "🧩"));
+const cordisBadge = el("span", "btn-badge");
+cordisBadge.hidden = true;
+btnCordis.append(cordisBadge);
 const statusDot = el("span", "status-dot");
 const statusText = el("span", "status-text", "未连接");
 
@@ -1076,7 +1108,7 @@ subagentsBadge.hidden = true;
 btnSubagents.append(subagentsBadge);
 toolLeft.append(btnWorkspaces, btnJobs, btnTrajectory, btnSettings, btnSubagents);
 const toolRight = el("div", "header-tools header-tools-right");
-toolRight.append(btnBrowser, statusDot, statusText);
+toolRight.append(btnBrowser, btnCordis, statusDot, statusText);
 headerToolRow.append(toolLeft, toolRight);
 header.append(headerSessionRow, headerToolRow);
 
@@ -1933,6 +1965,7 @@ btnNew.addEventListener("click", () => {
   vscode.postMessage({ kind: "new" });
 });
 btnBrowser.addEventListener("click", () => vscode.postMessage({ kind: "openBrowser" }));
+btnCordis.addEventListener("click", () => vscode.postMessage({ kind: "openCordisPanel" }));
 btnWorkspaces.addEventListener("click", () => panels.openWorkspaces());
 btnJobs.addEventListener("click", () => panels.openJobs());
 btnTrajectory.addEventListener("click", () => panels.openTrajectory(state.rawEvents));
@@ -3839,6 +3872,14 @@ function updateRunning() {
   refreshSteerButtons();
 }
 
+/** 🧩 按钮徽标:待审批的 Cordis 插件数(网页端 Cordis 面板 approvals 计数同款)。 */
+function updateCordisBadge() {
+  const count = state.cordisRequests.size;
+  cordisBadge.hidden = count === 0;
+  cordisBadge.textContent = String(count);
+  btnCordis.title = count > 0 ? t("Cordis 插件({n} 个待审批)", { n: String(count) }) : t("Cordis 插件");
+}
+
 /** 就地刷新所有排队卡的「插队」按钮:仅 agent 运行中的回合可插队(与网页端一致)。 */
 function refreshSteerButtons() {
   const tip = t("当前回合已结束,无法插队;消息将在下一轮自动处理");
@@ -4244,6 +4285,46 @@ function renderPending() {
     }
     renderPage();
   }
+  for (const request of state.cordisRequests.values()) {
+    // ---------- Cordis 插件审批卡(网页端 Cordis 浮窗面板同款:仅允许此版本 / 允许后续版本 / 拒绝) ----------
+    const card = el("div", "pending-card pending-cordis cordis-approval-card");
+    const head = el("div", "approval-head");
+    head.append(el("span", "approval-dot cordis-dot"), el("span", "approval-title", "🧩 " + t("Cordis 插件审批")));
+    card.append(head);
+    const body = el("div", "approval-body");
+    const toolChip = el("span", "approval-tool", request.name || request.pluginId);
+    body.append(toolChip);
+    const headline = el("div", "approval-headline", request.purpose || t("(未填写用途)"));
+    body.append(headline);
+    const meta = el("div", "cordis-meta");
+    meta.append(el("span", "cordis-meta-item", `${request.pluginId} · ${request.packageId} · ${request.mode === "update" ? t("更新") : t("运行")}`));
+    body.append(meta);
+    card.append(body);
+    const actions = el("div", "approval-actions");
+    const reject = el("button", "btn btn-reject", t("拒绝"));
+    reject.addEventListener("click", () => {
+      vscode.postMessage({ kind: "cordisReject", requestId: request.requestId });
+      state.cordisRequests.delete(request.requestId);
+      renderPending();
+    });
+    const allowOnce = el("button", "btn btn-allow", `✓ ${t("仅允许此版本")}`);
+    allowOnce.title = t("仅授权当前版本运行,后续版本更新时需再次审批");
+    allowOnce.addEventListener("click", () => {
+      vscode.postMessage({ kind: "cordisApprove", request, approveFutureVersions: false });
+      state.cordisRequests.delete(request.requestId);
+      renderPending();
+    });
+    const allowPlugin = el("button", "btn btn-allow btn-allow-plugin", `✓✓ ${t("允许后续版本")}`);
+    allowPlugin.title = t("授权此插件的所有后续版本自动运行,无需再次审批");
+    allowPlugin.addEventListener("click", () => {
+      vscode.postMessage({ kind: "cordisApprove", request, approveFutureVersions: true });
+      state.cordisRequests.delete(request.requestId);
+      renderPending();
+    });
+    actions.append(reject, allowOnce, allowPlugin);
+    card.append(actions);
+    pendingArea.append(card);
+  }
 }
 
 /** 解析选项标签中的"(推荐)"/"(recommended)"后缀,返回基础标签与推荐标记。 */
@@ -4322,6 +4403,7 @@ function applyStaticLabels() {
   btnSettings.title = t("设置(常规 / 模型 / 预设)");
   btnSubagents.title = t("子代理目录");
   btnBrowser.title = t("在浏览器中打开");
+  btnCordis.title = t("Cordis 插件");
   btnPlus.title = t("输入命令(/plan、/compact、.claude 命令…)");
   btnAddAttach.title = t("添加文件或文件夹到对话");
   btnBackToMain.title = t("回到主线(父会话)");
@@ -4700,6 +4782,33 @@ function handleMessage(msg: any) {
       state.questions.delete(msg.frameRpcId);
       questionFlows.delete(msg.frameRpcId);
       renderPending();
+      break;
+    }
+    case "cordisRequest": {
+      // Cordis 插件审批请求到达(网页端 Cordis 浮窗面板同款):入列并刷新浮窗卡
+      if (msg.request && typeof msg.request.requestId === "string") {
+        state.cordisRequests.set(msg.request.requestId, msg.request);
+        renderPending();
+        updateCordisBadge();
+      }
+      break;
+    }
+    case "cordisResolved": {
+      // 审批已解决(授权/拒绝/失败):移除对应卡片
+      if (msg.resolved && typeof msg.resolved.requestId === "string") {
+        state.cordisRequests.delete(msg.resolved.requestId);
+        renderPending();
+        updateCordisBadge();
+      }
+      break;
+    }
+    case "cordisRefresh": {
+      // 插件被移除 / 新包定义:审批卡的清理由 request-run-resolved 帧负责,这里仅刷新徽标
+      updateCordisBadge();
+      break;
+    }
+    case "cordisNotice": {
+      showToast(msg.message ?? "", msg.level ?? "info");
       break;
     }
     case "queue": {

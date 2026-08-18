@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "Échec de la mise à jour des commutateurs de répertoires de configuration d'agent : {error}",
   "plan.reviewHeader": "# Examen du plan\n\n> **Plan à examiner**\n> Sélectionnez le texte du plan pour ajouter des commentaires. Saisissez vos remarques dans le champ d'examen du plan DSH et appuyez sur Entrée.",
   "notice.steerAccepted": "Insertion réussie : sera traitée en priorité dès la fin de la réponse en cours",
-  "notice.steerUnavailable": "La tournée en cours est terminée et n'accepte plus d'interruption ; le message sera envoyé automatiquement au prochain tour"
+  "notice.steerUnavailable": "La tournée en cours est terminée et n'accepte plus d'interruption ; le message sera envoyé automatiquement au prochain tour",
+  "cordis.approved": "Plugin approuvé et démarré",
+  "cordis.approveFailed": "Échec de l'approbation du plugin : {message}",
+  "cordis.rejectFailed": "Échec du refus du plugin : {message}",
+  "cordis.panelFailed": "Échec de l'ouverture du panneau Cordis : {message}",
+  "cordis.panelTitle": "Plugins Cordis",
+  "cordis.inventoryFailed": "Échec de lecture de la liste des plugins : {message}",
+  "cordis.requestGone": "Cette demande d'exécution n'est plus en attente",
+  "cordis.started": "Exécution du plugin démarrée",
+  "cordis.runFailed": "Échec de l'exécution du plugin : {message}",
+  "cordis.stopFailed": "Échec de l'arrêt du plugin : {message}",
+  "cordis.removed": "Plugin supprimé",
+  "cordis.removeFailed": "Échec de la suppression du plugin : {message}"
 }

@@ -160,5 +160,17 @@
   "rollback.pluginRestarted": "DSH server restarted; the rollback plugin is active now.",
   "rollback.pluginManualRestart": "The DSH server was not started by this extension. Restart it from the terminal that launched it.",
   "notice.steerAccepted": "Steered into the current turn — it will be handled right after the current response finishes",
-  "notice.steerUnavailable": "The current turn has ended and no longer accepts steering; the message will be sent automatically in the next turn"
+  "notice.steerUnavailable": "The current turn has ended and no longer accepts steering; the message will be sent automatically in the next turn",
+  "cordis.approved": "Plugin approved and started",
+  "cordis.approveFailed": "Plugin approval failed: {message}",
+  "cordis.rejectFailed": "Declining the plugin failed: {message}",
+  "cordis.panelFailed": "Opening the Cordis panel failed: {message}",
+  "cordis.panelTitle": "Cordis plugins",
+  "cordis.inventoryFailed": "Reading the plugin inventory failed: {message}",
+  "cordis.requestGone": "This run request is no longer pending",
+  "cordis.started": "Plugin run started",
+  "cordis.runFailed": "Running the plugin failed: {message}",
+  "cordis.stopFailed": "Stopping the plugin failed: {message}",
+  "cordis.removed": "Plugin removed",
+  "cordis.removeFailed": "Removing the plugin failed: {message}"
 }

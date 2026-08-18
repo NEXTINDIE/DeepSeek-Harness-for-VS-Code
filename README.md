@@ -6,7 +6,7 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.12.77
+[中文版](#chinese) | Publisher: Jager · Latest: 0.12.79
 
 Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية — follows the VS Code display language or switch manually).
 
@@ -19,7 +19,7 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Standalone chat window**: `DSH: Open Standalone Chat Window`.
 - **Modern chat UI**: large rounded input box, pill toolbar (thinking depth / model / preset / permission), session stats line (turns · steps · LLM/tool time · first token · tok/s · cache hit · in/out tokens), context usage bar.
 - **Per-message actions** (minimal line icons): copy (double-rectangle icon) / branch (forked line icon; menu: counter-clockwise arrow "Rewind here" · forked icon "Branch from here" · up-left fold "Branch and rewind earlier" · up-left arrow "Back to main") / thumbs up/down (line icons, official `/feedback`) / message header shows model · thinking time · per-step tokens.
-- **Turn-level Git rollback** (↩ button on each assistant turn + branch-menu entries): the DSH server-side plugin `dsh-git-rollback` snapshots the workspace's git state (tracked + untracked files) at every turn start into hidden refs (`refs/dsh/checkpoints/<sid>`, zero pollution of your branch history) and records them under `.dsh/rollback`; the button restores the workspace to the state before that turn. Commands `/rollback [N]`, `/redo`, `/checkpoints` work in both the web command panel and the VS Code chat (rollback is non-destructive: the pre-rollback state is saved first, `/redo` restores it, ignored files are never touched).
+- **Turn-level Git rollback** (↩ button on each assistant turn + branch-menu entries): the DSH server-side plugin `dsh-git-rollback` snapshots the workspace's git state (tracked + untracked files) at every turn start into hidden refs (`refs/dsh/checkpoints/<sid>`, zero pollution of your branch history) and records them under `.dsh/rollback`; the button restores the workspace to the state before that turn. Commands `/rollback [N]`, `/redo`, `/checkpoints` work in both the web command panel and the VS Code chat (rollback is non-destructive: the pre-rollback state is saved first, `/redo` restores it, ignored files are never touched). The web chat gets the same Copilot-style turn dividers and a floating restore dialog out of the box (plugin web half, served via the DSH client-modules pipeline).
 - **Collapsible reasoning** (hidden by default) and per-turn tool summary ("Called N tools this turn").
 - **Deliverables box**: files produced each turn listed at the end of the conversation, click to open.
 - **Session management**: ⋯ menu with fork / rename (pre-filled title) / archive.
@@ -85,7 +85,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 
 ## Turn-level Git rollback setup
 
-- **Automatic (default)**: the extension ships the `dsh-git-rollback` server plugin and installs it into your DSH web profile (`~/.dsh/profiles/web`) on activation (idempotent, version-tracked). If your DSH server was already running, the extension offers a one-click restart when it detects the plugin is not loaded yet.
+- **Automatic (default)**: the extension ships the `dsh-git-rollback` server plugin (host + web client halves) and installs it into your DSH web profile (`~/.dsh/profiles/web`) on activation (idempotent, version-tracked). If your DSH server was already running, the extension offers a one-click restart when it detects the plugin is not loaded yet. The web client half is picked up automatically by the DSH client-modules pipeline on the next server start — no manual setup.
 - **Manual (web GUI users / other profiles)**: from the terminal, `dsh plugin --profile web add dsh-git-rollback` (published on npm), then restart `dsh web`.
 - Requirements: a Git repository as the session workspace; snapshots are taken at every turn start (turn/start) and survive server restarts via `.dsh/rollback` records + hidden refs (`refs/dsh/checkpoints/<sessionId>`). Disable the auto-install with `dsh.installRollbackPlugin: false`.
 
@@ -124,7 +124,7 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.12.77
+[English version](#) | 发布者:Jager · 最新版本:0.12.79
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية,跟随 VS Code 显示语言或手动切换)。
 
@@ -135,7 +135,7 @@ npm run package     # → Releases/
 - **独立聊天窗口**:编辑器区 WebviewPanel,命令 `DSH: 打开独立聊天窗口`。
 - **现代聊天界面**:大号圆角输入框、胶囊工具栏(思考深度 / 模型 / 预设 / 权限)、会话统计行(轮数 · 步骤 · LLM/工具耗时 · 首 token · tok/s · 缓存命中 · 输入/输出 token)、上下文用量进度条。
 - **消息操作条**(每条回答下方,简约线条图标):复制(双层矩形图标)/ 分支(分叉线条图标,点击展开菜单:逆时针箭头"回退到此处" · 分叉图标"从此处新建分支" · 左上折线"分支并回退到更早位置" · 左上箭头"回到主线")/ 点赞、点踩(拇指线条图标,官方 `/feedback` 记录)/ 消息头显示模型名 · 思考耗时 · 本步 token 消耗。
-- **回合级 Git 回退**(每条助手回答上的 ↩ 按钮 + 「分支/回退」菜单项):DSH 服务端插件 `dsh-git-rollback` 在每个回合开始时把工作区 git 状态(含未跟踪文件)快照到隐藏引用(`refs/dsh/checkpoints/<sid>`,用户分支历史零污染)并记录在 `.dsh/rollback`;点击按钮即可把工作区恢复到该回合之前的状态。`/rollback [N]`、`/redo`、`/checkpoints` 命令在 web 命令面板与 VS Code 聊天面板通用——回退非破坏性(先存保存点,`/redo` 可恢复,ignored 文件永不触碰)。
+- **回合级 Git 回退**(每条助手回答上的 ↩ 按钮 + 「分支/回退」菜单项):DSH 服务端插件 `dsh-git-rollback` 在每个回合开始时把工作区 git 状态(含未跟踪文件)快照到隐藏引用(`refs/dsh/checkpoints/<sid>`,用户分支历史零污染)并记录在 `.dsh/rollback`;点击按钮即可把工作区恢复到该回合之前的状态。`/rollback [N]`、`/redo`、`/checkpoints` 命令在 web 命令面板与 VS Code 聊天面板通用——回退非破坏性(先存保存点,`/redo` 可恢复,ignored 文件永不触碰)。网页端聊天开箱即用地获得同款 Copilot 风格回合分隔线与悬浮还原弹窗(插件 web 半区,经 DSH client-modules 管线分发)。
 - **思考过程折叠**:💭 思考过程默认收起,点击展开;工具调用每轮折叠为一行摘要"本轮调用 N 个工具"。
 - **产物文件框**:每轮结束在对话末尾显示生成的文件列表,点击在编辑器中打开。
 - **会话管理**:会话下拉旁的 ⋯ 菜单支持 分叉 / 重命名(预填当前标题)/ 归档(仍保留在服务器)。
@@ -223,7 +223,7 @@ npm run watch
 
 ## 回合级 Git 回退的安装
 
-- **自动(默认)**:扩展随包携带 `dsh-git-rollback` 服务端插件,激活时幂等安装到你的 DSH web profile(`~/.dsh/profiles/web`,带版本标记增量更新)。若 DSH 服务器已在运行,扩展检测到插件未加载时会提示一键重启(仅限本扩展启动的服务器)。
+- **自动(默认)**:扩展随包携带 `dsh-git-rollback` 服务端插件(host + 网页端 client 两半),激活时幂等安装到你的 DSH web profile(`~/.dsh/profiles/web`,带版本标记增量更新)。若 DSH 服务器已在运行,扩展检测到插件未加载时会提示一键重启(仅限本扩展启动的服务器)。网页端 client 半区在下次服务器启动时由 DSH client-modules 管线自动发现,无需手动配置。
 - **手动(web 界面用户 / 其他 profile)**:终端执行 `dsh plugin --profile web add dsh-git-rollback`(已发布到 npm),然后重启 `dsh web`。
 - 前提:会话工作区是 git 仓库;每个回合开始(turn/start)自动快照,重启服务器后检查点依然可用(记录在 `.dsh/rollback` + 隐藏引用 `refs/dsh/checkpoints/<会话ID>`)。可设置 `dsh.installRollbackPlugin: false` 关闭自动安装。
 

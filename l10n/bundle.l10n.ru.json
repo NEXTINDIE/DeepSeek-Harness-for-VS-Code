@@ -160,5 +160,17 @@
   "rollback.pluginRestarted": "Сервер DSH перезапущен; плагин отката теперь активен.",
   "rollback.pluginManualRestart": "Сервер DSH запущен не этим расширением. Перезапустите его из терминала, из которого он был запущен.",
   "notice.steerAccepted": "Вмешательство выполнено: сообщение будет обработано сразу после завершения текущего ответа",
-  "notice.steerUnavailable": "Текущий ход завершён, вмешательство невозможно; сообщение будет отправлено автоматически в следующем ходе"
+  "notice.steerUnavailable": "Текущий ход завершён, вмешательство невозможно; сообщение будет отправлено автоматически в следующем ходе",
+  "cordis.approved": "Плагин одобрен и запущен",
+  "cordis.approveFailed": "Не удалось одобрить плагин: {message}",
+  "cordis.rejectFailed": "Не удалось отклонить плагин: {message}",
+  "cordis.panelFailed": "Не удалось открыть панель Cordis: {message}",
+  "cordis.panelTitle": "Плагины Cordis",
+  "cordis.inventoryFailed": "Не удалось прочитать список плагинов: {message}",
+  "cordis.requestGone": "Этот запрос на запуск больше не ожидает одобрения",
+  "cordis.started": "Запуск плагина начат",
+  "cordis.runFailed": "Не удалось запустить плагин: {message}",
+  "cordis.stopFailed": "Не удалось остановить плагин: {message}",
+  "cordis.removed": "Плагин удалён",
+  "cordis.removeFailed": "Не удалось удалить плагин: {message}"
 }

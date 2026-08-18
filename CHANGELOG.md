@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.80
+- Web GUI parity for "Restore checkpoint": the Copilot-style turn dividers and the restore dialog now also appear in the DSH web chat — horizontal lines between turns inside a conversation, opening a floating dialog that previews only that turn's own file changes and reverts them via a scoped `/undo` (never touching your commits/HEAD or other turns' changes; turns without a record report "no restorable checkpoint"). The web half ships inside the same bundled plugin: dsh-git-rollback@0.1.8 adds host routes `/dsh-rollback/preview` + `/dsh-rollback/apply` and a client bundle declared via `dsh.client` (served by the DSH client-modules pipeline), auto-installed into the web profile by the extension; restart the DSH server after installing this update.
+- 网页端适配「还原检查点」:Copilot 风格的回合分隔线与还原弹窗现在同样出现在 DSH 网页端聊天中——同一对话内的回合之间显示水平线,点击弹出悬浮窗,仅预览该回合自身的文件改动并经精确 `/undo` 撤销(永不触碰你的提交/HEAD 或其他回合的改动;无记录回合直接提示「无检查点」)。网页端功能随内置插件一同分发:dsh-git-rollback@0.1.8 新增 host 路由 `/dsh-rollback/preview` 与 `/dsh-rollback/apply`,以及经 `dsh.client` 声明的 client 包(由 DSH client-modules 管线提供),扩展自动安装进 web profile;安装本更新后请重启 DSH 服务生效。
+
 ## 0.12.76
 - Fix /undo failing on non-ASCII filenames (Chinese etc.): git now runs with `core.quotepath=false` so paths stay as raw UTF-8 instead of `"\346\265\213..."` escapes; the reverse-apply patch is no longer trimmed (keeps its trailing newline, fixing "corrupt patch"); `git apply` uses `--ignore-whitespace` to survive Windows CRLF. Includes plugin dsh-git-rollback@0.1.7 (13 tests).
 - 修复 /undo 对中文等非 ASCII 文件名的失败:git 以 `core.quotepath=false` 运行,路径保持原始 UTF-8(不再变成 `"\346\265\213..."` 转义);反向应用补丁不再被 trim(保留末尾换行,修复 "corrupt patch");`git apply` 加 `--ignore-whitespace` 兼容 Windows CRLF。内置插件升级至 dsh-git-rollback@0.1.7(13 项测试)。

@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "No se pudieron actualizar los interruptores de directorios de configuración del agente: {error}",
   "plan.reviewHeader": "# Revisión del plan\n\n> **Plan por revisar**\n> Selecciona el texto del plan para añadir comentarios. Escribe tus observaciones en el campo de revisión del plan de DSH y pulsa Entrar.",
   "notice.steerAccepted": "Insertado: se procesará con prioridad al terminar la respuesta actual",
-  "notice.steerUnavailable": "El turno actual ha terminado y ya no se puede interrumpir; el mensaje se enviará automáticamente en el próximo turno"
+  "notice.steerUnavailable": "El turno actual ha terminado y ya no se puede interrumpir; el mensaje se enviará automáticamente en el próximo turno",
+  "cordis.approved": "Plugin aprobado y ejecutado",
+  "cordis.approveFailed": "Error al aprobar el plugin: {message}",
+  "cordis.rejectFailed": "Error al rechazar el plugin: {message}",
+  "cordis.panelFailed": "No se pudo abrir el panel Cordis: {message}",
+  "cordis.panelTitle": "Plugins Cordis",
+  "cordis.inventoryFailed": "No se pudo leer la lista de plugins: {message}",
+  "cordis.requestGone": "Esta solicitud de ejecución ya no está pendiente",
+  "cordis.started": "Se inició la ejecución del plugin",
+  "cordis.runFailed": "Error al ejecutar el plugin: {message}",
+  "cordis.stopFailed": "Error al detener el plugin: {message}",
+  "cordis.removed": "Plugin eliminado",
+  "cordis.removeFailed": "Error al eliminar el plugin: {message}"
 }

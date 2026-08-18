@@ -16,8 +16,10 @@
       "@deepseek-ai/cordis": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-session": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-session/lib/types/index.d.ts"],
       "@deepseek-ai/dsh-commands": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-commands/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-agent": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-agent/lib/types/index.d.ts"]
+      "@deepseek-ai/dsh-agent": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-agent/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-host-webserver": ["C:/Users/my/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-host-webserver/lib/types/index.d.ts"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/client"]
 }

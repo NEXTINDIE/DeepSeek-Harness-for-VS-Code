@@ -33,6 +33,13 @@ import type {
   WorkspaceItem,
   WorkspaceListValue,
 } from "./types";
+import type {
+  CordisPluginRow,
+  CordisRunHostHalfResult,
+  CordisRunResolution,
+  CordisStopResult,
+  CordisUndefineResult,
+} from "./cordisTypes";
 
 export class DshApiError extends Error {
   constructor(
@@ -198,6 +205,61 @@ export class DshApiClient {
         },
       },
     };
+  }
+
+  /**
+   * 通用 Typert Remote 调用(网页端 ctx.remote.* 同款通道):
+   * 端点为斜杠形式 /api/<namespace>/<method>,载荷信封 {args:{...}}。
+   */
+  private async remoteCall<T>(namespace: string, method: string, args: Record<string, unknown>, timeoutMs = 30_000): Promise<T> {
+    const endpoint = `${namespace}/${method}`;
+    const message: ClientRequest = { type: "client-request", rpcId: randomUUID(), method: endpoint, payload: { args } };
+    const res = await fetch(`${this.baseUrl}/api/${endpoint}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(message),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw new Error(`DSH transport failure for ${endpoint}: HTTP ${res.status}`);
+    const full = (await res.json()) as ServerResponse;
+    if (full.rpcId !== message.rpcId) throw new Error(`DSH rpcId mismatch for ${endpoint}`);
+    if (!full.result.ok) {
+      throw new DshApiError(full.result.error.code, full.result.error.message, full.result.error.details);
+    }
+    return full.result.value as T;
+  }
+
+  // ---------- Cordis 动态插件(dynamicCordisRunner remote) ----------
+
+  cordisInventory() {
+    return this.remoteCall<CordisPluginRow[]>("dynamicCordisRunner", "inventory", {});
+  }
+
+  cordisRunHostHalf(args: {
+    agentId: string;
+    pluginId: string;
+    packageId: string;
+    mode: "run" | "update";
+    requestId: string | null;
+    approveFutureVersions: boolean;
+  }) {
+    return this.remoteCall<CordisRunHostHalfResult>("dynamicCordisRunner", "runHostHalf", args, 60_000);
+  }
+
+  cordisResolveRequestRun(requestId: string, resolution: CordisRunResolution) {
+    return this.remoteCall<{ accepted: boolean }>("dynamicCordisRunner", "resolveRequestRun", { requestId, resolution });
+  }
+
+  cordisSettleUserRun(agentId: string, pluginId: string, resolution: CordisRunResolution) {
+    return this.remoteCall<CordisRunHostHalfResult>("dynamicCordisRunner", "settleUserRun", { agentId, pluginId, resolution });
+  }
+
+  cordisStopFromPanel(agentId: string, pluginId: string) {
+    return this.remoteCall<CordisStopResult>("dynamicCordisRunner", "stopFromPanel", { agentId, pluginId });
+  }
+
+  cordisUndefineFromPanel(agentId: string, pluginId: string) {
+    return this.remoteCall<CordisUndefineResult>("dynamicCordisRunner", "undefineFromPanel", { agentId, pluginId });
   }
 
   /**

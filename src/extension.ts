@@ -8,6 +8,7 @@ import { registerCommitMessageCommand } from "./dsh/commitMessage";
 import { ensureRollbackPluginInstalled } from "./dsh/rollbackInstall";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
+import { CordisPanelProvider } from "./webview/cordisPanel";
 
 export function activate(ctx: vscode.ExtensionContext) {
   const t = createTranslator();
@@ -118,6 +119,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   };
   registerViewProviders();
   const chatWindow = new ChatWindowProvider(hub, ctx);
+  const cordisPanel = new CordisPanelProvider(hub, ctx);
 
   // ---------- 状态栏 ----------
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -172,6 +174,9 @@ export function activate(ctx: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("dsh.openChatWindow", () => {
       chatWindow.open();
+    }),
+    vscode.commands.registerCommand("dsh.openCordisPanel", () => {
+      cordisPanel.open();
     }),
     vscode.commands.registerCommand("dsh.openSidebar", async () => {
       if (supportsSecondarySidebar) {

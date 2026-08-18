@@ -160,5 +160,17 @@
   "notice.agentDirsSetFailed": "Aktualisierung der Agent-Konfigurationsverzeichnis-Schalter fehlgeschlagen: {error}",
   "plan.reviewHeader": "# Planprüfung\n\n> **Plan zur Überprüfung bereit**\n> Plan-Text auswählen, um Kommentare hinzuzufügen. Änderungswünsche im DSH-Planprüfungsfeld eingeben und Enter drücken.",
   "notice.steerAccepted": "Eingefügt: wird direkt nach der aktuellen Antwort priorisiert bearbeitet",
-  "notice.steerUnavailable": "Die aktuelle Runde ist beendet, eine Unterbrechung ist nicht mehr möglich; die Nachricht wird automatisch in der nächsten Runde gesendet"
+  "notice.steerUnavailable": "Die aktuelle Runde ist beendet, eine Unterbrechung ist nicht mehr möglich; die Nachricht wird automatisch in der nächsten Runde gesendet",
+  "cordis.approved": "Plugin genehmigt und gestartet",
+  "cordis.approveFailed": "Plugin-Genehmigung fehlgeschlagen: {message}",
+  "cordis.rejectFailed": "Ablehnen des Plugins fehlgeschlagen: {message}",
+  "cordis.panelFailed": "Öffnen des Cordis-Bedienfelds fehlgeschlagen: {message}",
+  "cordis.panelTitle": "Cordis-Plugins",
+  "cordis.inventoryFailed": "Lesen der Plugin-Liste fehlgeschlagen: {message}",
+  "cordis.requestGone": "Diese Ausführungsanfrage ist nicht mehr ausstehend",
+  "cordis.started": "Plugin-Lauf gestartet",
+  "cordis.runFailed": "Ausführen des Plugins fehlgeschlagen: {message}",
+  "cordis.stopFailed": "Stoppen des Plugins fehlgeschlagen: {message}",
+  "cordis.removed": "Plugin entfernt",
+  "cordis.removeFailed": "Entfernen des Plugins fehlgeschlagen: {message}"
 }
