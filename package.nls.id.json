@@ -27,7 +27,7 @@
   "config.participantSessionMode.perWorkspace": "Satu sesi @dsh per proyek (folder ruang kerja); ruang kerja multi-root mengikuti editor aktif (disarankan)",
   "config.participantSessionMode.global": "Semua proyek berbagi satu sesi @dsh",
   "config.openPanelOnStartup": "Otomatis buka jendela chat DSH mandiri saat VS Code dimulai (nonaktif secara default; entri utama adalah peserta @dsh di Chat bawaan).",
-  "config.defaultReasoningEffort": "Kedalaman berpikir (upaya penalaran, mis. off / high / max tergantung model) yang diterapkan ke sesi yang baru dibuat. Biarkan kosong untuk menggunakan default model; bilah alat jendela chat dapat menyesuaikan sesi saat ini kapan saja.",
+  "config.defaultReasoningEffort": "Kedalaman berpikir (upaya penalaran, mis. off / low / high / max tergantung model) yang diterapkan ke sesi yang baru dibuat. Biarkan kosong untuk menggunakan default model; bilah alat jendela chat dapat menyesuaikan sesi saat ini kapan saja.",
   "config.commitModel": "Model yang digunakan untuk membuat pesan commit git dari tampilan Source Control. Diselesaikan dari katalog model DSH (mis. deepseek-v4-flash); kembali ke model sesi saat ini jika tidak ditemukan.",
   "config.commitReasoningEffort": "Upaya penalaran untuk pembuatan pesan commit. \"low\" berarti tanpa/pemikiran minimal pada model DeepSeek (paling cepat).",
   "config.language": "Bahasa UI ekstensi (panel chat, notifikasi, balasan @dsh).",

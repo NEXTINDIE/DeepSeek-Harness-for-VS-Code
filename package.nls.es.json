@@ -27,7 +27,7 @@
   "config.participantSessionMode.perWorkspace": "Una sesión @dsh por proyecto (carpeta del espacio de trabajo); los espacios de trabajo de varias raíces siguen al editor activo (recomendado)",
   "config.participantSessionMode.global": "Todos los proyectos comparten una única sesión @dsh",
   "config.openPanelOnStartup": "Abrir automáticamente la ventana de chat independiente de DSH al iniciar VS Code (desactivado de forma predeterminada; la entrada principal es el participante @dsh del chat integrado).",
-  "config.defaultReasoningEffort": "Profundidad de pensamiento (esfuerzo de razonamiento, p. ej. off / high / max según el modelo) aplicada a las sesiones recién creadas. Déjalo vacío para usar el valor predeterminado del modelo; la barra de herramientas de la ventana de chat puede ajustar la sesión actual en cualquier momento.",
+  "config.defaultReasoningEffort": "Profundidad de pensamiento (esfuerzo de razonamiento, p. ej. off / low / high / max según el modelo) aplicada a las sesiones recién creadas. Déjalo vacío para usar el valor predeterminado del modelo; la barra de herramientas de la ventana de chat puede ajustar la sesión actual en cualquier momento.",
   "config.commitModel": "Modelo usado para generar mensajes de confirmación de git desde la vista Control de código fuente. Se resuelve desde el catálogo de modelos de DSH (p. ej. deepseek-v4-flash); si no se encuentra, se usa el modelo actual de la sesión.",
   "config.commitReasoningEffort": "Esfuerzo de razonamiento para la generación de mensajes de confirmación. \"low\" significa poco o ningún razonamiento en los modelos DeepSeek (el más rápido).",
   "config.language": "Idioma de la interfaz de la extensión (panel de chat, notificaciones, respuestas de @dsh).",

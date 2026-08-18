@@ -300,7 +300,6 @@
   "(暂无)": "(ainda nenhum)",
   "标准模式": "Modo padrão",
   "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Agente de codificação completo com edição de arquivos, shell, busca de arquivos e na web, habilidades, planejamento, metas, subagentes e fluxos de trabalho.",
-  "PTC 模式": "Modo código",
   "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "Todas as capacidades do modo padrão, com ferramentas expostas pelo SDK do Code Mode para o modelo combinar operações de várias etapas em um único programa TypeScript.",
   "极简模式": "Modo mínimo",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Agente de codificação com duas ferramentas: bash persistente e str_replace_editor.",
@@ -365,7 +364,7 @@
   "暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)": "Ainda não há pontos de verificação. Eles são criados automaticamente no início de cada turno (instantâneo em turn/start)",
   "/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "/rollback [N] reverte diretamente; /redo restaura a última reversão; limpeza: git update-ref -d refs/dsh/checkpoints|saves/<ID da sessão> mais o registro .dsh/rollback",
   "差异不可用": "Diferença indisponível",
-  "编码模式": "Modo código",
+  "编码模式": "Modo PTC",
   "允许一次": "Permitir uma vez",
   "工具 {toolName} 请求越权执行": "A ferramenta {toolName} solicita execução privilegiada",
   "撤销本回合改动并新建分支": "Desfazer as alterações deste turno e ramificar daqui",
@@ -445,5 +444,7 @@
   "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)": "Compatível com Codex: analisa .codex (config.toml, habilidades) no espaço de trabalho e no diretório do usuário (~/.codex)",
   "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Compatível com GitHub Copilot: analisa arquivos .github (instruções, agentes, prompts) no espaço de trabalho e no diretório do usuário (~/.github)",
   "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Ativa a compatibilidade com os diretórios de configuração de cada ferramenta (pasta do espaço de trabalho e diretório do usuário); marcado, o DSH pode ler as configurações de usuário do modelo/ferramenta correspondente.",
-  "当前回合已结束,无法插队;消息将在下一轮自动处理": "A rodada atual terminou e não aceita mais interrupções; a mensagem será enviada automaticamente na próxima rodada"
+  "当前回合已结束,无法插队;消息将在下一轮自动处理": "A rodada atual terminou e não aceita mais interrupções; a mensagem será enviada automaticamente na próxima rodada",
+  "收起提问卡片": "Recolher cartão de pergunta",
+  "展开提问卡片": "Expandir cartão de pergunta"
 }

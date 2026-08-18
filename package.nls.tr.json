@@ -27,7 +27,7 @@
   "config.participantSessionMode.perWorkspace": "Proje (çalışma alanı klasörü) başına bir @dsh oturumu; çok köklü çalışma alanlarında etkin düzenleyici izlenir (önerilen)",
   "config.participantSessionMode.global": "Tüm projeler tek bir @dsh oturumunu paylaşır",
   "config.openPanelOnStartup": "VS Code başlatıldığında bağımsız DSH sohbet penceresini otomatik aç (varsayılan olarak kapalı; ana giriş noktası yerleşik Sohbet'teki @dsh katılımcısıdır).",
-  "config.defaultReasoningEffort": "Yeni oluşturulan oturumlara uygulanan düşünme derinliği (akıl yürütme çabası; modele bağlı olarak örn. off / high / max). Model varsayılanını kullanmak için boş bırakın; sohbet penceresi araç çubuğu geçerli oturumu istediğiniz zaman ayarlayabilir.",
+  "config.defaultReasoningEffort": "Yeni oluşturulan oturumlara uygulanan düşünme derinliği (akıl yürütme çabası; modele bağlı olarak örn. off / low / high / max). Model varsayılanını kullanmak için boş bırakın; sohbet penceresi araç çubuğu geçerli oturumu istediğiniz zaman ayarlayabilir.",
   "config.commitModel": "Kaynak Denetimi görünümünden git commit mesajları oluşturmak için kullanılan model. DSH model kataloğundan çözümlenir (örn. deepseek-v4-flash); bulunamazsa oturumun geçerli modeline geri dönülür.",
   "config.commitReasoningEffort": "Commit mesajı oluşturma için akıl yürütme çabası. \"low\", DeepSeek modellerinde düşünmenin olmaması/en az düzeyde olması anlamına gelir (en hızlı).",
   "config.language": "Uzantının arayüz dili (sohbet paneli, bildirimler, @dsh yanıtları).",

@@ -27,7 +27,7 @@
   "config.participantSessionMode.perWorkspace": "每個專案(工作區資料夾)一個 @dsh 工作階段;多根工作區會跟隨使用中的編輯器(建議)",
   "config.participantSessionMode.global": "所有專案共用單一 @dsh 工作階段",
   "config.openPanelOnStartup": "在 VS Code 啟動時自動開啟獨立的 DSH 聊天視窗(預設關閉;主要入口是內建 Chat 中的 @dsh 參與者)。",
-  "config.defaultReasoningEffort": "套用至新建立工作階段的思考深度(推理強度,例如視模型而定為 off / high / max)。留空則使用模型預設;聊天視窗的工具列可隨時調整目前工作階段。",
+  "config.defaultReasoningEffort": "套用至新建立工作階段的思考深度(推理強度,例如視模型而定為 off / low / high / max)。留空則使用模型預設;聊天視窗的工具列可隨時調整目前工作階段。",
   "config.commitModel": "用來從原始檔控制檢視產生 git 提交訊息的模型。從 DSH 模型目錄解析(例如 deepseek-v4-flash);找不到時退回使用工作階段目前的模型。",
   "config.commitReasoningEffort": "產生提交訊息時的推理強度。\"low\" 表示 DeepSeek 模型不思考或極少思考(最快)。",
   "config.language": "擴充功能的介面語言(聊天面板、通知、@dsh 回覆)。",

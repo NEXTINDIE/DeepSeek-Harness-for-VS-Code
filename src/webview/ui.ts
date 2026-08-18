@@ -716,6 +716,8 @@ const EN_TEXT: Record<string, string> = {
   "✅ 批准计划并开始执行": "✅ Approve plan and start",
   "✏️ 继续修改计划": "✏️ Keep editing the plan",
   "⚠️ 请选择一个选项或填写自定义回答": "⚠️ Select an option or type a custom answer",
+  "收起提问卡片": "Collapse question card",
+  "展开提问卡片": "Expand question card",
   // ---- 头部按钮与图片附件 ----
   "工作区(分组 / 搜索 / 归档)": "Workspaces (groups / search / archive)",
   "后台任务": "Background jobs",
@@ -926,7 +928,7 @@ const EN_TEXT: Record<string, string> = {
   // ---- 内置 Agent 预设(按 id 本地化,与网页端一致) ----
   "标准模式": "Standard mode",
   "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.",
-  "编码模式": "Code mode",
+  "编码模式": "PTC mode",
   "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "All Standard mode capabilities, with tools exposed through the Code Mode SDK so the model can combine multi-step operations in one TypeScript program.",
   "极简模式": "Minimal mode",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Two-tool coding agent with persistent bash and str_replace_editor.",
@@ -3910,6 +3912,14 @@ function renderLoadMoreButton() {
 
 // ---------- 审批 / 提问 ----------
 
+/** 提问分页流会话状态(frameRpcId → 草稿 / 页码 / 折叠),跨 renderPending 重建保留 —— 与网页端 rc.7「提问卡片可折叠并保留草稿」一致。 */
+interface QuestionFlowState {
+  drafts: { selected: string[]; custom: string; skipped: boolean }[];
+  index: number;
+  minimized: boolean;
+}
+const questionFlows = new Map<string, QuestionFlowState>();
+
 function renderPending() {
   pendingArea.innerHTML = "";
   for (const approval of state.approvals.values()) {
@@ -4028,28 +4038,44 @@ function renderPending() {
     }
     if (normalItems.length === 0) continue;
 
-    // ---------- 普通提问:网页端分页流(一次一题,跳过/提交同排) ----------
-    const drafts = normalItems.map(() => ({ selected: [] as string[], custom: "", skipped: false }));
-    let index = 0;
+    // ---------- 普通提问:网页端分页流(一次一题,跳过/提交同排;可折叠且保留草稿) ----------
+    let flow = questionFlows.get(question.frameRpcId);
+    if (!flow || flow.drafts.length !== normalItems.length) {
+      flow = {
+        drafts: normalItems.map(() => ({ selected: [] as string[], custom: "", skipped: false })),
+        index: 0,
+        minimized: false,
+      };
+      questionFlows.set(question.frameRpcId, flow);
+    }
+    const drafts = flow.drafts;
+    let index = flow.index;
 
-    const card = el("div", "pending-card pending-question question-card");
+    const card = el("div", "pending-card pending-question question-card" + (flow.minimized ? " question-minimized" : ""));
     const head = el("div", "question-head");
     head.append(lineIcon(ICONS.help, 14), el("span", "question-head-title", t("提问")));
     const count = el("span", "question-count");
+    // 折叠 / 展开(网页端 nav.minimize/maximize 同款):折叠仅收起卡片主体,草稿与页码保留
+    const minBtn = el("button", "question-min", "");
+    minBtn.append(lineIcon(flow.minimized ? ICONS.up2 : ICONS.down2, 13));
+    minBtn.title = flow.minimized ? t("展开提问卡片") : t("收起提问卡片");
+    minBtn.addEventListener("click", () => {
+      flow!.minimized = !flow!.minimized;
+      renderPending();
+    });
     const closeBtn = el("button", "question-close", "✕");
     closeBtn.title = t("放弃整组问题");
     closeBtn.addEventListener("click", () => {
       // 放弃整组问题:取消提问(网页端 pending.cancel 同款),不提交任何答案
       vscode.postMessage({ kind: "answerCancel", frameRpcId: question.frameRpcId });
       state.questions.delete(question.frameRpcId);
+      questionFlows.delete(question.frameRpcId);
       renderPending();
     });
-    head.append(count, closeBtn);
+    head.append(minBtn, count, closeBtn);
     card.append(head);
 
     const body = el("div", "question-body");
-    card.append(body);
-
     const footer = el("div", "question-footer");
     const pager = el("div", "question-pager");
     const prevBtn = el("button", "question-nav", "◀");
@@ -4064,7 +4090,10 @@ function renderPending() {
     const primaryBtn = el("button", "btn btn-allow", "");
     actions.append(skipBtn, primaryBtn);
     footer.append(pager, feedback, actions);
-    card.append(footer);
+    if (!flow.minimized) {
+      card.append(body);
+      card.append(footer);
+    }
     pendingArea.append(card);
 
     /** 全部问题的作答(跳过 → 空选择;自定义优先,与网页端提交语义一致)。 */
@@ -4084,6 +4113,7 @@ function renderPending() {
     const submitAll = () => {
       vscode.postMessage({ kind: "answer", frameRpcId: question.frameRpcId, answers: buildAnswers() });
       state.questions.delete(question.frameRpcId);
+      questionFlows.delete(question.frameRpcId);
       renderPending();
     };
 
@@ -4096,6 +4126,7 @@ function renderPending() {
       }
       if (index < normalItems.length - 1) {
         index += 1;
+        flow!.index = index;
         renderPage();
       } else {
         submitAll();
@@ -4109,6 +4140,7 @@ function renderPending() {
       feedback.textContent = "";
       if (index < normalItems.length - 1) {
         index += 1;
+        flow!.index = index;
         renderPage();
       } else {
         submitAll();
@@ -4118,12 +4150,14 @@ function renderPending() {
     prevBtn.addEventListener("click", () => {
       if (index > 0) {
         index -= 1;
+        flow!.index = index;
         renderPage();
       }
     });
     nextBtn.addEventListener("click", () => {
       if (index < normalItems.length - 1) {
         index += 1;
+        flow!.index = index;
         renderPage();
       }
     });
@@ -4664,6 +4698,7 @@ function handleMessage(msg: any) {
     }
     case "questionResolved": {
       state.questions.delete(msg.frameRpcId);
+      questionFlows.delete(msg.frameRpcId);
       renderPending();
       break;
     }

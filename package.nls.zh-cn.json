@@ -27,7 +27,7 @@
   "config.participantSessionMode.perWorkspace": "每个项目(工作区文件夹)各自独立的 @dsh 会话;多根工作区按当前活动编辑器所在文件夹切换(推荐)",
   "config.participantSessionMode.global": "所有项目共用一个 @dsh 会话",
   "config.openPanelOnStartup": "VS Code 启动时自动打开独立的 DSH 聊天窗口(默认关闭,主入口为内置 Chat 中的 @dsh 参与者)。",
-  "config.defaultReasoningEffort": "新建会话时自动应用的思考深度(推理强度,如 off / high / max,取决于模型)。留空使用模型默认;聊天窗口的输入框工具栏可随时调整当前会话的思考深度。",
+  "config.defaultReasoningEffort": "新建会话时自动应用的思考深度(推理强度,如 off / low / high / max,取决于模型)。留空使用模型默认;聊天窗口的输入框工具栏可随时调整当前会话的思考深度。",
   "config.commitModel": "源代码管理视图中生成提交信息所用的模型。从 DSH 模型目录解析(如 deepseek-v4-flash);找不到时回退到该会话当前模型。",
   "config.commitReasoningEffort": "生成提交信息时的思考深度。DeepSeek 模型上 \"low\" 表示不开思考(最快)。",
   "config.language": "扩展界面语言(聊天面板、通知、@dsh 回复)。",

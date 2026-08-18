@@ -300,7 +300,6 @@
   "(暂无)": "(belum ada)",
   "标准模式": "Mode standar",
   "功能完整的编码 Agent,支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。": "Agen pengodean lengkap dengan penyuntingan file, shell, pencarian file dan web, skill, perencanaan, tujuan, subagen, dan alur kerja.",
-  "PTC 模式": "Mode kode",
   "具备标准模式的全部能力,并通过 Code Mode SDK 呈现工具,让模型用一个 TypeScript 程序组合多步操作。": "Semua kemampuan mode standar, dengan alat yang diekspos melalui Code Mode SDK sehingga model dapat menggabungkan operasi multi-langkah dalam satu program TypeScript.",
   "极简模式": "Mode minimal",
   "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。": "Agen pengodean dua alat dengan bash persisten dan str_replace_editor.",
@@ -365,7 +364,7 @@
   "暂无检查点。检查点会在每个回合开始前自动创建(turn/start 时快照工作区)": "Belum ada titik pemeriksaan. Titik pemeriksaan dibuat otomatis saat setiap giliran dimulai (snapshot pada turn/start)",
   "/rollback [N] 直接回退;/redo 恢复最近回退;清理 refs/dsh/checkpoints|saves/<会话ID> 与 .dsh/rollback 记录": "/rollback [N] mengembalikan langsung; /redo memulihkan rollback terakhir; pembersihan: git update-ref -d refs/dsh/checkpoints|saves/<ID sesi> beserta catatan .dsh/rollback",
   "差异不可用": "Perbedaan tidak tersedia",
-  "编码模式": "Mode kode",
+  "编码模式": "Mode PTC",
   "允许一次": "Izinkan sekali",
   "工具 {toolName} 请求越权执行": "Alat {toolName} meminta eksekusi istimewa",
   "撤销本回合改动并新建分支": "Batalkan perubahan giliran ini dan buat cabang dari sini",
@@ -445,5 +444,7 @@
   "兼容 Codex:扫描工作区与用户主目录(~/.codex)下的 .codex(config.toml、技能)": "Kompatibel Codex: memindai .codex (config.toml, skill) di ruang kerja dan direktori pengguna (~/.codex)",
   "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Kompatibel GitHub Copilot: memindai berkas .github (instruksi, agen, prompt) di ruang kerja dan direktori pengguna (~/.github)",
   "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Aktifkan kompatibilitas dengan direktori konfigurasi tiap alat (folder ruang kerja dan direktori pengguna); jika dicentang, DSH dapat membaca konfigurasi pengguna model/alat terkait.",
-  "当前回合已结束,无法插队;消息将在下一轮自动处理": "Giliran saat ini telah berakhir dan tidak dapat menerima sisipan; pesan akan dikirim otomatis pada giliran berikutnya"
+  "当前回合已结束,无法插队;消息将在下一轮自动处理": "Giliran saat ini telah berakhir dan tidak dapat menerima sisipan; pesan akan dikirim otomatis pada giliran berikutnya",
+  "收起提问卡片": "Ciutkan kartu pertanyaan",
+  "展开提问卡片": "Perluas kartu pertanyaan"
 }

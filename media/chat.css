@@ -1967,6 +1967,34 @@ body {
   color: var(--dsh-fg);
 }
 
+/* 折叠 / 展开按钮(网页端 nav.minimize/maximize 同款) */
+.question-min {
+  background: transparent;
+  border: none;
+  color: var(--dsh-muted);
+  cursor: pointer;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.question-min:hover {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+  color: var(--dsh-fg);
+}
+
+/* 折叠态:仅保留标题栏(细边框 + 淡背景) */
+.question-card.question-minimized {
+  background: rgba(0, 127, 212, 0.03);
+}
+
+.question-card.question-minimized .question-head {
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
 .question-body {
   padding: 8px 10px 10px;
   max-height: 46vh;
