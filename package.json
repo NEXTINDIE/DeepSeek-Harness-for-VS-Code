@@ -103,6 +103,15 @@
         "icon": "$(extensions)"
       }
     ],
+    "chatParticipants": [
+      {
+        "id": "dsh",
+        "name": "dsh",
+        "fullName": "DSH",
+        "description": "%chatParticipant.dsh.description%",
+        "isSticky": true
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {

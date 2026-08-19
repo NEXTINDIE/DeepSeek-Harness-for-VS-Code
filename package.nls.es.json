@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: Mostrar diagnósticos",
   "cmd.showOutput.title": "DSH: Abrir registro de la extensión",
   "cmd.repairViews.title": "DSH: Reparar vista de chat (Reset View Locations)",
+  "chatParticipant.dsh.description": "Usar DeepSeek Harness con @dsh",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",

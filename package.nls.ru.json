@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: показать диагностику",
   "cmd.showOutput.title": "DSH: открыть журнал расширения",
   "cmd.repairViews.title": "DSH: восстановить представление чата (сбросить расположение представлений)",
+  "chatParticipant.dsh.description": "Используйте DeepSeek Harness через @dsh",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Чат",
   "config.title": "DeepSeek Harness",
