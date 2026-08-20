@@ -172,5 +172,12 @@
   "cordis.runFailed": "ไม่สามารถเรียกใช้ปลั๊กอินได้:{message}",
   "cordis.stopFailed": "ไม่สามารถหยุดปลั๊กอินได้:{message}",
   "cordis.removed": "ลบปลั๊กอินแล้ว",
-  "cordis.removeFailed": "ไม่สามารถลบปลั๊กอินได้:{message}"
+  "cordis.removeFailed": "ไม่สามารถลบปลั๊กอินได้:{message}",
+  "server.updateConfirm": "การดำเนินการนี้จะหยุดเซิร์ฟเวอร์ที่ทำงานอยู่ (หากเริ่มโดยส่วนขยายนี้) และติดตั้ง @deepseek-ai/dsh@latest ใหม่ในไดเรกทอรีของส่วนขยาย ดำเนินการต่อหรือไม่",
+  "server.updateHint": "เซิร์ฟเวอร์ DSH ภายในเครื่องคือ v{version} ฟีเจอร์ใหม่ (low reasoning effort, การป้อนรูปภาพคำสั่ง rc.8 ฯลฯ) ต้องใช้เซิร์ฟเวอร์เวอร์ชันใหม่กว่า",
+  "server.updateNow": "อัปเดตตอนนี้",
+  "server.updating": "กำลังอัปเดตเซิร์ฟเวอร์ DSH (ดาวน์โหลด @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "ไม่สามารถอัปเดตเซิร์ฟเวอร์ DSH ได้ ดูรายละเอียดในบันทึกเอาต์พุต",
+  "server.updated": "อัปเดตและรีสตาร์ทเซิร์ฟเวอร์ DSH แล้ว",
+  "server.updateRestartFailed": "อัปเดตเซิร์ฟเวอร์ DSH แล้ว แต่การรีสตาร์ทล้มเหลว:{message}"
 }

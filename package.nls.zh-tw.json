@@ -52,5 +52,6 @@
   "config.agentDirs.githubCopilot": "相容 GitHub Copilot:掃描工作區與使用者主目錄(~/.github)下的 .github 檔案(指令、智慧體、提示詞)",
   "config.agentDirs.dshUserSkills": "在可用技能清單中顯示 / 隱藏 DSH 使用者全域技能(~/.dsh/skills、~/.agents/skills)",
   "config.language.ru": "俄語",
-  "cmd.openCordisPanel.title": "開啟 Cordis 外掛程式面板"
+  "cmd.openCordisPanel.title": "開啟 Cordis 外掛程式面板",
+  "cmd.updateServer.title": "升級 DSH 伺服器"
 }

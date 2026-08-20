@@ -172,5 +172,12 @@
   "cordis.runFailed": "Running the plugin failed: {message}",
   "cordis.stopFailed": "Stopping the plugin failed: {message}",
   "cordis.removed": "Plugin removed",
-  "cordis.removeFailed": "Removing the plugin failed: {message}"
+  "cordis.removeFailed": "Removing the plugin failed: {message}",
+  "server.updateConfirm": "This stops the running server (if started by this extension) and reinstalls @deepseek-ai/dsh@latest into the extension's own directory. Continue?",
+  "server.updateHint": "The local DSH server is v{version}. New features (low reasoning effort, rc.8 command image input, etc.) require a newer server.",
+  "server.updateNow": "Update now",
+  "server.updating": "Updating DSH server (downloads @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "DSH server update failed. See the Output log for details.",
+  "server.updated": "DSH server updated and restarted.",
+  "server.updateRestartFailed": "DSH server updated, but restart failed: {message}"
 }

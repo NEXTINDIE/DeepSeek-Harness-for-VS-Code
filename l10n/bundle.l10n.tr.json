@@ -172,5 +172,12 @@
   "cordis.runFailed": "Eklenti çalıştırılamadı:{message}",
   "cordis.stopFailed": "Eklenti durdurulamadı:{message}",
   "cordis.removed": "Eklenti kaldırıldı",
-  "cordis.removeFailed": "Eklenti kaldırılamadı:{message}"
+  "cordis.removeFailed": "Eklenti kaldırılamadı:{message}",
+  "server.updateConfirm": "Bu işlem çalışan sunucuyu (bu uzantı tarafından başlatıldıysa) durdurur ve @deepseek-ai/dsh@latest'i uzantının kendi dizinine yeniden kurar. Devam edilsin mi?",
+  "server.updateHint": "Yerel DSH sunucusu v{version}. Yeni özellikler (low akıl yürütme çabası, rc.8 komut görsel girişi vb.) daha yeni bir sunucu gerektirir.",
+  "server.updateNow": "Şimdi güncelle",
+  "server.updating": "DSH sunucusu güncelleniyor (@deepseek-ai/dsh@latest indiriliyor)…",
+  "server.updateFailed": "DSH sunucusu güncellenemedi. Ayrıntılar için çıktı günlüğüne bakın.",
+  "server.updated": "DSH sunucusu güncellendi ve yeniden başlatıldı.",
+  "server.updateRestartFailed": "DSH sunucusu güncellendi ancak yeniden başlatılamadı:{message}"
 }

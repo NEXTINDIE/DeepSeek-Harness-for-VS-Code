@@ -172,5 +172,12 @@
   "cordis.runFailed": "فشل تشغيل الإضافة:{message}",
   "cordis.stopFailed": "فشل إيقاف الإضافة:{message}",
   "cordis.removed": "تمت إزالة الإضافة",
-  "cordis.removeFailed": "فشل إزالة الإضافة:{message}"
+  "cordis.removeFailed": "فشل إزالة الإضافة:{message}",
+  "server.updateConfirm": "سيؤدي هذا إلى إيقاف الخادم قيد التشغيل (إذا كان قد بدأ بواسطة هذه الإضافة) وإعادة تثبيت @deepseek-ai/dsh@latest في دليل الإضافة الخاص. متابعة؟",
+  "server.updateHint": "خادم DSH المحلي هو v{version}. تتطلب الميزات الجديدة (جهد التفكير low، إدخال صور الأوامر rc.8، إلخ) خادمًا أحدث.",
+  "server.updateNow": "تحديث الآن",
+  "server.updating": "جارٍ تحديث خادم DSH (تنزيل @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "فشل تحديث خادم DSH. راجع سجل الإخراج للتفاصيل.",
+  "server.updated": "تم تحديث خادم DSH وإعادة تشغيله.",
+  "server.updateRestartFailed": "تم تحديث خادم DSH، لكن فشلت إعادة التشغيل:{message}"
 }

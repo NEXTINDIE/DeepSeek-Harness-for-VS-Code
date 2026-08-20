@@ -172,5 +172,12 @@
   "cordis.runFailed": "Ausführen des Plugins fehlgeschlagen: {message}",
   "cordis.stopFailed": "Stoppen des Plugins fehlgeschlagen: {message}",
   "cordis.removed": "Plugin entfernt",
-  "cordis.removeFailed": "Entfernen des Plugins fehlgeschlagen: {message}"
+  "cordis.removeFailed": "Entfernen des Plugins fehlgeschlagen: {message}",
+  "server.updateConfirm": "Der laufende Server (falls von dieser Erweiterung gestartet) wird gestoppt und @deepseek-ai/dsh@latest im eigenen Verzeichnis der Erweiterung neu installiert. Fortfahren?",
+  "server.updateHint": "Der lokale DSH-Server ist v{version}. Neue Funktionen (low Reasoning-Aufwand, rc.8 Befehls-Bildeingabe usw.) erfordern einen neueren Server.",
+  "server.updateNow": "Jetzt aktualisieren",
+  "server.updating": "DSH-Server wird aktualisiert (lädt @deepseek-ai/dsh@latest herunter)…",
+  "server.updateFailed": "DSH-Server-Update fehlgeschlagen. Details finden Sie im Ausgabelog.",
+  "server.updated": "DSH-Server aktualisiert und neu gestartet.",
+  "server.updateRestartFailed": "DSH-Server aktualisiert, aber Neustart fehlgeschlagen: {message}"
 }

@@ -172,5 +172,12 @@
   "cordis.runFailed": "运行插件失败:{message}",
   "cordis.stopFailed": "停止插件失败:{message}",
   "cordis.removed": "插件已移除",
-  "cordis.removeFailed": "移除插件失败:{message}"
+  "cordis.removeFailed": "移除插件失败:{message}",
+  "server.updateConfirm": "这将停止正在运行的服务器(若由本扩展启动)并重新安装 @deepseek-ai/dsh@latest 到扩展自有目录。继续?",
+  "server.updateHint": "本地 DSH 服务器为 v{version}。新功能(low 推理强度、rc.8 命令图文输入等)需要更新版本的服务器。",
+  "server.updateNow": "立即升级",
+  "server.updating": "正在升级 DSH 服务器(下载 @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "DSH 服务器升级失败,详情见输出日志。",
+  "server.updated": "DSH 服务器已升级并重新启动。",
+  "server.updateRestartFailed": "DSH 服务器已升级,但重启失败:{message}"
 }

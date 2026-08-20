@@ -172,5 +172,12 @@
   "cordis.runFailed": "執行外掛程式失敗:{message}",
   "cordis.stopFailed": "停止外掛程式失敗:{message}",
   "cordis.removed": "外掛程式已移除",
-  "cordis.removeFailed": "移除外掛程式失敗:{message}"
+  "cordis.removeFailed": "移除外掛程式失敗:{message}",
+  "server.updateConfirm": "這將停止正在執行的伺服器(若由本擴充功能啟動)並重新安裝 @deepseek-ai/dsh@latest 到擴充功能自有目錄。繼續?",
+  "server.updateHint": "本機 DSH 伺服器為 v{version}。新功能(low 推理強度、rc.8 命令圖文輸入等)需要更新版本的伺服器。",
+  "server.updateNow": "立即升級",
+  "server.updating": "正在升級 DSH 伺服器(下載 @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "DSH 伺服器升級失敗,詳情見輸出記錄。",
+  "server.updated": "DSH 伺服器已升級並重新啟動。",
+  "server.updateRestartFailed": "DSH 伺服器已升級,但重新啟動失敗:{message}"
 }

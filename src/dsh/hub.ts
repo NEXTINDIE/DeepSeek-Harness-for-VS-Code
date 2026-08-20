@@ -76,7 +76,22 @@ export class DshHub {
       onHostFrame: (env) => this.onHost(env),
       onState: (which, state) => {
         if (which === "mux") this.statusState.muxConnected = state === "connected";
-        else this.statusState.hostConnected = state === "connected";
+        else {
+          this.statusState.hostConnected = state === "connected";
+          if (state === "connected") {
+            // 服务器可能已重启/升级(npx 缓存更新):刷新版本与能力门控
+            // (commands/execute 的 images 参数等线协议能力随版本变化)
+            void this.client.ping().then((describe) => {
+              if (describe) {
+                this.statusState.version = describe.version;
+                this.statusState.provider = describe.provider;
+                this.statusState.model = describe.model;
+                this.client.setServerVersion(describe.version);
+                this.emitStatus();
+              }
+            });
+          }
+        }
         this.emitStatus();
       },
     });
@@ -133,6 +148,7 @@ export class DshHub {
     this.statusState.version = describe.version;
     this.statusState.provider = describe.provider;
     this.statusState.model = describe.model;
+    this.client.setServerVersion(describe.version);
     this.emitStatus();
     await this.refreshSessions();
     return true;
@@ -153,6 +169,7 @@ export class DshHub {
     this.statusState.version = describe.version;
     this.statusState.provider = describe.provider;
     this.statusState.model = describe.model;
+    this.client.setServerVersion(describe.version);
     this.emitStatus();
     await this.refreshSessions();
     return { ok: true };
@@ -315,6 +332,7 @@ export class DshHub {
   /**
    * 执行一条斜杠命令(网页端 live.command() 同款语义):
    * 1. 优先 commands.execute 网关通道(纯命令执行,不产生模型回合);
+   *    rc.8 起网关接受 images 参数(命令按自身 input.images 声明裁决,不接受的命令返回错误结果);
    * 2. 网关不可用时回退 session.prompt 命令路径,并检查响应中的 command 槽确认宿主拦截;
    * 3. 若两者都未被宿主拦截(命令会进入模型),在会话空闲时立即取消该轮,避免模型收到命令文本。
    * 返回 outcome("executed" / "unmatched" / "unavailable")+ 命令结果视图
@@ -323,9 +341,10 @@ export class DshHub {
   async runCommandLine(
     sessionId: string,
     line: string,
+    images: { mediaType: string; data: string; name?: string }[] = [],
   ): Promise<{ outcome: "executed" | "unmatched" | "unavailable"; execution?: CommandExecutionView }> {
     try {
-      const result = await this.client.executeCommand(sessionId, line);
+      const result = await this.client.executeCommand(sessionId, line, images);
       return { outcome: result.matched ? "executed" : "unmatched", ...(result.execution ? { execution: result.execution } : {}) };
     } catch (error) {
       // 网关通道不可用(部署未组合 api-gateway / commands 远程):回退官方命令消息路径
@@ -333,7 +352,11 @@ export class DshHub {
     }
     const wasRunning = this.store.sessions.get(sessionId)?.running === true;
     try {
-      const res = await this.client.sendPrompt({ sessionId, mode: "queue", content: [{ type: "text", text: line }] });
+      const content: PromptContentPart[] = [
+        ...(images.length > 0 ? images.map((img) => ({ type: "image" as const, mediaType: img.mediaType, data: img.data, ...(img.name ? { name: img.name } : {}) })) : []),
+        { type: "text" as const, text: line },
+      ];
+      const res = await this.client.sendPrompt({ sessionId, mode: "queue", content });
       if (res.command !== undefined) return { outcome: "executed" };
       // 宿主未拦截:命令文本会进入模型。会话原本空闲时立即取消该轮,避免产生可见回复
       if (!wasRunning) await this.client.cancelSession(sessionId);
@@ -346,13 +369,13 @@ export class DshHub {
   /** 宿主命令名缓存(sessionId → 名称集合),供 /token 路由判定:命令走命令通道,技能 token 走普通 prompt。 */
   private readonly commandNames = new Map<string, Set<string>>();
 
-  /** 判断一个(不带斜杠的)名称是否为宿主命令。 */
+  /** 判断一个(不带斜杠的)名称是否为宿主命令;同时探测 commands/execute 的 images 能力。 */
   async isKnownCommand(sessionId: string, name: string): Promise<boolean> {
     const lower = name.toLowerCase();
     let set = this.commandNames.get(sessionId);
     if (!set) {
       try {
-        const names = await this.client.listCommands(sessionId);
+        const { names } = await this.client.listCommands(sessionId);
         set = new Set(names.map((n) => n.toLowerCase()));
         this.commandNames.set(sessionId, set);
       } catch (error) {
@@ -362,6 +385,11 @@ export class DshHub {
       }
     }
     return set.has(lower);
+  }
+
+  /** commands/execute 是否接受 images 参数(rc.8+;由 commands/list 描述符探测)。 */
+  commandImagesSupported(): boolean {
+    return this.client.commandImagesSupported();
   }
 
   /** 清空命令名缓存(连接重建时调用)。 */
@@ -675,6 +703,16 @@ export class DshHub {
         }, 1500);
       }
     });
+  }
+
+  // ---------- @ 引用候选(rc.8 网页端 @ 菜单同款:文件与文件夹 / Session 对话) ----------
+
+  fileReferenceList(agentId: string, query: string) {
+    return this.client.fileReferenceList(agentId, query);
+  }
+
+  sessionReferenceCandidates(agentId: string, query: string) {
+    return this.client.sessionReferenceCandidates(agentId, query);
   }
 
   // ---------- Cordis 动态插件(网页端 dynamicCordisRunner 同款) ----------

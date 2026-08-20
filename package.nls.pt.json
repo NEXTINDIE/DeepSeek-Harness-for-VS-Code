@@ -52,5 +52,6 @@
   "config.agentDirs.githubCopilot": "Compatível com GitHub Copilot — analisar .github (instruções, agentes, prompts) no workspace e no diretório do usuário (~/.github)",
   "config.agentDirs.dshUserSkills": "Mostrar / ocultar habilidades globais de usuário DSH na lista (~/.dsh/skills, ~/.agents/skills)",
   "config.language.ru": "Russo",
-  "cmd.openCordisPanel.title": "Abrir o painel de plugins Cordis"
+  "cmd.openCordisPanel.title": "Abrir o painel de plugins Cordis",
+  "cmd.updateServer.title": "Atualizar servidor DSH"
 }

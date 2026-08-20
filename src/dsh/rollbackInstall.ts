@@ -7,10 +7,17 @@ import { join } from "node:path";
  *
  * 快照与回退执行由 DSH 服务端插件 `dsh-git-rollback` 承担(命令 /rollback /redo /checkpoints)。
  * 为了让所有扩展用户开箱即用,扩展把编译好的插件打进 vsix 的
- * `resources/dsh-git-rollback/`,激活时自动安装进用户的 DSH web profile:
- *   1. 复制插件包到 `<dshHome>/profiles/web/node_modules/dsh-git-rollback`(带版本标记,幂等增量更新);
- *   2. 在 `profiles/web/cordis.patch.yml` 追加插件装载行(已存在则跳过);
- *   3. 在 profile 的 package.json 写入 file: 依赖(便于日后 pnpm 规范化安装)。
+ * `resources/dsh-git-rollback/`,激活时自动安装进插件运行所需的两个解析面:
+ *   1. `<dshHome>/profiles/web/node_modules/dsh-git-rollback` —— DSH 前端模块系统
+ *      (clientModules)用 `createRequire(ctx.baseUrl)` 从这里解析包的 `dsh.client`
+ *      声明与 `exports["./client"]`,用于网页端回合分隔线 UI 的 bundle 分发;
+ *   2. `<dshHome 同级>/.dsh-vscode/server/node_modules/dsh-git-rollback`(扩展部署的
+ *      DSH 服务器,存在时)与 `~` 根级 `node_modules` —— DSH host loader 对裸包名的
+ *      import 从服务器部署目录向上解析 node_modules;插件必须落在该解析链上才会被
+ *      真正加载(仅落在 profiles/web 会让插件列表显示"已启用"但 host 从未激活)。
+ * 两个面都带 `.dsh-version` 版本标记,幂等增量更新。
+ * 另在 cordis.patch.yml 追加插件装载行(已存在则跳过),并在 profile package.json
+ * 写入 file: 依赖(便于日后 pnpm 规范化安装)。
  * 安装不影响服务器运行;新行在服务器下次启动时生效(扩展连接后检测并提示重启)。
  */
 
@@ -47,24 +54,18 @@ function readVersion(dir: string): string {
   }
 }
 
-/** 把编译好的插件装进用户的 DSH web profile(幂等;失败不抛出,返回 reason)。 */
-export async function ensureRollbackPluginInstalled(bundledDir: string): Promise<InstallResult> {
+/** 把插件包安装进一个 node_modules 目录(幂等;版本一致则跳过)。返回是否写入。 */
+function installInto(nodeModulesDir: string, bundledDir: string): { installed: boolean; changed: boolean; reason?: string } {
+  const targetDir = join(nodeModulesDir, PLUGIN_NAME);
   try {
-    const profileDir = join(dshHome(), "profiles", PROFILE);
-    // profile 尚未初始化(dsh web 还没跑过):等服务器启动创建后再装,调用方会在服务器上线后重试
-    if (!existsSync(join(profileDir, "cordis.patch.yml"))) {
-      return { installed: false, changed: false, reason: "profile-missing" };
-    }
     const bundledVersion = readVersion(bundledDir);
-    const targetDir = join(profileDir, "node_modules", PLUGIN_NAME);
     const installedVersion = existsSync(join(targetDir, VERSION_FILE))
       ? readFileSync(join(targetDir, VERSION_FILE), "utf8").trim()
       : "";
     if (bundledVersion && installedVersion === bundledVersion) {
       return { installed: true, changed: false };
     }
-
-    // 1) 复制插件包(先清旧目录,避免残留旧文件)
+    // 先清旧目录,避免残留旧文件(如上一版没有的 client.js)
     rmSync(targetDir, { recursive: true, force: true });
     mkdirSync(join(targetDir, "lib"), { recursive: true });
     for (const file of readdirSync(join(bundledDir, "lib"))) {
@@ -72,8 +73,37 @@ export async function ensureRollbackPluginInstalled(bundledDir: string): Promise
     }
     copyFileSync(join(bundledDir, "package.json"), join(targetDir, "package.json"));
     writeFileSync(join(targetDir, VERSION_FILE), bundledVersion || "0");
+    return { installed: true, changed: true };
+  } catch (error) {
+    return { installed: false, changed: false, reason: String(error) };
+  }
+}
 
-    // 2) cordis.patch.yml 追加插件装载行(顶部注释 + 末尾 `[]` 的默认形态要原地替换)
+/** 把编译好的插件装进用户的 DSH(幂等;失败不抛出,返回 reason)。 */
+export async function ensureRollbackPluginInstalled(bundledDir: string): Promise<InstallResult> {
+  try {
+    const profileDir = join(dshHome(), "profiles", PROFILE);
+    // profile 尚未初始化(dsh web 还没跑过):等服务器启动创建后再装,调用方会在服务器上线后重试
+    if (!existsSync(join(profileDir, "cordis.patch.yml"))) {
+      return { installed: false, changed: false, reason: "profile-missing" };
+    }
+
+    // 两个解析面都安装:
+    // 1) profile node_modules —— clientModules(createRequire(ctx.baseUrl))解析 dsh.client 声明
+    // 2) 服务器部署 node_modules + 用户根级 node_modules —— host loader 对裸包名的 import 解析链
+    const targets = [join(profileDir, "node_modules")];
+    const serverModules = join(homedir(), ".dsh-vscode", "server", "node_modules");
+    if (existsSync(serverModules)) targets.push(serverModules);
+    const userRootModules = join(homedir(), "node_modules");
+    if (existsSync(userRootModules)) targets.push(userRootModules);
+
+    const results = targets.map((dir) => installInto(dir, bundledDir));
+    const installed = results.some((r) => r.installed);
+    const changed = results.some((r) => r.changed);
+    const reasons = results.map((r) => r.reason).filter((r) => r !== undefined);
+    if (!installed && reasons.length > 0) return { installed: false, changed: false, reason: reasons.join("; ") };
+
+    // cordis.patch.yml 追加插件装载行(顶部注释 + 末尾 `[]` 的默认形态要原地替换)
     const patchFile = join(profileDir, "cordis.patch.yml");
     const patchContent = readFileSync(patchFile, "utf8");
     if (!patchContent.includes(PLUGIN_NAME)) {
@@ -94,7 +124,7 @@ export async function ensureRollbackPluginInstalled(bundledDir: string): Promise
       }
     }
 
-    // 3) profile package.json 依赖(file: 指向扩展内置资源,日后 pnpm install 可规范化)
+    // profile package.json 依赖(file: 指向扩展内置资源,日后 pnpm install 可规范化)
     const manifestFile = join(profileDir, "package.json");
     if (existsSync(manifestFile)) {
       try {
@@ -110,7 +140,7 @@ export async function ensureRollbackPluginInstalled(bundledDir: string): Promise
         // profile package.json 损坏时跳过依赖写入,不影响核心安装
       }
     }
-    return { installed: true, changed: true };
+    return { installed: true, changed };
   } catch (error) {
     console.error("[dsh] rollback plugin install failed:", error);
     return { installed: false, changed: false, reason: String(error) };

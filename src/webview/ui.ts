@@ -757,6 +757,13 @@ const EN_TEXT: Record<string, string> = {
   "授权此插件的所有后续版本自动运行,无需再次审批": "Allows all future versions of this plugin to run automatically without asking again",
   "更新": "Update",
   "运行": "Run",
+  // ---- @ 引用菜单(rc.8 网页端同款:文件与文件夹 / Session 对话) ----
+  "文件与文件夹": "Files & folders",
+  "Session 对话": "Session conversations",
+  "Session": "Session",
+  "（无工作目录）": "(no cwd)",
+  "正在加载文件资源…": "Loading files…",
+  "正在加载会话列表…": "Loading sessions…",
   // ---- 目标创建 ----
   "🎯 设置目标": "🎯 Set goal",
   "创建一个长期目标(agent 自动多轮推进直至完成)": "Create a long-running goal (the agent keeps pushing until done)",
@@ -1693,8 +1700,21 @@ const mentionMenu = el("div", "mention-menu");
 mentionMenu.hidden = true;
 composer.append(mentionMenu);
 
-/** 当前提及状态:替换起点、查询串、候选与选中下标。 */
-let mentionState: { start: number; query: string; items: { name: string; description?: string }[]; selected: number } | null = null;
+/** @ 候选类型:智能体(本地扫描)/ 文件与文件夹 / Session 对话(rc.8 网页端同款)。 */
+type MentionItem =
+  | { kind: "agent"; name: string; description?: string }
+  | { kind: "file"; name: string; description?: string; path: string }
+  | { kind: "directory"; name: string; description?: string; path: string }
+  | { kind: "session"; name: string; description?: string; mention: string };
+
+/** 当前提及状态:替换起点、查询串、是否引号路径、候选与选中下标。 */
+let mentionState: { start: number; query: string; quoted: boolean; items: MentionItem[]; selected: number } | null = null;
+
+/** 待合并的远端候选(文件/会话),按查询串标记防过期。 */
+let mentionRemote: { query: string; files: { path: string; kind: "file" | "directory" }[]; sessions: { label: string; cwd?: string; mention: string }[] } | null = null;
+
+/** 远端候选(文件/会话)加载中(网页端 pending 分组同款:先显示加载行,候选到达后替换)。 */
+let mentionRemoteLoading = false;
 
 /** 可用智能体 = .dsh/agent + .github/agents(Copilot),按 front matter 名称去重。 */
 function availableAgents(): { name: string; description?: string }[] {
@@ -1714,57 +1734,161 @@ function availableAgents(): { name: string; description?: string }[] {
   return out;
 }
 
+/** 组装候选:智能体(本地)在前,文件与文件夹 / Session 对话(远端)随后。 */
+function mentionItems(): MentionItem[] {
+  const q = mentionState?.query.toLowerCase() ?? "";
+  const out: MentionItem[] = [];
+  for (const a of availableAgents()) {
+    if (a.name.toLowerCase().includes(q)) out.push({ kind: "agent", name: a.name, description: a.description });
+  }
+  if (mentionRemote && mentionRemote.query === mentionState?.query) {
+    for (const f of mentionRemote.files) {
+      if (f.path.toLowerCase().includes(q)) {
+        const base = f.path.slice(f.path.lastIndexOf("/") + 1);
+        out.push({
+          kind: f.kind,
+          name: `${t(f.kind === "directory" ? "文件夹" : "文件")} · ${base}${f.kind === "directory" ? "/" : ""}`,
+          description: f.path,
+          path: f.path,
+        });
+      }
+    }
+    for (const s of mentionRemote.sessions) {
+      if (s.label.toLowerCase().includes(q)) {
+        out.push({
+          kind: "session",
+          name: `${t("Session")} · ${s.label}`,
+          description: s.cwd ?? t("（无工作目录）"),
+          mention: s.mention,
+        });
+      }
+    }
+  }
+  return out.slice(0, 12);
+}
+
 function closeMention() {
   mentionState = null;
+  mentionRemote = null;
+  mentionRemoteLoading = false;
   mentionMenu.hidden = true;
 }
 
 function renderMentionMenu() {
   if (!mentionState) return;
   mentionMenu.innerHTML = "";
-  mentionMenu.append(el("div", "plus-menu-label", t("智能体")));
-  mentionState.items.forEach((item, i) => {
+  const items = mentionState.items;
+  // 分组渲染:智能体 → 文件与文件夹 → Session 对话(网页端分组菜单同款,无 emoji 图标)
+  let lastKind = "";
+  const sectionFor = (kind: string) =>
+    kind === "agent" ? t("智能体") : kind === "session" ? t("Session 对话") : t("文件与文件夹");
+  const pushSection = (kind: string) => {
+    if (kind !== lastKind) {
+      mentionMenu.append(el("div", "plus-menu-label", sectionFor(kind)));
+      lastKind = kind;
+    }
+  };
+  const groupOf = (item: MentionItem) => (item.kind === "agent" ? "agent" : item.kind === "session" ? "session" : "file");
+  const hasGroup = (g: string) => items.some((item) => groupOf(item) === g);
+  items.forEach((item, i) => {
+    pushSection(groupOf(item));
     const row = el("button", "plus-menu-item" + (i === mentionState!.selected ? " mention-selected" : ""));
     const main = el("span", "mention-item-main");
-    main.append(el("span", "mention-item-name", `@${item.name}`));
+    main.append(el("span", "mention-item-name", item.name));
     if (item.description) main.append(el("span", "mention-item-desc", item.description));
-    row.append("🤖 ", main);
+    row.append(main);
     // 防止点击弹层时输入框先失焦(blur 会先关闭弹层)
     row.addEventListener("mousedown", (e) => e.preventDefault());
-    row.addEventListener("click", () => selectMention(item.name));
+    row.addEventListener("click", () => selectMention(item));
     mentionMenu.append(row);
   });
-  mentionMenu.hidden = false;
+  // 加载占位(网页端 pending 分组同款):已选会话且远端候选未返回时,为缺失的远端分组显示加载行
+  if (mentionRemoteLoading) {
+    if (!hasGroup("file")) {
+      pushSection("file");
+      mentionMenu.append(loadingMentionRow(t("正在加载文件资源…")));
+    }
+    if (!hasGroup("session")) {
+      pushSection("session");
+      mentionMenu.append(loadingMentionRow(t("正在加载会话列表…")));
+    }
+  }
+  mentionMenu.hidden = items.length === 0 && !mentionRemoteLoading;
 }
 
-/** 用所选智能体替换当前部分 @token。 */
-function selectMention(name: string) {
+/** 加载行:纯 CSS 旋转小圆点 + 文案(无 emoji,保持简洁)。 */
+function loadingMentionRow(text: string): HTMLElement {
+  const row = el("div", "mention-loading");
+  const spinner = el("span", "mention-spinner");
+  row.append(spinner, el("span", undefined, text));
+  return row;
+}
+
+/** @ 文件提及文本(网页端 dsh-file-reference grammar 同款):空白路径用 @"引号" 形式,目录保持斜杠并保留开引号以便继续输入。 */
+function formatFileMention(path: string, kind: "file" | "directory", preserveQuote: boolean): string | undefined {
+  const p = kind === "directory" ? `${path}/` : path;
+  if (/[\u0000-\u001f\u007f-\u009f"]/u.test(p)) return undefined;
+  const quoted = preserveQuote || /\s/u.test(p);
+  if (!quoted) return `@${p}`;
+  if (kind === "directory") return `@"${p}`;
+  return `@"${p}"`;
+}
+
+/** 用所选候选替换当前部分 @token(智能体/文件/会话)。 */
+function selectMention(item: MentionItem) {
   if (!mentionState) return;
   const pos = input.selectionStart ?? input.value.length;
-  input.value = input.value.slice(0, mentionState.start) + `@${name} ` + input.value.slice(pos);
-  closeMention();
+  if (item.kind === "agent") {
+    input.value = input.value.slice(0, mentionState.start) + `@${item.name} ` + input.value.slice(pos);
+    closeMention();
+  } else if (item.kind === "file" || item.kind === "directory") {
+    const mention = formatFileMention(item.path, item.kind, mentionState.quoted);
+    if (!mention) {
+      closeMention();
+      return;
+    }
+    input.value = input.value.slice(0, mentionState.start) + mention + input.value.slice(pos);
+    const caret = mentionState.start + mention.length;
+    input.setSelectionRange(caret, caret);
+    if (item.kind === "directory") {
+      // 目录:保留菜单继续输入下一级(网页端 continue 同款)
+      autoResize();
+      updateSendButton();
+      updateMention();
+      return;
+    }
+    closeMention();
+  } else {
+    input.value = input.value.slice(0, mentionState.start) + item.mention + input.value.slice(pos);
+    closeMention();
+  }
   input.focus();
   autoResize();
   updateSendButton();
 }
 
-/** 按光标前的 @partial 更新提及候选。 */
+/** 按光标前的 @partial 更新提及候选(网页端 grammar 同款:支持 @"引号路径")。 */
 function updateMention() {
   const pos = input.selectionStart ?? input.value.length;
   const before = input.value.slice(0, pos);
-  const m = before.match(/@([A-Za-z0-9][\w.-]*)$/);
-  if (!m) {
+  const quoted = before.match(/(?:^|\s)(@"([^"]*))$/);
+  const plain = before.match(/(?:^|\s)(@([^\s]*))$/);
+  const hit = quoted ? { query: quoted[2] ?? "", quoted: true, len: quoted[1].length } : plain ? { query: plain[2] ?? "", quoted: false, len: plain[1].length } : undefined;
+  if (!hit) {
     closeMention();
     return;
   }
-  const query = m[1].toLowerCase();
-  const items = availableAgents().filter((a) => a.name.toLowerCase().includes(query)).slice(0, 8);
-  if (items.length === 0) {
-    closeMention();
-    return;
-  }
+  const query = hit.query;
   closeSlash(); // @ 提及优先
-  mentionState = { start: pos - m[0].length, query: m[1], items, selected: 0 };
+  mentionState = { start: pos - hit.len, query, quoted: hit.quoted, items: [], selected: 0 };
+  mentionRemote = null;
+  // 智能体本地立即可用;文件/会话候选向宿主并行拉取(仅已选会话时),
+  // 期间显示加载行(网页端 pending 分组同款)
+  mentionRemoteLoading = !!state.current;
+  if (state.current) {
+    vscode.postMessage({ kind: "getMentionCandidates", sessionId: state.current, query });
+  }
+  mentionState.items = mentionItems();
   renderMentionMenu();
 }
 
@@ -1819,7 +1943,7 @@ function renderSlashMenu() {
     const main = el("span", "mention-item-main");
     main.append(el("span", "mention-item-name", item.token.trim()));
     main.append(el("span", "mention-item-desc", item.label));
-    row.append("⌘ ", main);
+    row.append(main);
     row.addEventListener("mousedown", (e) => e.preventDefault());
     row.addEventListener("click", () => selectSlash(item.token));
     slashMenu.append(row);
@@ -1890,7 +2014,8 @@ input.addEventListener("keydown", (e) => {
     }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      selectMention(mentionState.items[mentionState.selected].name);
+      const item = mentionState.items[mentionState.selected];
+      if (item) selectMention(item);
       return;
     }
   }
@@ -4554,8 +4679,10 @@ function handleMessage(msg: any) {
         vscode.postMessage({ kind: "getSkills" });
         vscode.postMessage({ kind: "getSubagents" });
         vscode.postMessage({ kind: "getActiveFile" });
-        vscode.postMessage({ kind: "getClaudeConfig" });
       }
+      // 智能体/技能目录扫描是工作区级的,与会话选择无关:
+      // 无论当前是否已选会话都刷新,保证 @ 提及菜单始终可用(此前仅在已选会话时触发一次)
+      vscode.postMessage({ kind: "getClaudeConfig" });
       scrollToBottom();
       break;
     }
@@ -4601,6 +4728,19 @@ function handleMessage(msg: any) {
         dshAgents: [],
         dshMemory: [],
       };
+      break;
+    }
+    case "mentionCandidates": {
+      // @ 菜单远端候选(文件与文件夹 / Session 对话)到达:替换加载行,与本地智能体合并渲染
+      if (!mentionState || typeof msg.query !== "string" || msg.query !== mentionState.query) break;
+      mentionRemoteLoading = false;
+      mentionRemote = {
+        query: msg.query,
+        files: Array.isArray(msg.files) ? msg.files : [],
+        sessions: Array.isArray(msg.sessions) ? msg.sessions : [],
+      };
+      mentionState.items = mentionItems();
+      renderMentionMenu();
       break;
     }
     case "subagentPreview": {

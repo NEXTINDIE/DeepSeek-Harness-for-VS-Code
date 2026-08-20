@@ -52,5 +52,6 @@
   "config.installRollbackPlugin": "Automatically install the turn-level Git rollback plugin into the DSH web profile (enables /rollback, /redo, /checkpoints; takes effect after the DSH server restarts)",
   "config.agentDirs.dshUserSkills": "Show / hide DSH user-global skills (~/.dsh/skills, ~/.agents/skills) in the available-skills list",
   "config.language.ru": "Russian",
-  "cmd.openCordisPanel.title": "Open Cordis plugins panel"
+  "cmd.openCordisPanel.title": "Open Cordis plugins panel",
+  "cmd.updateServer.title": "Update DSH server"
 }

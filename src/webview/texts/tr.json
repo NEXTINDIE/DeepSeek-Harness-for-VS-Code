@@ -480,5 +480,11 @@
   "Client 半段仅在网页端生效": "Client yarısı yalnızca web arayüzünde etkilidir",
   "再次点击确认移除": "Kaldırmayı onaylamak için tekrar tıklayın",
   "Host": "Host",
-  "Client": "Client"
+  "Client": "Client",
+  "文件与文件夹": "Dosyalar ve klasörler",
+  "Session 对话": "Oturum konuşmaları",
+  "Session": "Oturum",
+  "（无工作目录）": "（çalışma dizini yok）",
+  "正在加载文件资源…": "Dosyalar yükleniyor…",
+  "正在加载会话列表…": "Oturum listesi yükleniyor…"
 }

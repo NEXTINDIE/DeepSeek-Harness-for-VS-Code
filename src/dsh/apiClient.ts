@@ -85,6 +85,25 @@ export class DshApiClient {
   private muxOnFrame: ((env: FrameEnvelope<MuxFrame>) => void) | undefined;
   private hostOnFrame: ((env: FrameEnvelope<HostFrame>) => void) | undefined;
   private onState: ((which: "mux" | "host", state: ConnectionState) => void) | undefined;
+  /** 服务器版本(host.describe),用于展示与能力门控。 */
+  serverVersion: string | undefined;
+
+  /** 设置服务器版本(probe / ensureReady 时由 host.describe 回填)。 */
+  setServerVersion(version: string | undefined) {
+    this.serverVersion = version;
+  }
+
+  private commandImagesCapability = false;
+
+  /** 由 commands/list 描述符探测:rc.8 起命令描述符含 input.images(布尔)。 */
+  setCommandImagesSupported(supported: boolean) {
+    this.commandImagesCapability = supported;
+  }
+
+  /** commands/execute 是否接受 images 参数(rc.8+;缺失会被网关按 arguments-invalid 拒绝)。 */
+  commandImagesSupported(): boolean {
+    return this.commandImagesCapability;
+  }
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
@@ -156,21 +175,25 @@ export class DshApiClient {
    * 会话级斜杠命令执行(与网页端 live.command() 完全一致的通道):
    * 连接 RPC 端点为斜杠形式 /api/commands/execute(点号形式会 404),
    * 信封 {type:"client-request", rpcId, method:"commands/execute",
-   * payload:{args:{agentId, line}}},响应为标准 server-response 信封;
+   * payload:{args:{agentId, line, images?}}},响应为标准 server-response 信封;
    * result.value === undefined 表示未匹配任何命令。
    * result.value 是 CommandExecution { commandId, result: {kind, text?} } ——
    * 命令的结果文本(如 /rollback 的回退摘要)随返回值透传给界面展示。
+   * rc.8 起 execute 携带 images 参数(缺失会被网关按 arguments-invalid 拒绝);
+   * rc.7 及更早版本描述符没有该参数(多余字段同样被拒),按服务器版本门控。
    */
   async executeCommand(
     sessionId: string,
     line: string,
+    images: { mediaType: string; data: string; name?: string }[] = [],
   ): Promise<{ matched: boolean; execution?: CommandExecutionView }> {
     const endpoint = "commands/execute";
-    const message: ClientRequest = {
+    const args: Record<string, unknown> = { agentId: sessionId, line };
+    if (this.commandImagesSupported()) args.images = images;    const message: ClientRequest = {
       type: "client-request",
       rpcId: randomUUID(),
       method: endpoint,
-      payload: { args: { agentId: sessionId, line } },
+      payload: { args },
     };
     const res = await fetch(`${this.baseUrl}/api/${endpoint}`, {
       method: "POST",
@@ -229,6 +252,20 @@ export class DshApiClient {
     return full.result.value as T;
   }
 
+  // ---------- @ 引用(rc.8 网页端 @ 菜单同款:文件与文件夹 / Session 对话) ----------
+
+  /** @ 文件/文件夹候选(相对会话 cwd;kind: file | directory)。 */
+  fileReferenceList(agentId: string, query: string) {
+    return this.remoteCall<{ path: string; kind: "file" | "directory" }[]>("fileReferences", "list", { agentId, query });
+  }
+
+  /** @ Session 候选(含可直接插入草稿的 markdown 提及)。 */
+  sessionReferenceCandidates(agentId: string, query: string) {
+    return this.remoteCall<
+      { sessionId: string; label: string; cwd?: string; createdAt: number; mention: string }[]
+    >("sessionReferenceResolver", "candidates", { agentId, query });
+  }
+
   // ---------- Cordis 动态插件(dynamicCordisRunner remote) ----------
 
   cordisInventory() {
@@ -263,10 +300,12 @@ export class DshApiClient {
   }
 
   /**
-   * 列出某会话可用的宿主命令名(网页端 ui-commands 目录同款通道 /api/commands/list)。
+   * 列出某会话可用的宿主命令(网页端 ui-commands 目录同款通道 /api/commands/list)。
    * 用于区分宿主命令与技能 token(/skill-name 走普通 prompt,由宿主 pre-step 注入)。
+   * 同时探测 commands/execute 的 images 能力:rc.8 起命令描述符含 input.images(布尔),
+   * 该参数缺失时网关按 arguments-invalid 拒绝(rc.7 则拒绝多余字段)。
    */
-  async listCommands(sessionId: string): Promise<string[]> {
+  async listCommands(sessionId: string): Promise<{ names: string[]; imagesSupported: boolean }> {
     const endpoint = "commands/list";
     const message: ClientRequest = {
       type: "client-request",
@@ -289,8 +328,11 @@ export class DshApiClient {
     if (full.type !== "server-response" || full.rpcId !== message.rpcId || !full.result || !full.result.ok) {
       throw new Error(`DSH unexpected response for commands/list`);
     }
-    const value = full.result.value as { name?: string }[] | undefined;
-    return (value ?? []).map((d) => String(d.name ?? "")).filter(Boolean);
+    const value = full.result.value as { name?: string; input?: { images?: boolean } }[] | undefined;
+    const rows = value ?? [];
+    const imagesSupported = rows.some((d) => typeof d.input?.images === "boolean");
+    this.commandImagesCapability = imagesSupported;
+    return { names: rows.map((d) => String(d.name ?? "")).filter(Boolean), imagesSupported };
   }
   cancelSession(sessionId: string) {
     return this.post<{ accepted: true }>("session.cancel", { sessionId });

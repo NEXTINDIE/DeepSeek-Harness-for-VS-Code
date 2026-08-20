@@ -52,5 +52,6 @@
   "config.agentDirs.githubCopilot": "GitHub Copilot ile uyumlu — çalışma alanı ve kullanıcı ana dizinindeki (~/.github) .github (talimatlar, ajanlar, istemler) taranır",
   "config.agentDirs.dshUserSkills": "Beceri listesinde DSH kullanıcı genel becerilerini göster / gizle (~/.dsh/skills, ~/.agents/skills)",
   "config.language.ru": "Rusça",
-  "cmd.openCordisPanel.title": "Cordis eklenti panelini aç"
+  "cmd.openCordisPanel.title": "Cordis eklenti panelini aç",
+  "cmd.updateServer.title": "DSH sunucusunu güncelle"
 }

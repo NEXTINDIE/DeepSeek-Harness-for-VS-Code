@@ -480,5 +480,11 @@
   "Client 半段仅在网页端生效": "Bagian Client hanya berlaku di antarmuka web",
   "再次点击确认移除": "Klik lagi untuk mengonfirmasi",
   "Host": "Host",
-  "Client": "Client"
+  "Client": "Client",
+  "文件与文件夹": "File dan folder",
+  "Session 对话": "Percakapan sesi",
+  "Session": "Sesi",
+  "（无工作目录）": "（tanpa direktori kerja）",
+  "正在加载文件资源…": "Memuat file…",
+  "正在加载会话列表…": "Memuat daftar sesi…"
 }

@@ -172,5 +172,12 @@
   "cordis.runFailed": "Не удалось запустить плагин: {message}",
   "cordis.stopFailed": "Не удалось остановить плагин: {message}",
   "cordis.removed": "Плагин удалён",
-  "cordis.removeFailed": "Не удалось удалить плагин: {message}"
+  "cordis.removeFailed": "Не удалось удалить плагин: {message}",
+  "server.updateConfirm": "Это остановит работающий сервер (если он запущен этим расширением) и переустановит @deepseek-ai/dsh@latest в собственный каталог расширения. Продолжить?",
+  "server.updateHint": "Локальный сервер DSH — v{version}. Новые функции (усилие рассуждения low, ввод изображений в команды rc.8 и т. д.) требуют более новой версии сервера.",
+  "server.updateNow": "Обновить сейчас",
+  "server.updating": "Обновление сервера DSH (загрузка @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "Не удалось обновить сервер DSH. Подробности — в журнале вывода.",
+  "server.updated": "Сервер DSH обновлён и перезапущен.",
+  "server.updateRestartFailed": "Сервер DSH обновлён, но перезапуск не удался: {message}"
 }

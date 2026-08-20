@@ -361,10 +361,10 @@ export class ServerManager {
     });
   }
 
-  /** 首次安装 @deepseek-ai/dsh 到扩展自有目录(用 npm-cli.js,不走任何 shim);已安装则秒过。 */
-  private ensureDirectInstall(l: DirectLauncher, fd: number): Promise<boolean> {
+  /** 首次安装 @deepseek-ai/dsh 到扩展自有目录(用 npm-cli.js,不走任何 shim);已安装则秒过。force=true 时强制重装(升级)。 */
+  private ensureDirectInstall(l: DirectLauncher, fd: number, force = false): Promise<boolean> {
     const pkgJson = join(l.installDir, "node_modules", "@deepseek-ai", "dsh", "package.json");
-    if (existsSync(pkgJson)) {
+    if (!force && existsSync(pkgJson)) {
       this.log(`直接安装已存在: ${l.installDir}(跳过安装)`);
       return Promise.resolve(true);
     }
@@ -412,6 +412,29 @@ export class ServerManager {
         finish(false);
       }
     });
+  }
+
+  /**
+   * 升级扩展自有目录的直接安装(@deepseek-ai/dsh@latest 强制重装)。
+   * 用于服务器版本落后(如旧 rc 缺少新功能:low 推理强度 / 新线协议)时手动升级;
+   * 返回是否成功。调用方负责停服/重启编排。
+   */
+  async updateDirectInstall(): Promise<boolean> {
+    const l = await this.findDirectLauncher();
+    if (!l) return false;
+    const logFile = join(tmpdir(), "dsh-vscode-server-install.log");
+    try {
+      unlinkSync(logFile);
+    } catch {
+      // 无旧日志,忽略
+    }
+    this.log(`升级直接安装 @deepseek-ai/dsh@latest → ${l.installDir}(日志 ${logFile})`);
+    const fd = openSync(logFile, "a");
+    try {
+      return await this.ensureDirectInstall(l, fd, true);
+    } finally {
+      closeSync(fd);
+    }
   }
 
   /** 从安装好的包解析 bin 入口(当前为 lib/bin.js;按 package.json 的 bin 字段动态解析)。 */

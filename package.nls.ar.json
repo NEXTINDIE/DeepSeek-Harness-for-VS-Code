@@ -52,5 +52,6 @@
   "config.agentDirs.githubCopilot": "متوافق مع GitHub Copilot — فحص .github (التعليمات، الوكلاء، المطالبات) في مساحة العمل والدليل الرئيسي للمستخدم (~/.github)",
   "config.agentDirs.dshUserSkills": "إظهار / إخفاء مهارات المستخدم العامة لـ DSH في قائمة المهارات (~/.dsh/skills, ~/.agents/skills)",
   "config.language.ru": "الروسية",
-  "cmd.openCordisPanel.title": "فتح لوحة إضافات Cordis"
+  "cmd.openCordisPanel.title": "فتح لوحة إضافات Cordis",
+  "cmd.updateServer.title": "تحديث خادم DSH"
 }

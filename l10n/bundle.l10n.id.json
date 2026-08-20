@@ -172,5 +172,12 @@
   "cordis.runFailed": "Gagal menjalankan plugin:{message}",
   "cordis.stopFailed": "Gagal menghentikan plugin:{message}",
   "cordis.removed": "Plugin dihapus",
-  "cordis.removeFailed": "Gagal menghapus plugin:{message}"
+  "cordis.removeFailed": "Gagal menghapus plugin:{message}",
+  "server.updateConfirm": "Ini menghentikan server yang berjalan (jika dimulai oleh ekstensi ini) dan menginstal ulang @deepseek-ai/dsh@latest ke direktori milik ekstensi. Lanjutkan?",
+  "server.updateHint": "Server DSH lokal adalah v{version}. Fitur baru (upaya penalaran low, input gambar perintah rc.8, dll.) memerlukan server yang lebih baru.",
+  "server.updateNow": "Perbarui sekarang",
+  "server.updating": "Memperbarui server DSH (mengunduh @deepseek-ai/dsh@latest)…",
+  "server.updateFailed": "Gagal memperbarui server DSH. Lihat log keluaran untuk detailnya.",
+  "server.updated": "Server DSH diperbarui dan dimulai ulang.",
+  "server.updateRestartFailed": "Server DSH diperbarui, tetapi mulai ulang gagal:{message}"
 }

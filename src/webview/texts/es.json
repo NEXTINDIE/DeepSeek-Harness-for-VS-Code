@@ -480,5 +480,11 @@
   "Client 半段仅在网页端生效": "La mitad Client solo tiene efecto en la interfaz web",
   "再次点击确认移除": "Haz clic de nuevo para confirmar",
   "Host": "Host",
-  "Client": "Client"
+  "Client": "Client",
+  "文件与文件夹": "Archivos y carpetas",
+  "Session 对话": "Conversaciones de sesión",
+  "Session": "Sesión",
+  "（无工作目录）": "（sin directorio de trabajo）",
+  "正在加载文件资源…": "Cargando archivos…",
+  "正在加载会话列表…": "Cargando sesiones…"
 }

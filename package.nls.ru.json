@@ -52,5 +52,6 @@
   "config.installRollbackPlugin": "Автоматически устанавливать плагин отката Git по ходам в веб-профиль DSH (включает /rollback, /redo, /checkpoints; вступает в силу после перезапуска сервера DSH)",
   "config.agentDirs.dshUserSkills": "Показывать / скрывать глобальные пользовательские навыки DSH (~/.dsh/skills, ~/.agents/skills) в списке доступных навыков",
   "config.language.ru": "Русский",
-  "cmd.openCordisPanel.title": "Открыть панель плагинов Cordis"
+  "cmd.openCordisPanel.title": "Открыть панель плагинов Cordis",
+  "cmd.updateServer.title": "Обновить сервер DSH"
 }

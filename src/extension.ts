@@ -78,7 +78,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       await installPromise;
       const sessionId = hub.store.listSessions()[0]?.sessionId;
       if (!sessionId) return; // 尚无会话可查命令目录;下次激活再检
-      const names = await hub.client.listCommands(sessionId);
+      const { names } = await hub.client.listCommands(sessionId);
       // rollback 在 0.1.1 已有,undo 是 0.1.2 新增:两者都在才认为插件版本已生效,
       // 否则运行中的服务器仍是旧插件(升级后必须重启才加载新命令)
       if (names.includes("rollback") && names.includes("undo")) return; // 插件已生效
@@ -271,6 +271,32 @@ export function activate(ctx: vscode.ExtensionContext) {
       const result = await hub.server.stop();
       if (result.ok) void vscode.window.showInformationMessage(t("msg.serverStopped"));
       else void vscode.window.showWarningMessage(t("msg.cannotStopServer", { message: result.message ?? "" }));
+    }),
+    vscode.commands.registerCommand("dsh.updateServer", async () => {
+      // 升级本地直接安装的 DSH 服务器(@deepseek-ai/dsh@latest):新版本功能
+      // (如 low 推理强度、rc.8 命令图文输入等)需要服务器端支持
+      const confirm = t("server.updateConfirm");
+      const pick = await vscode.window.showInformationMessage(
+        `${t("server.updateHint", { version: hub.status.version ?? "?" })}\n${confirm}`,
+        { modal: false },
+        t("server.updateNow"),
+      );
+      if (pick !== t("server.updateNow")) return;
+      if (hub.server.status.startedByUs) await hub.server.stop();
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: t("server.updating"), cancellable: false },
+        async () => {
+          const ok = await hub.server.updateDirectInstall();
+          if (!ok) {
+            void vscode.window.showErrorMessage(t("server.updateFailed"));
+            return;
+          }
+          const ready = await hub.ensureReady();
+          void vscode.window.showInformationMessage(
+            ready.ok ? t("server.updated") : t("server.updateRestartFailed", { message: ready.message ?? "" }),
+          );
+        },
+      );
     }),
     vscode.commands.registerCommand("dsh.openInBrowser", async () => {
       await vscode.env.openExternal(vscode.Uri.parse(dshUrl()));

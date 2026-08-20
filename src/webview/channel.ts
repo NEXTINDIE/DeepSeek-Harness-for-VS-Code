@@ -106,6 +106,8 @@ export class ChatChannel {
   /** 回合级 Git 回退:.dsh/rollback 文件监控器与去抖定时器 */
   private rollbackWatchers: vscode.Disposable[] = [];
   private rollbackRefreshTimers = new Map<string, NodeJS.Timeout>();
+  /** 服务器在线状态(上升沿触发 full 重推,刷新会话级数据) */
+  private lastServerUp = false;
 
   constructor(
     private readonly hub: DshHub,
@@ -250,7 +252,16 @@ export class ChatChannel {
           void this.pushFullState();
         }),
       },
-      { dispose: this.hub.onStatus((status) => this.post({ kind: "status", status })) },
+      {
+        // 服务器(重)连接:重推 full 状态,刷新模型/技能/智能体目录等会话级与工作区级数据
+        // (服务器升级重启后思考强度下拉、@ 提及等随之恢复,无需手动切换会话)
+        dispose: this.hub.onStatus((status) => {
+          const up = status.serverUp;
+          if (up && !this.lastServerUp) void this.pushFullState();
+          this.lastServerUp = up;
+          this.post({ kind: "status", status });
+        }),
+      },
       {
         dispose: () => {
           for (const w of this.rollbackWatchers) w.dispose();
@@ -556,16 +567,32 @@ export class ChatChannel {
             if (skillCtx) baseText = skillCtx.text;
             const contextParts = [mention?.agentParts, skillCtx?.parts].filter(Boolean).join("\n\n") || undefined;
             if (images.length > 0) {
-              // 带图片的消息:直接以内容块发送(官方 session.prompt image 通道)
+              // 带图片的消息:
+              // - 已知斜杠命令且网关支持 images(rc.8+,/goal /plan 等按声明裁决)→ 命令通道;
+              // - 其余(含 rc.7 网关不接收图片参数时)→ 官方 session.prompt image 通道
+              //   (文本 + 图片内容块,图片不丢失)。
               const content: PromptContentPart[] = images.map((img) => ({
                 type: "image",
                 mediaType: typeof img.mediaType === "string" ? img.mediaType : "image/png",
                 data: img.data,
                 ...(img.name ? { name: img.name } : {}),
               }));
-              const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
-              content.push({ type: "text", text });
-              await this.hub.sendParts(current, content);
+              const raw = baseText.trim();
+              const isCmdLine = isCommandLine(raw) && !(msg.attachments?.length > 0);
+              if (isCmdLine) {
+                const cmdName = raw.split(/\s+/)[0].slice(1);
+                if ((await this.hub.isKnownCommand(current, cmdName)) && this.hub.commandImagesSupported()) {
+                  await this.runCommandAndNotify(current, raw, images);
+                } else {
+                  const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
+                  content.push({ type: "text", text });
+                  await this.hub.sendParts(current, content);
+                }
+              } else {
+                const text = await this.composeWithAttachments(baseText, msg.attachments, contextParts);
+                content.push({ type: "text", text });
+                await this.hub.sendParts(current, content);
+              }
             } else {
               const raw = baseText.trim();
               // 斜杠 token 路由(与网页端裁决一致):
@@ -773,6 +800,18 @@ export class ChatChannel {
         } catch (error) {
           this.post({ kind: "claudeConfig", value: empty, error: String(error) });
         }
+        break;
+      }
+      case "getMentionCandidates": {
+        // @ 菜单的文件/会话候选(rc.8 网页端同款):并行拉取,失败时返回空列表
+        const agentId = typeof msg.sessionId === "string" ? msg.sessionId : "";
+        const query = typeof msg.query === "string" ? msg.query : "";
+        if (!agentId) break;
+        const [files, sessions] = await Promise.all([
+          this.hub.fileReferenceList(agentId, query).catch(() => []),
+          this.hub.sessionReferenceCandidates(agentId, query).catch(() => []),
+        ]);
+        this.post({ kind: "mentionCandidates", query, files, sessions });
         break;
       }
       case "getSubagents": {
@@ -1613,8 +1652,12 @@ export class ChatChannel {
   }
 
   /** 执行一条斜杠命令并给出结果提示;命令自身的结果文本(如 /rollback 回退摘要)透传到 notice。 */
-  private async runCommandAndNotify(sessionId: string, line: string): Promise<{ outcome: "executed" | "unmatched" | "unavailable"; execution?: CommandExecutionView }> {
-    const result = await this.hub.runCommandLine(sessionId, line);
+  private async runCommandAndNotify(
+    sessionId: string,
+    line: string,
+    images: { mediaType: string; data: string; name?: string }[] = [],
+  ): Promise<{ outcome: "executed" | "unmatched" | "unavailable"; execution?: CommandExecutionView }> {
+    const result = await this.hub.runCommandLine(sessionId, line, images);
     const outcome = result.outcome;
     const name = line.trim().split(/\s+/)[0] ?? line;
     if (outcome === "executed") {

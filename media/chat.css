@@ -2568,6 +2568,30 @@ body {
   max-width: 260px;
 }
 
+/* @ 菜单加载行(网页端 pending 分组同款):纯 CSS 旋转圆点,无 emoji */
+.mention-loading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  color: var(--dsh-muted);
+}
+
+.mention-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--dsh-border, rgba(128, 128, 128, 0.35));
+  border-top-color: var(--dsh-accent, #3794ff);
+  animation: mention-spin 0.8s linear infinite;
+  flex: none;
+}
+
+@keyframes mention-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* 技能区内部再限高:菜单整体可滚动,技能列表自身不超过 180px */
 .plus-menu-skills {
   max-height: 180px;
