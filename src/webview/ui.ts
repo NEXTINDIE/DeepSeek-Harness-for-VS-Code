@@ -4145,12 +4145,8 @@ function renderPending() {
       const intent = (item as { intent?: { kind?: string; approve?: string } }).intent;
       const approveOption = item.options?.find((o) => o.label === intent?.approve);
       const declineOption = item.options?.find((o) => o.label !== intent?.approve);
-      // 与 Claude Code 一致:直接在审批内输入修改意见,回车发送自定义回答(不批准也不拒绝)
-      const customRow = el("div", "custom-row plan-custom-row");
-      customRow.append(lineIcon(ICONS.edit, 13));
-      const customInput = el("input", "custom-answer-input");
-      customInput.type = "text";
-      customInput.placeholder = t("输入修改意见,回车发送");
+      // 与 Claude Code 一致:直接在审批内输入修改意见,回车发送自定义回答(不批准也不拒绝);
+      // 0.1.1-rc.1 起支持多行(Shift+Enter 换行,自动换行)
       const sendCustom = () => {
         const text = customInput.value.trim();
         if (!text) return;
@@ -4162,14 +4158,10 @@ function renderPending() {
         state.questions.delete(question.frameRpcId);
         renderPending();
       };
-      customInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendCustom();
-        }
-      });
+      const customRow = el("div", "custom-row plan-custom-row");
+      customRow.append(lineIcon(ICONS.edit, 13));
+      const customInput = makeCustomAnswerInput(t("输入修改意见,回车发送"), sendCustom);
       customRow.append(customInput);
-      card.append(customRow);
       const actions = el("div", "question-footer-actions");
       // 拒绝:提交非批准选项(无该选项时不显示,与网页端一致)
       if (declineOption) {
@@ -4384,24 +4376,17 @@ function renderPending() {
         form.append(row);
       }
 
-      // 自定义回答:输入即视为自定义(与网页端一致 —— 无独立"其他"单选)
+      // 自定义回答:输入即视为自定义(与网页端一致 —— 无独立"其他"单选);
+      // 0.1.1-rc.1 起支持多行:Enter 提交,Shift+Enter 换行
       const customRow = el("div", "custom-row");
       customRow.append(lineIcon(ICONS.edit, 13));
-      const customInput = el("input", "custom-answer-input");
-      customInput.type = "text";
-      customInput.placeholder = t("输入你的答案(填写即视为自定义回答)");
+      const customInput = makeCustomAnswerInput(t("输入你的答案(填写即视为自定义回答)"), continueFlow);
       customInput.value = draft.custom;
       customInput.addEventListener("input", () => {
         draft.custom = customInput.value;
         if (customInput.value.trim() && !item.multiSelect) draft.selected = [];
         draft.skipped = false;
         feedback.textContent = "";
-      });
-      customInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          continueFlow();
-        }
       });
       customRow.append(customInput);
       form.append(customRow);
@@ -4453,6 +4438,28 @@ function renderPending() {
 }
 
 /** 解析选项标签中的"(推荐)"/"(recommended)"后缀,返回基础标签与推荐标记。 */
+/**
+ * 多行自定义回答输入(0.1.1-rc.1 网页端同款):自动换行自适应高度,Enter 提交,Shift+Enter 换行。
+ */
+function makeCustomAnswerInput(placeholder: string, onEnter: () => void): HTMLTextAreaElement {
+  const ta = document.createElement("textarea");
+  ta.className = "custom-answer-input";
+  ta.placeholder = placeholder;
+  ta.rows = 1;
+  const resize = () => {
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  };
+  ta.addEventListener("input", resize);
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      onEnter();
+    }
+  });
+  return ta;
+}
+
 function parseRecommendedLabel(label: string): { base: string; recommended: boolean } {
   const m = label.match(/\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i);
   if (!m || m.index === undefined) return { base: label, recommended: false };
