@@ -8,6 +8,9 @@
   --dsh-accent: var(--vscode-focusBorder, #007fd4);
   --dsh-muted: var(--vscode-descriptionForeground, #9d9d9d);
   --dsh-code-bg: var(--vscode-textCodeBlock-background, #1e1e1e);
+  /* 原生控件(下拉弹层 / 复选框 / 滚动条)跟随 VS Code 主题,
+     避免暗色主题下原生 select 弹层渲染成白底浅字 */
+  color-scheme: light dark;
 }
 
 * {
@@ -618,6 +621,7 @@ body {
   right: 0;
   z-index: 160;
   background: var(--vscode-menu-background, #252526);
+  color: var(--dsh-fg);
   border: 1px solid var(--dsh-border);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -2350,18 +2354,30 @@ body {
 }
 
 .tool-select {
-  background: transparent;
+  background: var(--dsh-input-bg);
   color: var(--dsh-fg);
-  border: none;
-  outline: none;
+  border: 1px solid var(--dsh-border);
+  border-radius: 5px;
+  padding: 2px 5px;
   font-size: 12px;
   max-width: 150px;
   cursor: pointer;
+  appearance: auto;
 }
 
 .tool-select:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* 原生弹层的选项:显式背景 + 前景,保证任何主题下都可读(暗色白底/浅色深底) */
+.tool-select option {
+  background: var(--vscode-menu-background, var(--dsh-input-bg));
+  color: var(--dsh-fg);
+}
+
+.tool-select:hover:not(:disabled) {
+  border-color: var(--dsh-accent);
 }
 
 .input-wrap {
@@ -2541,6 +2557,7 @@ body {
   max-height: min(50vh, 320px);
   overflow-y: auto;
   background: var(--vscode-menu-background, #252526);
+  color: var(--dsh-fg);
   border: 1px solid var(--dsh-border);
   border-radius: 10px;
   padding: 5px;
