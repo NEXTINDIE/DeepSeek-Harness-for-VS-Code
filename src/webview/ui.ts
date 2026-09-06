@@ -3213,10 +3213,11 @@ function handleEvent(wire: WireEvent) {
       // 行 index 与 message content 的块位置一致,行已覆盖的键由 part 循环跳过)
       let addedText = "";
       const pushBlock = (type: "text" | "reasoning", text: string) => {
-        // 与最后一块内容相同则视为重复(行/流式/部件三种来源去重);
-        // 否则无条件追加 —— 不以 streamedBlockKeys 为门槛,任何来源的真实内容都会渲染
-        const last = assistant.blocks!.at(-1);
-        if (last && last.type === type && last.text === text) return;
+        // 去重改为「同类型里最后一块、裁剪后内容一致」即视为重复(行/流式/部件三种来源,
+        // 且可能被另一种类型的块交错 —— 只比对刚上一块会漏判,导致同一段文本被追加两次)。
+        // 仍不以 streamedBlockKeys 为门槛,任何来源的真实内容都会渲染。
+        const lastSame = [...assistant.blocks!].reverse().find((b) => b.type === type);
+        if (lastSame && lastSame.text.trim() === text.trim()) return;
         assistant.blocks!.push({ type, text, el: null });
         if (type === "text") addedText += text + "\n";
       };
@@ -3392,8 +3393,10 @@ function handleEvent(wire: WireEvent) {
             pending.sort((a, b) => a.index - b.index);
             for (const b of pending) {
               if (!b.text) continue;
-              const last = node.blocks.at(-1);
-              if (last && last.type === b.kind && last.text === b.text) continue;
+              // 与 pushBlock 同一套去重:按「同类型最后一块 + 裁剪后内容一致」判断,
+              // 避免另一类型块交错导致同一文本重复合入。
+              const lastSame = [...node.blocks].reverse().find((x) => x.type === b.kind);
+              if (lastSame && lastSame.text.trim() === b.text.trim()) continue;
               node.blocks.push({ type: b.kind, text: b.text, el: null });
             }
             refreshAssistantNode(node, undefined, true);
