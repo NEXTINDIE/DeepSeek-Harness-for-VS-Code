@@ -2830,12 +2830,23 @@ function findAssistantTail(): NodeState | undefined {
   return undefined;
 }
 
+/** 按回合查找 assistant 节点:整表倒扫(不只盯尾部),允许迟到/乱序事件复用同一回合节点。 */
+function findAssistantForTurn(turn: number | undefined): NodeState | undefined {
+  for (let i = state.nodes.length - 1; i >= 0; i--) {
+    const n = state.nodes[i];
+    if (n.kind === "assistant" && (turn === undefined || n.turn === turn)) return n;
+  }
+  return undefined;
+}
+
 function beginAssistantBlock(turn: number, step: number, index: number, blockType: string, startTime?: number) {
   state.streamBlock = null;
   state.streamKey = null;
-  // 网页版布局:一个回合一个 assistant 节点,各步骤的文本块追加到同一节点
-  let assistant = findAssistantTail();
-  if (!assistant || assistant.turn !== turn) {
+  // 网页版布局:一个回合一个 assistant 节点,各步骤的文本块追加到同一节点。
+  // 复用改为按回合整表查找:block-start 在后续回合节点已建之后才到达时,
+  // 不再因“尾部不是本回合”而创建第二个同回合节点。
+  let assistant = findAssistantForTurn(turn);
+  if (!assistant) {
     assistant = { kind: "assistant", key: `a:${turn}:${state.nodes.length}`, el: null, blocks: [], turn };
     appendNode(assistant);
   }
@@ -2873,10 +2884,27 @@ function renderAssistantBlocks(assistant: NodeState): HTMLElement {
     }
   };
   appendToolsAfter(-1);
+  // 渲染级兜底去重:同一节点内同类型、裁剪后内容完全一致的块只渲染一份。
+  // 无论重复块由哪个来源/顺序产生(行、流式、消息部件、乱序事件),界面都只显示一次。
+  const seenTexts = new Set<string>();
+  const skipIndex = new Set<number>();
+  (assistant.blocks ?? []).forEach((block, index) => {
+    if (typeof block.text !== "string" || block.text.trim() === "") return;
+    const key = `${block.type}\u0000${block.text.trim()}`;
+    if (seenTexts.has(key)) skipIndex.add(index);
+    else seenTexts.add(key);
+  });
   let seenReasoning = false;
   (assistant.blocks ?? []).forEach((block, index) => {
+    if (skipIndex.has(index)) {
+      appendToolsAfter(index); // 被去重的块之后的内联工具仍按原位置渲染
+      return;
+    }
     // 空的推理/文本块不渲染占位(如中断的流式块):避免出现「思考过程」点开却没有任何内容
-    if (typeof block.text !== "string" || block.text.trim() === "") return;
+    if (typeof block.text !== "string" || block.text.trim() === "") {
+      appendToolsAfter(index);
+      return;
+    }
     if (block.type === "reasoning") {
       const first = !seenReasoning;
       seenReasoning = true;
@@ -3168,8 +3196,8 @@ function handleEvent(wire: WireEvent) {
         break;
       }
       const callTurn = typeof row.turn === "number" ? row.turn : state.currentStreamTurn;
-      let assistant = findAssistantTail();
-      if (!assistant || (callTurn !== undefined && assistant.turn !== callTurn)) {
+      let assistant = findAssistantForTurn(callTurn);
+      if (!assistant) {
         assistant = { kind: "assistant", key: `a:${callTurn ?? state.nodes.length}:${state.nodes.length}`, el: null, blocks: [], turn: callTurn ?? 0, tools: [] };
         appendNode(assistant);
       }
@@ -3213,10 +3241,11 @@ function handleEvent(wire: WireEvent) {
       // 行 index 与 message content 的块位置一致,行已覆盖的键由 part 循环跳过)
       let addedText = "";
       const pushBlock = (type: "text" | "reasoning", text: string) => {
-        // 与最后一块内容相同则视为重复(行/流式/部件三种来源去重);
-        // 否则无条件追加 —— 不以 streamedBlockKeys 为门槛,任何来源的真实内容都会渲染
-        const last = assistant.blocks!.at(-1);
-        if (last && last.type === type && last.text === text) return;
+        // 去重改为「同类型里最后一块、裁剪后内容一致」即视为重复(行/流式/部件三种来源,
+        // 且可能被另一种类型的块交错 —— 只比对刚上一块会漏判,导致同一段文本被追加两次)。
+        // 仍不以 streamedBlockKeys 为门槛,任何来源的真实内容都会渲染。
+        const lastSame = [...assistant.blocks!].reverse().find((b) => b.type === type);
+        if (lastSame && lastSame.text.trim() === text.trim()) return;
         assistant.blocks!.push({ type, text, el: null });
         if (type === "text") addedText += text + "\n";
       };
@@ -3288,9 +3317,9 @@ function handleEvent(wire: WireEvent) {
         break;
       }
       // 网页端工作流:工具行内联插入到所属思考块之后(Think → 工具 → Think → 答案),不再使用独立工具合集
-      let assistant = findAssistantTail();
       const callTurn = typeof data?.turn === "number" ? data.turn : state.currentStreamTurn;
-      if (!assistant || (callTurn !== undefined && assistant.turn !== callTurn)) {
+      let assistant = findAssistantForTurn(callTurn);
+      if (!assistant) {
         assistant = { kind: "assistant", key: `a:${callTurn ?? state.nodes.length}:${state.nodes.length}`, el: null, blocks: [], turn: callTurn ?? 0, tools: [] };
         appendNode(assistant);
       }
@@ -3392,8 +3421,10 @@ function handleEvent(wire: WireEvent) {
             pending.sort((a, b) => a.index - b.index);
             for (const b of pending) {
               if (!b.text) continue;
-              const last = node.blocks.at(-1);
-              if (last && last.type === b.kind && last.text === b.text) continue;
+              // 与 pushBlock 同一套去重:按「同类型最后一块 + 裁剪后内容一致」判断,
+              // 避免另一类型块交错导致同一文本重复合入。
+              const lastSame = [...node.blocks].reverse().find((x) => x.type === b.kind);
+              if (lastSame && lastSame.text.trim() === b.text.trim()) continue;
               node.blocks.push({ type: b.kind, text: b.text, el: null });
             }
             refreshAssistantNode(node, undefined, true);
