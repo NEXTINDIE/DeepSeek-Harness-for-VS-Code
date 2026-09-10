@@ -39,6 +39,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     command: cfg().get<string>("command", "dsh"),
     autoStart: cfg().get<boolean>("autoStart", true),
     autoStartTimeoutSec: cfg().get<number>("autoStartTimeoutSec", 60),
+    launchToken: cfg().get<string>("launchToken", ""),
     t: (key, args) => t(key, args ?? {}),
     defaultReasoningEffort: cfg().get<string>("defaultReasoningEffort", ""),
     onNotice: (message, kind) => {
@@ -271,6 +272,26 @@ export function activate(ctx: vscode.ExtensionContext) {
       const result = await hub.server.stop();
       if (result.ok) void vscode.window.showInformationMessage(t("msg.serverStopped"));
       else void vscode.window.showWarningMessage(t("msg.cannotStopServer", { message: result.message ?? "" }));
+    }),
+    vscode.commands.registerCommand("dsh.setToken", async () => {
+      const cur = cfg().get<string>("launchToken", "");
+      const token = await vscode.window.showInputBox({
+        title: "DSH 授权 Token",
+        prompt: "粘贴 dsh web 启动日志里的授权 token（?token= 后面的值）；留空则清除",
+        value: typeof cur === "string" ? cur : "",
+        placeHolder: "粘贴 token...",
+      });
+      if (token === undefined) return;
+      const trimmed = token.trim();
+      await cfg().update("launchToken", trimmed, vscode.ConfigurationTarget.Global);
+      hub.server.setLaunchToken(trimmed || undefined);
+      hub.client.setLaunchToken(trimmed || undefined);
+      if (trimmed) {
+        void vscode.window.showInformationMessage("已设置授权 token，正在重连...");
+        void hub.ensureReady();
+      } else {
+        void vscode.window.showInformationMessage("已清除授权 token");
+      }
     }),
     vscode.commands.registerCommand("dsh.updateServer", async () => {
       // 升级本地直接安装的 DSH 服务器(@deepseek-ai/dsh@latest):新版本功能
