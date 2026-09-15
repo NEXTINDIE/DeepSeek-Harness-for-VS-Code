@@ -250,10 +250,15 @@ export class DshHub {
   browserUrl(baseUrl: string): string {
     this.server.refreshLaunchToken(true);
     const token = this.server.launchToken;
-    if (!token) return baseUrl;
+    if (!token) {
+      this.deps.onLog?.(`[browser] no launch token available for ${baseUrl}`);
+      return baseUrl;
+    }
     const url = new URL(baseUrl);
     url.searchParams.set("token", token);
-    return url.toString();
+    const browserUrl = url.toString();
+    this.deps.onLog?.(`[browser] opening authenticated URL ${browserUrl.replace(/([?&]token=)[^&]+/, "$1<redacted>")}`);
+    return browserUrl;
   }
 
   /** 旧版服务器(0.1.1-及更早)探测结果。 */
