@@ -246,6 +246,16 @@ export class DshHub {
     if (token) this.client.setLaunchToken(token);
   }
 
+  /** Build the browser URL with the launch token required by authenticated servers. */
+  browserUrl(baseUrl: string): string {
+    this.server.refreshLaunchToken();
+    const token = this.server.launchToken;
+    if (!token) return baseUrl;
+    const url = new URL(baseUrl);
+    url.searchParams.set("token", token);
+    return url.toString();
+  }
+
   /** 旧版服务器(0.1.1-及更早)探测结果。 */
   private isLegacyError(error: unknown): boolean {
     return error instanceof DshApiError && error.code === "server-old-version";

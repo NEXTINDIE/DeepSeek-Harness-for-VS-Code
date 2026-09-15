@@ -1761,7 +1761,7 @@ export class ChatChannel {
         await this.pushFullState();
         break;
       case "openBrowser":
-        await vscode.env.openExternal(vscode.Uri.parse(this.dshUrl()));
+        await vscode.env.openExternal(vscode.Uri.parse(this.hub.browserUrl(this.dshUrl())));
         break;
       default:
         break;

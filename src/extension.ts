@@ -299,7 +299,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       );
     }),
     vscode.commands.registerCommand("dsh.openInBrowser", async () => {
-      await vscode.env.openExternal(vscode.Uri.parse(dshUrl()));
+      await vscode.env.openExternal(vscode.Uri.parse(hub.browserUrl(dshUrl())));
     }),
     vscode.commands.registerCommand("dsh.showOutput", () => {
       output.show(true);
