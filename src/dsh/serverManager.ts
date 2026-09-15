@@ -71,7 +71,8 @@ export class ServerManager {
   }
 
   /** 从扩展常用日志位置补取授权 token(服务器由上一个扩展实例或终端启动的场景)。返回是否补全。 */
-  refreshLaunchToken(): boolean {
+  refreshLaunchToken(force = false): boolean {
+    if (force) this.authToken = undefined;
     if (this.authToken) return true;
     for (const file of [join(tmpdir(), "dsh-vscode-server.log"), join(tmpdir(), "dsh-vscode-server-install.log")]) {
       this.captureLaunchToken(file);

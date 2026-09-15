@@ -248,7 +248,7 @@ export class DshHub {
 
   /** Build the browser URL with the launch token required by authenticated servers. */
   browserUrl(baseUrl: string): string {
-    this.server.refreshLaunchToken();
+    this.server.refreshLaunchToken(true);
     const token = this.server.launchToken;
     if (!token) return baseUrl;
     const url = new URL(baseUrl);
