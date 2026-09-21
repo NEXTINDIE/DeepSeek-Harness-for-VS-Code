@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { DshApiError } from "../dsh/apiClient";
+import { openExternalUrl } from "../dsh/browserHandoff";
 import { folderCwd } from "../dsh/participantSessions";
 import {
   allCheckpointSummaries,
@@ -1761,7 +1762,7 @@ export class ChatChannel {
         await this.pushFullState();
         break;
       case "openBrowser":
-        await vscode.env.openExternal(vscode.Uri.parse(this.hub.browserUrl(this.dshUrl())));
+        await openExternalUrl(this.hub.browserUrl(this.dshUrl()), (line) => this.log(line));
         break;
       default:
         break;

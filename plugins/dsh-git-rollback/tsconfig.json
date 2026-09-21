@@ -13,11 +13,11 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@deepseek-ai/cordis": ["C:/Users/my/AppData/Roaming/npm/.dsh-alpha/node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session": ["C:/Users/my/AppData/Roaming/npm/.dsh-alpha/node_modules/@deepseek-ai/dsh-session/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-commands": ["C:/Users/my/AppData/Roaming/npm/.dsh-alpha/node_modules/@deepseek-ai/dsh-commands/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-agent": ["C:/Users/my/AppData/Roaming/npm/.dsh-alpha/node_modules/@deepseek-ai/dsh-agent/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-host-webserver": ["C:/Users/my/AppData/Roaming/npm/.dsh-alpha/node_modules/@deepseek-ai/dsh-host-webserver/lib/types/index.d.ts"]
+      "@deepseek-ai/cordis": ["../../node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["../../node_modules/@deepseek-ai/dsh-session/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-commands": ["../../node_modules/@deepseek-ai/dsh-commands/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-agent": ["../../node_modules/@deepseek-ai/dsh-agent/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-host-webserver": ["../../node_modules/@deepseek-ai/dsh-host-webserver/lib/types/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts"],
