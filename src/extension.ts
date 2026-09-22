@@ -6,6 +6,7 @@ import { registerChatParticipant } from "./dsh/chatParticipant";
 import { folderCwd, setParticipantSession } from "./dsh/participantSessions";
 import { registerCommitMessageCommand } from "./dsh/commitMessage";
 import { ensureRollbackPluginInstalled } from "./dsh/rollbackInstall";
+import { openExternalUrl } from "./dsh/browserHandoff";
 import { ChatPanelProvider } from "./webview/panel";
 import { ChatWindowProvider } from "./webview/window";
 import { CordisPanelProvider } from "./webview/cordisPanel";
@@ -299,7 +300,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       );
     }),
     vscode.commands.registerCommand("dsh.openInBrowser", async () => {
-      await vscode.env.openExternal(vscode.Uri.parse(dshUrl()));
+      await openExternalUrl(hub.browserUrl(dshUrl()), (line) => output.appendLine(line));
     }),
     vscode.commands.registerCommand("dsh.showOutput", () => {
       output.show(true);

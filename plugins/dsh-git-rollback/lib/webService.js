@@ -136,7 +136,7 @@ export function registerWebRoutes(ctx, opts) {
                     sendJson(res, 404, { error: "会话没有运行中的 agent" });
                     return;
                 }
-                const execution = await commands.execute(agent, `/undo ${turn}`, [], new AbortController().signal);
+                const execution = await commands.execute(agent, `/undo ${turn}`, new AbortController().signal);
                 if (!execution) {
                     sendJson(res, 404, { error: "/undo 命令未找到(服务端插件未加载?)" });
                     return;
