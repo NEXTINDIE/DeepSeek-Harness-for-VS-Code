@@ -108,6 +108,15 @@
         "icon": "$(cloud-download)"
       }
     ],
+    "chatParticipants": [
+      {
+        "id": "dsh",
+        "name": "dsh",
+        "fullName": "DSH",
+        "description": "%chatParticipant.dsh.description%",
+        "isSticky": true
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {

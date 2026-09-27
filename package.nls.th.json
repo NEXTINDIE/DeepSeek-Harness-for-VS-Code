@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: แสดงข้อมูลการวินิจฉัย",
   "cmd.showOutput.title": "DSH: เปิดบันทึกของส่วนขยาย",
   "cmd.repairViews.title": "DSH: ซ่อมแซมมุมมองแชท (รีเซ็ตตำแหน่งมุมมอง)",
+  "chatParticipant.dsh.description": "ใช้ DeepSeek Harness ผ่าน @dsh",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",

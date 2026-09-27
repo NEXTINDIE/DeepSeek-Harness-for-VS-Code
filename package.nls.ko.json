@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: 진단 정보 표시",
   "cmd.showOutput.title": "DSH: 확장 프로그램 로그 열기",
   "cmd.repairViews.title": "DSH: 채팅 보기 복구(Reset View Locations)",
+  "chatParticipant.dsh.description": "@dsh로 DeepSeek Harness 사용",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",

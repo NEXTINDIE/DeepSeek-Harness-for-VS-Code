@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: عرض التشخيصات",
   "cmd.showOutput.title": "DSH: فتح سجل الإضافة",
   "cmd.repairViews.title": "DSH: إصلاح عرض الدردشة (إعادة تعيين مواقع العروض)",
+  "chatParticipant.dsh.description": "استخدم DeepSeek Harness عبر @dsh",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",

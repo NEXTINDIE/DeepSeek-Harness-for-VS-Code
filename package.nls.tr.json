@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: Tanılamayı Göster",
   "cmd.showOutput.title": "DSH: Uzantı Günlüğünü Aç",
   "cmd.repairViews.title": "DSH: Sohbet Görünümünü Onar (Görünüm Konumlarını Sıfırla)",
+  "chatParticipant.dsh.description": "DeepSeek Harness'i @dsh ile kullanın",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",

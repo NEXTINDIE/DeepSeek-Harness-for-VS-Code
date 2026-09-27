@@ -16,6 +16,7 @@
   "cmd.showInfo.title": "DSH: Tampilkan Diagnostik",
   "cmd.showOutput.title": "DSH: Buka Log Ekstensi",
   "cmd.repairViews.title": "DSH: Perbaiki Tampilan Chat (Reset View Locations)",
+  "chatParticipant.dsh.description": "Gunakan DeepSeek Harness melalui @dsh",
   "container.title": "DeepSeek Harness",
   "view.chat.name": "Chat",
   "config.title": "DeepSeek Harness",
