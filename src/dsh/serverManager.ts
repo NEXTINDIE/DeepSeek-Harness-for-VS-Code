@@ -25,6 +25,8 @@ export interface ServerManagerConfig {
   command: string;
   autoStart: boolean;
   timeoutSec: number;
+  /** 手动填写的 0.1.2 授权 token(服务器由终端手动启动、扩展拿不到启动 token 时使用)。 */
+  launchToken?: string;
   /** 翻译函数;缺省时回退到英文。 */
   t?: (key: string, args?: Record<string, string | number>) => string;
   /** 诊断日志回调(启动器解析 / 进程退出码等),用于输出到日志通道。 */
@@ -70,9 +72,18 @@ export class ServerManager {
     return this.authToken;
   }
 
+  /** 手动设置授权 token(用户从终端启动的服务器日志中复制 ?token= 后的值);传 undefined 清除。 */
+  setLaunchToken(token: string | undefined): void {
+    this.authToken = token;
+  }
+
   /** 从扩展常用日志位置补取授权 token(服务器由上一个扩展实例或终端启动的场景)。返回是否补全。 */
   refreshLaunchToken(): boolean {
     if (this.authToken) return true;
+    if (this.cfg.launchToken) {
+      this.authToken = this.cfg.launchToken;
+      return true;
+    }
     for (const file of [join(tmpdir(), "dsh-vscode-server.log"), join(tmpdir(), "dsh-vscode-server-install.log")]) {
       this.captureLaunchToken(file);
       if (this.authToken) return true;

@@ -31,6 +31,8 @@ export interface HubDeps {
   command: string;
   autoStart: boolean;
   autoStartTimeoutSec: number;
+  /** 手动填写的 0.1.2 授权 token(服务器由终端手动启动、扩展拿不到启动 token 时使用)。 */
+  launchToken?: string;
   /** 新建会话时自动应用的推理强度(思考深度);留空使用模型默认。 */
   defaultReasoningEffort?: string;
   onStatus?: (status: HubStatus) => void;
@@ -76,7 +78,7 @@ export class DshHub {
   constructor(private readonly deps: HubDeps) {
     this.client = new DshApiClient(deps.url);
     this.server = new ServerManager(
-      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, t: deps.t, onLog: deps.onLog },
+      { url: deps.url, command: deps.command, autoStart: deps.autoStart, timeoutSec: deps.autoStartTimeoutSec, launchToken: deps.launchToken, t: deps.t, onLog: deps.onLog },
       (s) => {
         this.statusState.serverUp = s.up;
         this.statusState.serverStartedByUs = s.startedByUs;

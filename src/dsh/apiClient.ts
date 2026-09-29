@@ -140,8 +140,8 @@ export class DshApiClient {
   private cookie: string | undefined;
   private authPromise: Promise<void> | undefined;
 
-  /** 设置服务器启动时从日志解析到的启动 token(换取 cookie 用)。 */
-  setLaunchToken(token: string) {
+  /** 设置服务器启动时从日志解析到的启动 token(换取 cookie 用);传 undefined 清除。 */
+  setLaunchToken(token: string | undefined) {
     this.launchToken = token;
   }
 
