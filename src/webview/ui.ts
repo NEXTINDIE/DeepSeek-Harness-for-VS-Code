@@ -782,6 +782,11 @@ const EN_TEXT: Record<string, string> = {
   "从此处新建分支": "Branch from here",
   "回到主线(父会话)": "Back to main line (parent session)",
   "重命名会话": "Rename session",
+  // ---- 顶部改版:新建对话按钮与会话菜单(去 emoji) ----
+  "新建对话": "New chat",
+  "分叉会话": "Fork session",
+  "复制会话 ID": "Copy session ID",
+  "新会话": "New session",
   "修改会话标题(已填入当前标题):": "Edit the session title (current title pre-filled):",
   "重命名": "Rename",
   "取消": "Cancel",
@@ -1441,9 +1446,10 @@ sessionBtn.append(sessionBtnLabel, sessionBtnBadges, sessionBtnDot, sessionBtnCh
 const sessionList = el("div", "session-dropdown-menu");
 sessionList.hidden = true;
 sessionSelectWrap.append(sessionBtn, sessionList);
-const btnNew = el("button", "btn btn-icon");
-btnNew.title = t("新建会话");
-btnNew.append(lineIcon(ICONS.plus));
+// 新建会话:文字按钮(＋ 图标 + 「新建对话」),比纯图标更容易发现
+const btnNew = el("button", "btn btn-new-session");
+btnNew.title = t("新建对话");
+btnNew.append(lineIcon(ICONS.plus, 13), el("span", "btn-new-label", t("新建对话")));
 const btnMore = el("button", "btn btn-icon");
 btnMore.title = t("会话操作:分叉 / 重命名 / 归档");
 btnMore.append(lineIcon(ICONS.more));
@@ -1492,14 +1498,20 @@ btnCordis.append(cordisBadge);
 const statusDot = el("span", "status-dot");
 const statusText = el("span", "status-text", "未连接");
 
-// 会话操作菜单(挂在 ⋯ 按钮的锚点上,随按钮位置展开)
+// 会话操作菜单(挂在 ⋯ 按钮的锚点上,随按钮位置展开)。
+// 条目用线性图标 + 文字,不再用 emoji 前缀:emoji 在不同平台渲染差异大,和其余按钮的图标语言也不一致。
 const sessionMenu = el("div", "session-menu");
 sessionMenu.hidden = true;
-const menuRename = el("button", "session-menu-item", t("✏️ 重命名会话"));
-const menuFork = el("button", "session-menu-item", t("🔀 分叉会话"));
+function sessionMenuItem(icon: string, label: string): HTMLButtonElement {
+  const btn = el("button", "session-menu-item") as HTMLButtonElement;
+  btn.append(lineIcon(icon, 13), el("span", "session-menu-label", label));
+  return btn;
+}
+const menuRename = sessionMenuItem(ICONS.edit, t("重命名会话"));
+const menuFork = sessionMenuItem(ICONS.branch, t("分叉会话"));
 // 0.2.1:会话菜单支持复制会话 ID(网页端同款;排查 / 报告问题时可直接粘贴)
-const menuCopyId = el("button", "session-menu-item", t("📋 复制会话 ID"));
-const menuArchive = el("button", "session-menu-item", t("🗄️ 归档会话"));
+const menuCopyId = sessionMenuItem(ICONS.copy, t("复制会话 ID"));
+const menuArchive = sessionMenuItem(ICONS.box, t("归档会话"));
 sessionMenu.append(menuRename, menuFork, menuCopyId, menuArchive);
 const moreAnchor = el("div", "session-menu-anchor");
 moreAnchor.append(btnMore, sessionMenu);
@@ -5834,16 +5846,21 @@ function renderGoal() {
 
 // ---------- 会话 / 状态 / 工具行 ----------
 
-/** 运行中指示(旋转动画的 ⏳ 沙漏)。 */
-function runningEmoji(): HTMLElement {
-  return el("span", "running-emoji", "⏳");
+/** 运行中指示:主题色脉冲圆点(不再用 ⏳ emoji)。 */
+function runningDot(): HTMLElement {
+  const dot = el("span", "session-led led-running");
+  dot.title = t("运行中");
+  return dot;
 }
 
-/** 会话状态徽标(待审批 / 计划待审 / 等待回答 / 运行中)。 */
+/** 会话状态徽标(待审批 / 计划待审 / 等待回答 / 运行中):色点 + 文字,不带 emoji。 */
 function pendingBadge(pending: { kind: "approval" | "question" | "plan-review" }): HTMLElement {
-  if (pending.kind === "approval") return el("span", "session-badge badge-approval", `🛡️ ${t("等待审批")}`);
-  if (pending.kind === "plan-review") return el("span", "session-badge badge-plan", `📋 ${t("计划待审")}`);
-  return el("span", "session-badge badge-question", `❓ ${t("等待回答")}`);
+  const kind = pending.kind;
+  const label = kind === "approval" ? t("等待审批") : kind === "plan-review" ? t("计划待审") : t("等待回答");
+  const cls = kind === "approval" ? "badge-approval" : kind === "plan-review" ? "badge-plan" : "badge-question";
+  const badge = el("span", `session-badge ${cls}`);
+  badge.append(el("span", `session-led led-${kind}`), el("span", undefined, label));
+  return badge;
 }
 
 function renderSessions() {
@@ -5873,7 +5890,7 @@ function renderSessions() {
   if (cur?.pending) sessionBtnBadges.append(pendingBadge(cur.pending));
   else if (cur?.running) {
     const badge = el("span", "session-badge badge-running");
-    badge.append(runningEmoji());
+    badge.append(runningDot(), el("span", undefined, t("运行中")));
     sessionBtnBadges.append(badge);
   }
   const anyPending = visible.some((s) => s.pending);
@@ -5890,7 +5907,8 @@ function renderSessions() {
     if (s.unread) row.append(el("span", "unread-dot"));
     const main = el("span", "session-row-main");
     const branch = s.parentSessionId ? "↪ " : "";
-    const title = `${branch}${s.blank ? "🆕" : "💬"} ${s.sessionId.slice(0, 12)}`;
+    // 无标题会话的兜底名不再用 🆕/💬 emoji:与行内其它标记统一成纯文本
+    const title = `${branch}${s.blank ? t("新会话") : ""}${s.sessionId.slice(0, 12)}`.trim();
     main.append(el("span", "session-row-title", s.title || title));
     const subBits: string[] = [];
     if (s.cwd) subBits.push(basename(s.cwd));
@@ -5900,7 +5918,7 @@ function renderSessions() {
     if (s.pending) row.append(pendingBadge(s.pending));
     else if (s.running) {
       const badge = el("span", "session-badge badge-running");
-      badge.append(runningEmoji());
+      badge.append(runningDot(), el("span", undefined, t("运行中")));
       row.append(badge);
     }
     row.addEventListener("click", () => {
@@ -6965,7 +6983,8 @@ function openSubagentCatalog() {
         const label = entry.label ?? entry.id.slice(0, 12);
         const running = entry.activity === "running";
         const row = el("button", "plus-menu-item");
-        row.append(running ? runningEmoji() : el("span", undefined, "🤖"), el("span", undefined, " " + label));
+        // 子代理行同样不用 emoji:运行中是脉冲圆点,其余是静态圆点
+        row.append(running ? runningDot() : el("span", "session-led led-idle"), el("span", "subagent-catalog-label", label));
         row.title = entry.mode === "one-shot" ? t("one-shot 子代理 · 点击查看记录") : t("continuable 子代理 · 点击打开对话(可追问 / 打断)");
         const sub = el("span", "subagent-catalog-sub");
         sub.textContent = entry.mode === "one-shot" ? "one-shot" : running ? t("运行中") : t("已结束");
@@ -7438,8 +7457,9 @@ function renderPending() {
       const item = normalItems[index];
       const draft = drafts[index];
       const section = el("div", "question-section");
+      // 题面不再带自己的 ❓ 小图标:卡片头部已经有同类图标,连着两个同级图标只会干扰阅读
       const title = el("div", "question-title");
-      title.append(lineIcon(ICONS.help, 13), el("span", undefined, " " + item.question));
+      title.append(el("span", undefined, item.question));
       section.append(title);
       if (item.detail) section.append(el("div", "question-detail", item.detail));
       const form = el("div", "pending-form");
@@ -7682,9 +7702,12 @@ function applyStaticLabels() {
   permissionPillHead.title = t("读写权限(沙箱模式 + 审批策略)");
   ppTitle.textContent = t("应如何批准操作?");
   ppMore.textContent = t("了解更多");
-  menuRename.textContent = t("✏️ 重命名会话");
-  menuFork.textContent = t("🔀 分叉会话");
-  menuArchive.textContent = t("🗄️ 归档会话");
+  // 会话菜单:线性图标 + 文字(去 emoji 后语言切换只需更新文字)
+  (menuRename.querySelector(".session-menu-label") as HTMLElement).textContent = t("重命名会话");
+  (menuFork.querySelector(".session-menu-label") as HTMLElement).textContent = t("分叉会话");
+  (menuCopyId.querySelector(".session-menu-label") as HTMLElement).textContent = t("复制会话 ID");
+  (menuArchive.querySelector(".session-menu-label") as HTMLElement).textContent = t("归档会话");
+  (btnNew.querySelector(".btn-new-label") as HTMLElement).textContent = t("新建对话");
   dialogCancel.textContent = t("取消");
   dialogConfirm2.textContent = t("清除");
   dialogConfirm.textContent = t("确定");

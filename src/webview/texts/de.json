@@ -669,5 +669,9 @@
   "📝 计划模式(切换中…)": "📝 Planmodus (wird umgeschaltet…)",
   "网页能力": "Web-Funktionen",
   "网页搜索(DeepSeek API)": "Websuche (DeepSeek API)",
-  "重新读取子代理目录": "Unteragenten-Katalog neu einlesen"
+  "重新读取子代理目录": "Unteragenten-Katalog neu einlesen",
+  "新建对话": "Neuer Chat",
+  "分叉会话": "Sitzung abzweigen",
+  "复制会话 ID": "Sitzungs-ID kopieren",
+  "新会话": "Neue Sitzung"
 }

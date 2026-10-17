@@ -669,5 +669,9 @@
   "📝 计划模式(切换中…)": "📝 Modo plano (alternando…)",
   "网页能力": "Recursos web",
   "网页搜索(DeepSeek API)": "Pesquisa na web (API DeepSeek)",
-  "重新读取子代理目录": "Ler novamente o catálogo de subagentes"
+  "重新读取子代理目录": "Ler novamente o catálogo de subagentes",
+  "新建对话": "Nova conversa",
+  "分叉会话": "Bifurcar sessão",
+  "复制会话 ID": "Copiar ID da sessão",
+  "新会话": "Sessão nova"
 }

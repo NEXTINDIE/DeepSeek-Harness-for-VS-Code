@@ -1,6 +1,26 @@
 # Changelog
 
 
+## 0.13.48
+- **Header refreshed.** The session row now uses one consistent 8px rhythm, a 6/10px dropdown trigger on the theme's input background with the widget border, and a real bottom divider (only when the theme defines one). The `+` icon button became **「新建对话」** — plus icon plus label — so the primary action of that row is readable instead of a bare glyph.
+- **Every emoji left the session list and its ⋯ menu.** Rows carried ⏳ / 🛡️ / 📋 / ❓ / 🆕 / 💬 depending on state; they now use small theme-coloured dots with a text label (green pulsing dot + 运行中, blue dot + 等待回答, purple + 计划待审, amber + 等待审批, grey for an idle subagent), so light and dark themes agree and nothing depends on how a font renders an emoji. Untitled sessions fall back to "新会话 · <id>" instead of an emoji prefix.
+- The ⋯ menu items are line icons + text (rename / fork / copy ID / archive) on the new menu surface: 2px gaps, widget border, a softer shadow, muted icons that follow the foreground on hover, and labels that re-render on a language switch.
+- Same cascade trap as before, caught in review: the new-session button needed a `.btn` prefix, because the generic `.btn` rule sits later in the stylesheet and was overriding its background.
+- Verified by rendering the real bundle + real CSS in headless Chromium at a realistic sidebar width in both palettes (session dropdown, ⋯ menu, new-chat button), plus typecheck, duplicate-key check and all six UI suites.
+- **顶部改版**。会话这一行统一成 8px 间距;会话下拉触发按钮改成输入框底色 + 控件描边、6/10px 内边距;底部加了一条分隔线(主题定义了 panel-border 时才显示)。原来的 `+` 纯图标按钮改成 **「新建对话」**(＋ 图标 + 文字),这一行最主要的动作不再是一个只能靠猜的字形。
+- **会话列表与 ⋯ 菜单里的 emoji 全部移除**。之前列表行按状态带 ⏳ / 🛡️ / 📋 / ❓ / 🆕 / 💬;现在统一成主题色小圆点 + 文字(绿色脉冲点 + 运行中、蓝点 + 等待回答、紫点 + 计划待审、琥珀点 + 等待审批、灰点表示空闲子代理),亮色/暗色一致,也不再取决于字体怎么渲染 emoji。无标题会话的兜底名改成「新会话 · <id>」,不再带 emoji 前缀。
+- ⋯ 菜单条目改成线性图标 + 文字(重命名 / 分叉 / 复制 ID / 归档),菜单本身也换了表面:2px 条目间距、控件描边、更柔和的投影,图标用次要色、悬停跟随前景色,语言切换时文字会就地刷新。
+- 又一次撞到同一个层叠陷阱并在自查时抓住:新建对话按钮必须带 `.btn` 前缀 —— 通用 `.btn` 规则在文件更靠后,会把它的底色覆盖掉。
+- 验证:真实包 + 真实 CSS 在无头 Chromium 里按真实侧栏宽度、深色/浅色各渲染一次(会话下拉、⋯ 菜单、新建对话按钮),并跑 typecheck、重复键检查与六套界面夹具。
+
+
+## 0.13.47
+- Removed the small ❓ glyph that each question's text carried inside the 提问 card. The card header already shows that icon as its category marker, so the body started with a second identical icon on a shorter line — visually it looked like a bullet hanging off the question. The question text now starts at the card's own left margin, which also gives long questions a little more line width.
+- Nothing else changed: options, custom input, pager, 跳过本题 / 提交回答, the countdown pill and the plan-review card are untouched; typecheck plus the plan-review and 0.2.1-feature suites still pass, and the result was checked in a rendered screenshot.
+- 去掉提问卡片里每道题题面前那个小 ❓。卡片头部本就已经用同一个图标做类别标记,正文再出现一个同款小图标、还挂在题目行首,看起来像一颗多余的列表符号;现在题面直接从卡片左边距开始,长问题也宽松一点。
+- 其他都没动:选项、自定义输入、翻页、跳过本题 / 提交回答、倒计时胶囊、计划审阅卡片均保持原样;typecheck 与计划审阅 / 0.2.1 功能两套夹具仍通过,并已用渲染截图核对。
+
+
 ## 0.13.46
 - The 子代理目录 (subagent catalog) popover's refresh control is now the **word 刷新** instead of the 🔄 emoji. The emoji rendered as a blue rounded square on Windows and read as an unrelated icon; the text keeps the same job with no font-dependency, sits on the same line as the title as a small pill (input background + widget border, theme hover/focus), and keeps a descriptive tooltip ("重新读取子代理目录") rather than repeating its own label.
 - The popover header got a little more breathing room (6px vertical padding) so the pill is no longer cramped against the top edge.

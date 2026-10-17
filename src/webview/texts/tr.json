@@ -669,5 +669,9 @@
   "📝 计划模式(切换中…)": "📝 Plan modu (geçiş yapılıyor…)",
   "网页能力": "Web yetenekleri",
   "网页搜索(DeepSeek API)": "Web araması (DeepSeek API)",
-  "重新读取子代理目录": "Alt ajan kataloğunu yeniden oku"
+  "重新读取子代理目录": "Alt ajan kataloğunu yeniden oku",
+  "新建对话": "Yeni sohbet",
+  "分叉会话": "Oturumu dallandır",
+  "复制会话 ID": "Oturum kimliğini kopyala",
+  "新会话": "Yeni oturum"
 }

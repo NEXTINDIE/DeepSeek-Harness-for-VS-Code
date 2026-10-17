@@ -669,5 +669,9 @@
   "📝 计划模式(切换中…)": "📝 Mode rencana (beralih…)",
   "网页能力": "Kemampuan web",
   "网页搜索(DeepSeek API)": "Pencarian web (DeepSeek API)",
-  "重新读取子代理目录": "Baca ulang katalog subagen"
+  "重新读取子代理目录": "Baca ulang katalog subagen",
+  "新建对话": "Obrolan baru",
+  "分叉会话": "Cabangkan sesi",
+  "复制会话 ID": "Salin ID sesi",
+  "新会话": "Sesi baru"
 }
