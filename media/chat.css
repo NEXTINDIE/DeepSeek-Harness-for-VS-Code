@@ -2086,28 +2086,34 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 6px 4px;
+  padding: 6px 8px 6px;
 }
 
 .subagent-catalog-head .plus-menu-label {
   margin: 0;
 }
 
+/* 刷新按钮:文字形态(与标题同一行,不再用 emoji 图标) */
 .subagent-catalog-refresh {
   flex: none;
-  border: none;
-  background: none;
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  background: var(--vscode-input-background, var(--dsh-input-bg));
   color: var(--vscode-descriptionForeground);
-  font-size: 12px;
-  line-height: 1;
-  padding: 3px 5px;
-  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
 .subagent-catalog-refresh:hover {
-  background: var(--vscode-toolbar-hoverBackground);
+  background: var(--vscode-toolbar-hoverBackground, var(--dsh-surface-soft));
   color: var(--vscode-foreground);
+}
+
+.subagent-catalog-refresh:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, var(--dsh-accent));
+  outline-offset: 1px;
 }
 
 /* 列表区限高滚动:头部(含刷新按钮)固定,子代理再多也在弹层内滚动 */

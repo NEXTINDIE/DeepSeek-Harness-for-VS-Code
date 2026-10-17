@@ -1060,14 +1060,18 @@ export function createPanels(ctx: PanelsContext) {
   }
 
   function nsGroup(ns: string): "llm" | "general" {
-    if (ns.startsWith("llm-") || ns.startsWith("web-search-")) return "llm";
+    // web-search-* 是搜索供应商配置;web-deepseek-api 是 0.2.1-rc.2 新增的 DeepSeek 搜索/抓取提供方,
+    // 与模型供应商同组更符合同一类「凭据 + 端点」配置的心智
+    if (ns.startsWith("llm-") || ns.startsWith("web-search-") || ns === "web-deepseek-api") return "llm";
     return "general";
   }
 
   /** 命名空间友好名称(中文源语言,经 t() 多语言化);未知命名空间回退原始 id。 */
   const NAMESPACE_TITLES: Record<string, string> = {
     "ui-onboarding": "引导设置",
+    web: "网页能力",
     "web-search-deepseek": "网页搜索(DeepSeek)",
+    "web-deepseek-api": "网页搜索(DeepSeek API)",
     "llm-deepseek": "DeepSeek 供应商",
     "llm-pi-ai": "其他模型供应商",
     "ui-theme": "界面主题",

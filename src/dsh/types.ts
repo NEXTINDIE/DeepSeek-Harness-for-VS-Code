@@ -1,6 +1,16 @@
 /**
- * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.1-rc.1 的 Typert Remote 契约,
- * 同时兼容 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.1-rc.2 的 Typert Remote 契约,
+ * 同时兼容 0.2.1-rc.1 / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ *
+ * 0.2.1-rc.1 → 0.2.1-rc.2(已按已发布包机械 diff + 真实 rc.2 服务器实机验证):
+ * - 契约零变化:173 个 Typert 端点签名、23 条 $events 词表、21 个会话投影、57 种会话事件、
+ *   三条 mux 流常量全部一致;信封、认证、remoteAccess 基线也不变;
+ * - 只新增两个包,且都不进线协议:dsh-web-deepseek-api(DeepSeek Search/Fetch 提供方,
+ *   带来设置命名空间 web 与 web-deepseek-api)与 dsh-client-ui-deepseek-model-label-1017
+ *   (网页端模型标签上的 1017 徽标);
+ * - 模型目录不变:deepseek-flash / deepseek-v4-pro 仍在,flash 的推理等级仍是 off/low/high/max
+ *   (生成提交信息的模型选择依赖这条);
+ * - web_search / web_fetch 工具在 rc.1 已存在,rc.2 只是换了 DeepSeek 后端,工具名与形状不变。
  *
  * 0.2.0-rc.2 → 0.2.1-rc.1 与本扩展相关的契约变化(已按已发布包逐一核对端点/流/事件,
  * 并用真实 0.2.1-rc.1 服务器逐项实机验证):

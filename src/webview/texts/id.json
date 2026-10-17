@@ -666,5 +666,8 @@
   "关闭审阅,去补充意见": "Tutup tinjauan dan tambahkan komentar",
   "关闭本次计划审阅;Agent 会结束本轮并等待你直接输入修改意见": "Tutup tinjauan rencana ini; agent mengakhiri giliran dan menunggu komentar Anda",
   "已关闭计划审阅:请直接输入修改意见,Agent 正在等待你的反馈": "Tinjauan rencana ditutup: ketik komentar Anda, agent sedang menunggu",
-  "📝 计划模式(切换中…)": "📝 Mode rencana (beralih…)"
+  "📝 计划模式(切换中…)": "📝 Mode rencana (beralih…)",
+  "网页能力": "Kemampuan web",
+  "网页搜索(DeepSeek API)": "Pencarian web (DeepSeek API)",
+  "重新读取子代理目录": "Baca ulang katalog subagen"
 }

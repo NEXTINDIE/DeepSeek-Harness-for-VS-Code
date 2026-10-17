@@ -666,5 +666,8 @@
   "关闭审阅,去补充意见": "Fechar a revisão e adicionar comentários",
   "关闭本次计划审阅;Agent 会结束本轮并等待你直接输入修改意见": "Fechar esta revisão do plano; o agente encerra o turno e aguarda seus comentários",
   "已关闭计划审阅:请直接输入修改意见,Agent 正在等待你的反馈": "Revisão do plano fechada: digite seus comentários, o agente está aguardando",
-  "📝 计划模式(切换中…)": "📝 Modo plano (alternando…)"
+  "📝 计划模式(切换中…)": "📝 Modo plano (alternando…)",
+  "网页能力": "Recursos web",
+  "网页搜索(DeepSeek API)": "Pesquisa na web (API DeepSeek)",
+  "重新读取子代理目录": "Ler novamente o catálogo de subagentes"
 }

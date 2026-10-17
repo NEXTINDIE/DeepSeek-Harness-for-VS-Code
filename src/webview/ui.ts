@@ -798,6 +798,9 @@ const EN_TEXT: Record<string, string> = {
   "工作目录:{name}": "Working directory: {name}",
   "当前生效的工作目录:{path}\n点击在资源管理器中显示": "Effective working directory: {path}\nClick to reveal in the file explorer",
   "工作目录已切换为 {path}": "Working directory changed to {path}",
+  // ---- 0.2.1-rc.2:设置命名空间(动态键,见 panels.ts 的 NAMESPACE_TITLES) ----
+  "网页能力": "Web capability",
+  "网页搜索(DeepSeek API)": "Web search (DeepSeek API)",
   // ---- 计划审阅(对齐网页端 PlanReviewPanel / PlanPreview) ----
   "查看全文": "View full text",
   "在整页预览中查看完整计划": "Read the complete plan in a full-page preview",
@@ -1315,6 +1318,7 @@ const EN_TEXT: Record<string, string> = {
   // ---- 子代理目录 ----
   "子代理目录": "Subagent catalog",
   "子代理目录({n} 个运行中)": "Subagent catalog ({n} running)",
+  "重新读取子代理目录": "Re-read the subagent catalog",
   "(暂无子代理)": "(no subagents yet)",
   "one-shot 子代理 · 点击查看记录": "One-shot subagent · click to view its record",
   "continuable 子代理 · 点击打开对话(可追问 / 打断)": "Continuable subagent · click to open its conversation (prompt / interrupt)",
@@ -6934,7 +6938,7 @@ function updateSubagentButton() {
   btnSubagents.title = running > 0 ? t("子代理目录({n} 个运行中)", { n: String(running) }) : t("子代理目录");
 }
 
-/** 打开子代理目录弹层(网页端 header catalog 的扁平版):头部右上角刷新,列表限高滚动。 */
+/** 打开子代理目录弹层(网页端 header catalog 的扁平版):头部右上角「刷新」,列表限高滚动。 */
 function openSubagentCatalog() {
   const entries = state.subagents ?? [];
   openAnchoredMenu(btnSubagents, (menu) => {
@@ -6942,8 +6946,9 @@ function openSubagentCatalog() {
     // 头部:标题 + 右上角刷新按钮(固定在列表之外,滚动时保持可见)
     const head = el("div", "subagent-catalog-head");
     head.append(el("div", "plus-menu-label", t("子代理目录")));
-    const refresh = el("button", "subagent-catalog-refresh", "🔄");
-    refresh.title = t("刷新");
+    // 用文字而不是图标:emoji 图标在不同主题/字体下渲染不一致,文字与头部标题同一行更清楚
+    const refresh = el("button", "subagent-catalog-refresh", t("刷新"));
+    refresh.title = t("重新读取子代理目录");
     refresh.addEventListener("click", () => {
       closeActivePopover();
       vscode.postMessage({ kind: "getSubagents" });

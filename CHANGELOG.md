@@ -1,6 +1,26 @@
 # Changelog
 
 
+## 0.13.46
+- The 子代理目录 (subagent catalog) popover's refresh control is now the **word 刷新** instead of the 🔄 emoji. The emoji rendered as a blue rounded square on Windows and read as an unrelated icon; the text keeps the same job with no font-dependency, sits on the same line as the title as a small pill (input background + widget border, theme hover/focus), and keeps a descriptive tooltip ("重新读取子代理目录") rather than repeating its own label.
+- The popover header got a little more breathing room (6px vertical padding) so the pill is no longer cramped against the top edge.
+- Verified by rendering the real bundle + real CSS in headless Chromium in both palettes; the new tooltip string is localized in 14 languages (dynamic t() key, so check-i18n cannot see it — added to EN_TEXT and all 12 Webview dictionaries).
+- 子代理目录弹层的刷新控件从 🔄 图标改成**文字「刷新」**。那个 emoji 在 Windows 上渲染成蓝色圆角方块,看起来像个无关的图标;换成文字后不依赖字体,和标题同一行、做成一枚小胶囊(输入框底色 + 控件描边,悬停/聚焦走主题色),悬停说明改成「重新读取子代理目录」而不再重复按钮自己的文案。
+- 弹层头部留白也顺手调大了(上下 6px),胶囊不再贴着头顶。
+- 验证:真实包 + 真实 CSS 在无头 Chromium 里按深色/浅色渲染确认;新增的提示文案补齐了 14 种语言(它是动态 t() 键,check-i18n 扫不到,所以手工写进 EN_TEXT 与 12 份 Webview 词典)。
+
+
+## 0.13.45
+- **DSH 0.2.1-rc.2 compatibility — the wire contract did not move at all.** Verified two ways: a mechanical diff of the published packages (rc.1 → rc.2) and a live isolated rc.2 server driven by this extension's own client. Result: 173 Typert endpoints, 23 forwarded `$events` entries, 21 session projections, 57 session event types and all three mux stream constants are identical; envelope, cookie auth and the `remoteAccess` baseline are unchanged. rc.2 adds exactly two packages and neither touches the wire: `dsh-web-deepseek-api` (DeepSeek Search/Fetch provider behind the existing `web_search`/`web_fetch` tools) and `dsh-client-ui-deepseek-model-label-1017` (a 1017 badge for the Web UI's model labels).
+- Model catalog re-checked because the commit-message generator depends on it: `deepseek-flash` and `deepseek-v4-pro` are still there and Flash still reports `off/low/high/max` reasoning efforts, so nothing had to change there — the new V4.1 labelling is display-only.
+- The one visible side effect was in Settings: rc.2 composes two new namespaces (`web`, `web-deepseek-api`). They now have proper titles instead of raw ids, `web-deepseek-api` is grouped with the model providers (it is a credentials/endpoint config), and both titles are localized in 14 languages — these are dynamic keys that `check-i18n` cannot see, so they were added to `EN_TEXT` plus all 12 Webview dictionaries by hand.
+- Everything else in this release is verification only: the plan-review, history-key, 0.2.1-feature, stats, attachment, compaction and send-key suites all still pass, together with typecheck and the duplicate-key check.
+- **兼容 DSH 0.2.1-rc.2 —— 线协议一个字节都没动**。两条路验证:把已发布包 rc.1 → rc.2 做机械 diff,再用本扩展自己的客户端驱动一台隔离的 rc.2 服务器实跑。结果:173 个 Typert 端点、23 条 `$events` 词表、21 个会话投影、57 种会话事件、三条 mux 流常量全部一致;信封、cookie 认证、`remoteAccess` 基线也不变。rc.2 只新增两个包,且都不进线协议:`dsh-web-deepseek-api`(DeepSeek Search/Fetch 提供方,挂在既有的 `web_search`/`web_fetch` 工具后面)与 `dsh-client-ui-deepseek-model-label-1017`(网页端模型标签上的 1017 徽标)。
+- 因为「生成提交信息」依赖模型目录,专门复查了一遍:`deepseek-flash` 与 `deepseek-v4-pro` 都还在,Flash 的推理等级仍是 `off/low/high/max`,所以那部分无需改动 —— 新的 V4.1 标注只影响显示名。
+- 唯一可见的变化在设置页:rc.2 组合进了两个新命名空间(`web`、`web-deepseek-api`)。现在它们有正经标题(不再是原始 id),`web-deepseek-api` 归到模型供应商一组(它本质是凭据 + 端点配置),两条标题都补齐了 14 种语言 —— 它们是 `check-i18n` 扫不到的动态键,所以手工补进了 `EN_TEXT` 与 12 份 Webview 词典。
+- 其余都是回归验证:计划审阅 / 输入历史 / 0.2.1 功能 / 统计胶囊 / 附件 / 压缩行 / 发送键七套夹具 + typecheck + 重复键检查全部通过。
+
+
 ## 0.13.44
 - **Slash-command records (/plan, /compact, …) no longer look like system notices.** They were rendered as a .msg-note, which is centred and dashed — so your own command appeared floating in the middle of the transcript, detached from the conversation side. Command records now get their own class and become a small right-aligned pill (input-background fill, widget border, monospace, `⌘` prefix), matching your own messages.
 - The short dashed line above it was a collapsed **attachment-context card** (.attach-card) carrying the same dashed, centred look with a background that vanished in light themes. It is now a right-aligned pill with the input background and a widget border, so a collapsed "📎 附件上下文" reads as a compact row instead of a stray dashed rule.
