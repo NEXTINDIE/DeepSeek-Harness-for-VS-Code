@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "可不受限制地访问互联网和你电脑上的任何文件",
   "perm.desc.custom": "自定义组合(在设置中编辑)",
   "commit.modelRestoreFailed": "提交消息已生成,但默认模型未能恢复为 {model}。请在模型下拉里重新选择一次(宿主后台保存可能失败)。",
-  "notice.openImageFailed": "打开图片失败:{error}"
+  "notice.openImageFailed": "打开图片失败:{error}",
+  "hub.remoteAccessLimited": "该 DSH 宿主只给本连接授予了受限访问权限,部分操作可能被拒绝。"
 }

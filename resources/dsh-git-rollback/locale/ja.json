@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git ロールバック(ターン単位チェックポイント)",
+    "description": "DeepSeek Harness 向けのターン単位 Git チェックポイント:/rollback /redo /checkpoints /undo、非破壊リストア、Web UI のターン復元ディバイダー。"
+  }
+}

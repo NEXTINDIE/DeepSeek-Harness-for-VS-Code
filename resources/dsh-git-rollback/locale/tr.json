@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git geri alma (tur başına kontrol noktası)",
+    "description": "DeepSeek Harness için tur başına Git kontrol noktaları: /rollback /redo /checkpoints /undo, yıkıcı olmayan geri yükleme ve Web arayüzünde tur geri yükleme ayırıcıları."
+  }
+}

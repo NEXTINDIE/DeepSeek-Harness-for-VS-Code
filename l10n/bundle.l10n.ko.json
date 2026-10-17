@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "인터넷과 컴퓨터의 모든 파일에 제한 없이 접근합니다.",
   "perm.desc.custom": "사용자 지정 조합(설정에서 편집).",
   "commit.modelRestoreFailed": "커밋 메시지는 생성되었지만 기본 모델을 {model}(으)로 되돌리지 못했습니다. 모델 선택에서 다시 선택해 주세요(호스트 백그라운드 저장이 실패했을 수 있습니다).",
-  "notice.openImageFailed": "이미지를 열지 못했습니다: {error}"
+  "notice.openImageFailed": "이미지를 열지 못했습니다: {error}",
+  "hub.remoteAccessLimited": "이 DSH 호스트가 이 연결에 제한된 액세스만 부여했습니다. 일부 작업이 거부될 수 있습니다."
 }

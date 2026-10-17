@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 롤백(턴 단위 체크포인트)",
+    "description": "DeepSeek Harness용 턴 단위 Git 체크포인트: /rollback /redo /checkpoints /undo, 비파괴 복원, 웹 UI의 턴 복원 구분선."
+  }
+}

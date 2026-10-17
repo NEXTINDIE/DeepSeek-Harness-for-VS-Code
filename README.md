@@ -6,7 +6,7 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.13.39
+[中文版](#chinese) | Publisher: Jager · Latest: 0.13.44
 
 Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية — follows the VS Code display language or switch manually).
 
@@ -76,7 +76,8 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 - `/` button (bottom-left): command menu (plan / compact / goal / feedback / permission / skills / .claude). Most entries insert the command into the input (press Enter to run); **Compact context** runs `/compact` straight away and the conversation shows a live compaction row — a sweep while compacting, then "Compacted N history items (~T tokens)" with the summary expandable, and the compacted range collapses into that row (the same row appears for automatic compaction).
 - `+` button next to it: add file / add folder; the blue chip is the auto-attached active file.
 - Message actions: click the forked-line icon to open the branch/rewind menu — counter-clockwise arrow "Rewind here", forked icon "Branch from here", up-left fold "Branch and rewind earlier", plus "Undo this turn's file changes" / "View checkpoints" when the git-rollback plugin is active; branch sessions also show the up-left arrow "Back to main". The counter-clockwise arrow on each assistant turn (when the DSH server-side plugin is active) restores the workspace to the state before that turn.
-- Session ⋯ menu: fork / rename / archive; preset pill at the top-right (new sessions only); thinking / model pills at the bottom-right.
+- Session ⋯ menu: fork / rename / **copy session ID** / archive; preset pill at the top-right (new sessions only); thinking / model pills at the bottom-right.
+- **DSH 0.2.1 support**: the composer hint line shows a working-directory pill once the agent switches the session directory with the new `working_directory` tool (click it to reveal the folder); the switch also appears in the transcript as a one-line notice instead of a user bubble. Pending timed questions survive a view reload or session switch (restored from the host's `userQuestions` projection), the background-jobs panel is fed by the new `job/registered` / `job/settled` events (status, exit code and duration), and a host that grants this connection only limited access is reported instead of failing calls with a raw denial code. The bundled `dsh-git-rollback` plugin declares `engines.dsh`, an icon and 15 locale entries, so DSH's plugin manager lists it as compatible with its localized title/description.
 - Source Control title bar: the ✨ button generates a Conventional Commits message from the current diff and fills the SCM input box (a picker appears when several repositories are open).
 - Context menus: selection → `DSH: Send Selection to @dsh`; file → `DSH: Ask @dsh About This File`.
 
@@ -140,7 +141,7 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.13.39
+[English version](#) | 发布者:Jager · 最新版本:0.13.44
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية,跟随 VS Code 显示语言或手动切换)。
 
@@ -230,7 +231,8 @@ npm run watch
 - 左下角 `/` 按钮:命令菜单(计划模式 / 压缩上下文 / 设置目标 / 记录反馈 / 切换权限 / 技能 / .claude 命令与技能)。多数项插入命令到输入框(回车执行);**压缩上下文**点击即执行 `/compact`,对话内实时显示压缩行 —— 压缩中扫光,完成后显示「已压缩 N 条历史记录(约 T tokens)」且摘要可展开,被压缩的区间折叠进该行(自动压缩同样单列一行)。
 - 左上角 `+` 按钮:添加文件 / 添加文件夹(二选一);附件行蓝色芯片为自动附加的激活文件(× 移除)。
 - 消息操作条:点击分叉线条图标打开分支/回退菜单 —— 逆时针箭头"回退到此处"(去掉本条及之后)、分叉图标"从此处新建分支"(保留到此)、左上折线"分支并回退到更早位置",以及 git-rollback 插件激活时的"撤销本回合改动 / 查看检查点";分叉会话另有左上箭头"回到主线"。
-- 会话 ⋯ 菜单:分叉 / 重命名 / 归档;右上角"预设"胶囊(仅新会话显示);右下角"思考 / 模型"胶囊。
+- 会话 ⋯ 菜单:分叉 / 重命名 / **复制会话 ID** / 归档;右上角"预设"胶囊(仅新会话显示);右下角"思考 / 模型"胶囊。
+- **适配 DSH 0.2.1**:Agent 用新的 `working_directory` 工具切换会话目录后,输入框提示行会出现"工作目录"胶囊(点击在资源管理器中定位),对话里同时出现一行小字提示(不再被当成用户发言);待答的限时提问在重载视图或切换会话后依然保留(由宿主的 `userQuestions` 投影还原);后台任务面板改用新的 `job/registered` / `job/settled` 事件驱动(状态、退出码、耗时);若宿主只给本连接授予受限访问权限,会明确提示而不是抛出 `remote-access/denied` 原始错误码。随包分发的 `dsh-git-rollback` 插件补上了 `engines.dsh`、图标与 15 种语言的显示文案,DSH 插件管理里现在显示为"兼容"并带本地化标题/描述。
 - 模式芯片:📝 计划模式(点击退出)、🎯 目标模式(点击管理目标)。
 - 右键菜单:编辑器选中代码 → `DSH: 发送选中代码到 @dsh`;文件右键 → `DSH: 向 @dsh 询问此文件`。
 

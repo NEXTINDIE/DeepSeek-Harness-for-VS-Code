@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "インターネットと PC 上のあらゆるファイルに無制限にアクセスできます。",
   "perm.desc.custom": "カスタムの組み合わせ(設定で編集できます)。",
   "commit.modelRestoreFailed": "コミットメッセージは生成されましたが、既定のモデルを {model} に戻せませんでした。モデル選択で選び直してください(ホストのバックグラウンド保存が失敗した可能性があります)。",
-  "notice.openImageFailed": "画像を開けませんでした: {error}"
+  "notice.openImageFailed": "画像を開けませんでした: {error}",
+  "hub.remoteAccessLimited": "この DSH ホストはこの接続に限定的なアクセス権のみを付与しています。一部の操作は拒否される場合があります。"
 }

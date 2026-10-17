@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 復原(回合級檢查點)",
+    "description": "為 DeepSeek Harness 提供逐回合的 Git 檢查點:/rollback /redo /checkpoints /undo、非破壞式還原,並在網頁端顯示回合級還原分隔線。"
+  }
+}

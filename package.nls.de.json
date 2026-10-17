@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Schriftfamilie (CSS font-family) für das Chat-Panel. Leer lassen, um der VS-Code-UI-Schrift zu folgen.",
   "config.newSessionOnStartup": "Beim Öffnen des Chat-Panels automatisch eine leere Sitzung anlegen (kein Klick auf + nötig); eine gemerkte Sitzung wird stattdessen wiederhergestellt.",
   "config.rememberLastSession": "Die zuletzt in jedem Arbeitsbereich verwendete Sitzung merken und beim Neustart von VS Code wiederherstellen.",
-  "config.autoCollapseProducedFiles": "Die Liste erzeugter Dateien standardmäßig zu einer Zeile zusammenklappen (zum Aufklappen klicken), damit lange Chats nicht mit Dateikarten gefüllt werden."
+  "config.autoCollapseProducedFiles": "Die Liste erzeugter Dateien standardmäßig zu einer Zeile zusammenklappen (zum Aufklappen klicken), damit lange Chats nicht mit Dateikarten gefüllt werden.",
+  "config.historyKey": "Wann ↑/↓ frühere Eingaben zurückholen: nur am Textrand (Standard), bei jedem Tastendruck oder nie",
+  "config.historyKey.edge": "Nur am Rand: ↑/↓ bewegen den Cursor, solange er sich bewegen kann; am Rand holt dieser Tastendruck den Verlauf",
+  "config.historyKey.always": "Bei jedem Druck: ↑/↓ holen sofort die vorige/nächste Eingabe, der Cursor bleibt",
+  "config.historyKey.off": "Nie: ↑/↓ bewegen nur den Cursor (Strg/Alt + ↑/↓ holen weiterhin den Verlauf)"
 }

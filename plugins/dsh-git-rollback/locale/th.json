@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ย้อนกลับ Git (จุดตรวจระดับเทิร์น)",
+    "description": "จุดตรวจ Git ต่อเทิร์นสำหรับ DeepSeek Harness: /rollback /redo /checkpoints /undo, การกู้คืนแบบไม่ทำลายข้อมูล และเส้นแบ่งการกู้คืนระดับเทิร์นในเว็บ UI"
+  }
+}

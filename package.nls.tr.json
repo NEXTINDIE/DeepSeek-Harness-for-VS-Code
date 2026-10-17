@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Sohbet paneli için yazı tipi (CSS font-family). Boş bırakılırsa VS Code arayüz yazı tipi kullanılır.",
   "config.newSessionOnStartup": "Sohbet paneli açıldığında boş bir oturum oluşturur (+ tuşuna gerek yok); hatırlanan oturum varsa o geri yüklenir.",
   "config.rememberLastSession": "Her çalışma alanında son kullanılan oturumu hatırla ve VS Code yeniden açıldığında geri yükle.",
-  "config.autoCollapseProducedFiles": "Üretilen dosya listesini varsayılan olarak tek satır özete indir (genişletmek için tıkla); uzun sohbetler dosya kartlarıyla dolmasın."
+  "config.autoCollapseProducedFiles": "Üretilen dosya listesini varsayılan olarak tek satır özete indir (genişletmek için tıkla); uzun sohbetler dosya kartlarıyla dolmasın.",
+  "config.historyKey": "↑/↓ önceki girişleri ne zaman geri getirsin: yalnızca metnin kenarında (varsayılan), her basışta veya hiç",
+  "config.historyKey.edge": "Yalnızca kenarda: ↑/↓ imleç hareket edebildikçe onu taşır, edemediğinde o basış geçmişi getirir",
+  "config.historyKey.always": "Her basışta: ↑/↓ önceki/sonraki girişi hemen getirir, imleç hareket etmez",
+  "config.historyKey.off": "Hiç: ↑/↓ yalnızca imleci taşır (Ctrl/Alt + ↑/↓ geçmişi getirir)"
 }

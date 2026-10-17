@@ -1,6 +1,8 @@
 import type {
   AskUserQuestionItem,
   AssistantStreamFrame,
+  JobRegisteredData,
+  JobSettledData,
   JobView,
   MessageFeedbackItem,
   QueueItem,
@@ -10,6 +12,8 @@ import type {
   SessionHistoryRecord,
   SessionSummary,
   ToolEventView,
+  UserQuestionProjection,
+  PlanProjection,
   WorkspaceFollowFrame,
   WorkspaceItem,
 } from "./types";
@@ -92,6 +96,22 @@ export class SessionStore {
   /** 待办事项(todos 投影,每回合重置) */
   readonly todos = new Map<string, { content: string; status: "pending" | "in_progress" | "completed" }[] | null>();
   /**
+   * 会话当前生效的工作目录(0.2.1 的 workingDirectory 投影 + working-directory/change 事件)。
+   * 与会话头 cwd 的区别:后者是创建时的项目目录、永不改变;前者随 working_directory 工具变化,
+   * 是后续目录类操作的基准。
+   */
+  readonly workingDirectories = new Map<string, string | null>();
+  /**
+   * 限时提问投影(0.2.x 的 userQuestions):active 仍可作答,settled 已结算。
+   * 它是「刷新/切换会话后仍能看到待答提问」的唯一来源($events waterfall 只覆盖在线期间)。
+   */
+  readonly userQuestions = new Map<string, UserQuestionProjection>();
+  /**
+   * 计划模式投影(dsh-plan-mode 的 `plan`):{active, pending}。
+   * 有效目标态 = pending ? !active : active(网页端 PlanChip 同款折算法)。
+   */
+  readonly plans = new Map<string, PlanProjection>();
+  /**
    * 直接子代理目录(subagentCatalog 投影;0.1.7 起取代已移除的 subagents/list 端点)。
    * 只含直接子级:id / createdAt / mode / label(与网页端 header 目录同源)。
    */
@@ -138,6 +158,9 @@ export class SessionStore {
   on(name: "stats", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "todos", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "subagentCatalog", fn: (sessionId: string) => void): () => void;
+  on(name: "workingDirectory", fn: (sessionId: string, cwd: string | null) => void): () => void;
+  on(name: "userQuestions", fn: (sessionId: string, value: UserQuestionProjection) => void): () => void;
+  on(name: "plan", fn: (sessionId: string, value: PlanProjection) => void): () => void;
   on(name: "jobs", fn: (sessionId: string, jobs: JobView[]) => void): () => void;
   on(name: "feedbackChanged", fn: (sessionId: string) => void): () => void;
   on(name: "workspaces", fn: () => void): () => void;
@@ -492,6 +515,22 @@ export class SessionStore {
         }
         break;
       }
+      // 0.2.1 工作目录切换:会话头 cwd 不变,后续操作的基准改为事件里的 cwd
+      case "working-directory/change": {
+        const cwd = event.data?.cwd;
+        if (typeof cwd === "string" && cwd !== "") this.applyWorkingDirectory(sessionId, cwd);
+        break;
+      }
+      // 0.2.1 后台任务生命周期(注册 / 结算)
+      case "job/registered":
+      case "job/settled":
+        this.applyJobEvent(sessionId, event.type, event.data);
+        break;
+      // 计划模式切换事件:投影缺位(老宿主)时也能立即反映到模式芯片
+      case "plan/mode": {
+        this.applyPlan(sessionId, { active: event.data?.active === true, pending: false });
+        break;
+      }
     }
   }
 
@@ -580,6 +619,21 @@ export class SessionStore {
       this.emit("todos", sessionId, value);
       return;
     }
+    // 0.2.1 会话工作目录投影:null 表示尚未记录;会话头 cwd 不随工具切换而变
+    if (key === "workingDirectory") {
+      this.applyWorkingDirectory(sessionId, typeof value === "string" && value ? value : null);
+      return;
+    }
+    // 0.2.x 限时提问投影:active/settled 两半,刷新后仍能还原待答卡片
+    if (key === "userQuestions") {
+      this.applyUserQuestions(sessionId, value as UserQuestionProjection | null);
+      return;
+    }
+    // 计划模式投影(dsh-plan-mode):驱动模式芯片的「已进入 / 切换中」状态
+    if (key === "plan") {
+      this.applyPlan(sessionId, value as PlanProjection | null);
+      return;
+    }
     // 0.1.7 子代理目录投影(取代已移除的 subagents/list 端点)
     if (key === "subagentCatalog") {
       const rows = Array.isArray(value) ? (value as { id?: string; createdAt?: number; mode?: string; label?: string }[]) : [];
@@ -597,6 +651,60 @@ export class SessionStore {
   applyGoal(sessionId: string, value: unknown) {
     this.goals.set(sessionId, value);
     this.emit("goal", sessionId, value);
+  }
+
+  /** 记录工作目录(投影或 working-directory/change 事件)并通知。 */
+  applyWorkingDirectory(sessionId: string, cwd: string | null) {
+    const prev = this.workingDirectories.get(sessionId);
+    this.workingDirectories.set(sessionId, cwd);
+    if (prev === cwd) return;
+    this.emit("workingDirectory", sessionId, cwd);
+  }
+
+  /** 记录限时提问投影并通知。 */
+  applyUserQuestions(sessionId: string, value: UserQuestionProjection | null) {
+    const active = Array.isArray(value?.active) ? value!.active.filter((q) => typeof q?.callId === "string") : [];
+    const settled = Array.isArray(value?.settled) ? value!.settled.filter((q) => typeof q?.callId === "string") : [];
+    const normalized: UserQuestionProjection = { active, settled };
+    this.userQuestions.set(sessionId, normalized);
+    this.emit("userQuestions", sessionId, normalized);
+  }
+
+  /** 记录计划模式投影并通知(只在真的变化时通知,避免每帧刷新芯片)。 */
+  applyPlan(sessionId: string, value: PlanProjection | null) {
+    const next: PlanProjection = { active: value?.active === true, pending: value?.pending === true };
+    const prev = this.plans.get(sessionId);
+    this.plans.set(sessionId, next);
+    if (prev && prev.active === next.active && prev.pending === next.pending) return;
+    this.emit("plan", sessionId, next);
+  }
+
+  /**
+   * job/registered|job/settled 会话事件 → 后台任务台账(0.2.1 新增)。
+   * session/control 的基线在 0.2.x 只带 projections(没有 jobs),这些事件是
+   * 面板在 0.2.1 上唯一的实时来源;两者共存时以事件为准(它有终态与进度)。
+   */
+  applyJobEvent(sessionId: string, type: string, data: unknown) {
+    if (type !== "job/registered" && type !== "job/settled") return;
+    const row = (data ?? {}) as Partial<JobSettledData> & Partial<JobRegisteredData>;
+    if (typeof row.jobId !== "string" || row.jobId === "") return;
+    const list = this.jobs.get(sessionId) ?? [];
+    const index = list.findIndex((j) => j.id === row.jobId);
+    const settled = type === "job/settled";
+    const next: JobView = {
+      id: row.jobId,
+      kind: typeof row.kind === "string" ? row.kind : "job",
+      label: typeof row.label === "string" ? row.label : "",
+      status: settled ? (row.status ?? "completed") : "running",
+      startedAt: typeof row.startedAt === "number" ? row.startedAt : Date.now(),
+      ...(settled && typeof row.finishedAt === "number" ? { finishedAt: row.finishedAt } : {}),
+      ...(typeof row.detail === "string" && row.detail ? { detail: row.detail } : {}),
+      ...(settled ? {} : { progress: typeof (row as { progress?: string }).progress === "string" ? (row as { progress?: string }).progress : undefined }),
+    };
+    if (index >= 0) list[index] = { ...list[index], ...next };
+    else list.push(next);
+    this.jobs.set(sessionId, list);
+    this.emit("jobs", sessionId, list);
   }
 
   // ---------- 查询 ----------

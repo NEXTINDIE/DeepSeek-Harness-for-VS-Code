@@ -1,6 +1,27 @@
 /**
- * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.1.7-rc.2 的 Typert Remote 契约,
- * 同时兼容 0.1.5-rc.1 与 0.1.2-rc.1 的参数名/端点差异)。
+ * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.1-rc.1 的 Typert Remote 契约,
+ * 同时兼容 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ *
+ * 0.2.0-rc.2 → 0.2.1-rc.1 与本扩展相关的契约变化(已按已发布包逐一核对端点/流/事件,
+ * 并用真实 0.2.1-rc.1 服务器逐项实机验证):
+ * - 信封、流派、认证不变:POST /api/<ns>/<method> 仍是恰好一个字段的 { args },
+ *   remote.mux 仍是 session/follow / session/control / workspace/follow / $events + $events/result,
+ *   浏览器 cookie 仍是 dsh-auth-<hash>(版本 1);
+ * - 本扩展使用的 57 个端点无签名变化;新增的 cotTranslation/*、pluginMarket/*、
+ *   remoteAccess/follow、terminal/attach 属可选组合包(dsh web 默认未挂载 → 404),
+ *   扩展按「端点不可用」降级即可;移除的 terminal/follow|write|resize 本扩展未使用;
+ * - $events 词表新增 plugin-market/changed;api-session/* 五条事件增加 resources 子句
+ *   (按调用方身份做资源级授权)。owner 连接(本扩展用启动令牌换 cookie)仍全量收到,
+ *   实机已确认 api-session/added|status|activity 照常到达;
+ * - 新增 remoteAccess/follow:基线帧 {type:"baseline",owner:true} 或 {owner:false,grants};
+ *   越权调用以 code "remote-access/denied" 失败(details.action / details.reason);
+ * - 会话投影新增 workingDirectory(string|null)与 userQuestions({active,settled});
+ *   会话事件新增 working-directory/change({cwd})、job/registered、job/settled,
+ *   移除 hook/invoked、hook/result;
+ * - session/control 基线仍只携带 projections(没有 queues/jobs 字段):后台任务改由
+ *   job/registered|job/settled 会话事件补齐(session/control 的 jobs 帧在 0.2.x 不再下发);
+ * - 插件契约:package.json 可用 engines.dsh 声明兼容范围(semver + includePrerelease),
+ *   icon 声明图标,locale/*.json 提供 {meta:{title,description}} 多语言显示。
  *
  * 0.1.5-rc.1 → 0.1.7-rc.2 与本扩展相关的契约变化(已按已发布包逐一核对端点/流/事件):
  * - 信封与流派不变:POST /api/<ns>/<method> 仍是 {type:"client-request",rpcId,method,payload},
@@ -189,6 +210,104 @@ export interface JobView {
   detail?: string;
   startedAt: number;
   finishedAt?: number;
+  /** 生产者实时进度行(如「3/10」);结算时清空。0.2.1 起随 job 事件下发。 */
+  progress?: string;
+}
+
+/**
+ * `job/registered` 的载荷(0.2.1 新增的日志型 job 事件)。
+ * 后台任务此前只有 session/control 帧一条来源,而 0.2.x 的 control 基线只携带
+ * projections(没有 jobs 字段),因此面板长期为空;0.2.1 起改由会话事件补齐。
+ */
+export interface JobRegisteredData {
+  jobId: string;
+  owner: string;
+  kind: string;
+  label: string;
+  startedAt: number;
+}
+
+/** `job/settled` 载荷:注册事实 + 终态。 */
+export interface JobSettledData extends JobRegisteredData {
+  finishedAt: number;
+  status: "completed" | "killed" | "failed";
+  cause?: string;
+  producerReported?: boolean;
+  detail?: string;
+}
+
+// ---------- 0.2.1:会话工作目录(dsh-working-directory) ----------
+
+/**
+ * `working-directory/change` 会话事件:cwd 变更后的绝对路径。
+ * 会话头的 cwd 是创建时的项目目录,不会随之改变;后续目录类操作的基准是这里的值。
+ */
+export interface WorkingDirectoryChange {
+  cwd: string;
+}
+
+/**
+ * `workingDirectory` 会话投影:当前生效目录,null 表示尚未记录。
+ * 宿主同时会把目录切换以 `user/message`(source.kind = "working-directory")注入为
+ * 通告消息 —— 本扩展把它渲染成小字提示,而不是用户气泡。
+ */
+export type WorkingDirectoryProjection = string | null;
+
+// ---------- 0.2.0/0.2.1:限时提问(userQuestions 投影) ----------
+
+export type UserQuestionState = "open" | "continued";
+
+/** 仍可作答的限时提问(按提问顺序)。 */
+export interface PendingUserQuestion {
+  callId: string;
+  questions: AskUserQuestionItem[];
+  state: UserQuestionState;
+  /** 剩余等待毫秒;投影不携带,由 attachWait 流补充。 */
+  remainingMs?: number;
+}
+
+/** 已结算的限时提问与其最终答案。 */
+export interface SettledUserQuestion {
+  callId: string;
+  answers: { id: string; selected: string[]; custom?: string }[];
+}
+
+/** `userQuestions` 会话投影:活跃提问 + 已结算提问。 */
+export interface UserQuestionProjection {
+  active: PendingUserQuestion[];
+  settled: SettledUserQuestion[];
+}
+
+// ---------- 0.2.1:远程访问授权(remoteAccess/follow) ----------
+
+/** 一条授权:某资源上允许调用的端点动作。 */
+export interface RemoteAccessGrant {
+  /** 资源身份(kind + id),wire 上是可 JSON 化的对象。 */
+  resource: unknown;
+  actions: string[];
+}
+
+/**
+ * `remoteAccess/follow` 的帧。
+ * 基线帧 `owner: true` 表示本连接是 owner(拥有全部权限);否则只带 grants,
+ * 越权调用会以 `remote-access/denied` 失败(细节里有 action 与 reason)。
+ */
+export type RemoteAccessFrame =
+  | { type: "baseline"; owner: true }
+  | { type: "baseline"; owner: false; grants: RemoteAccessGrant[] }
+  | { type: "upsert"; grant: RemoteAccessGrant }
+  | { type: "remove"; resource: unknown };
+
+// ---------- 0.2.x:计划模式与计划审阅(dsh-plan-mode) ----------
+
+/**
+ * `plan` 会话投影(dsh-plan-mode 的 PlanProjection)。
+ * 网页端 PlanChip 的判定:`pending ? !active : active` —— 切换命令在飞时取目标态,
+ * 否则取已记录态。用它而不是只看 `plan/mode` 瞬时事件,切换会话 / 重载后也能还原。
+ */
+export interface PlanProjection {
+  active: boolean;
+  pending: boolean;
 }
 
 export type SessionControlFrame =

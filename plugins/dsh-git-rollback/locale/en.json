@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git rollback (turn checkpoints)",
+    "description": "Per-turn Git checkpoints for DeepSeek Harness: /rollback /redo /checkpoints /undo, non-destructive restore, and turn-level restore dividers in the Web UI."
+  }
+}

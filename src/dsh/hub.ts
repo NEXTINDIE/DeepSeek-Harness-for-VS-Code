@@ -24,6 +24,10 @@ export interface HubStatus {
   message?: string;
   /** 宿主是否仍提供预设作者端点(copy / deletePreset / openAgentPresetDirectory;0.1.7 起移除)。 */
   presetAuthoring?: boolean;
+  /**
+   * 0.2.1 网关授权身份:true = owner(全量),false = 受限调用方,undefined = 未知(老宿主)。
+   */
+  remoteAccessOwner?: boolean;
 }
 
 export interface HubDeps {
@@ -109,6 +113,24 @@ export class DshHub {
           .catch(() => {
             /* 探测失败按不支持处理,不打扰用户 */
           });
+        // 0.2.1 网关授权:owner 才能全量调用。本机用启动令牌换 cookie 的连接恒为 owner;
+        // 若宿主把它降级(受限调用方 → 只拿到逐资源 grants),先告警,避免后续端点失败让人困惑。
+        void this.client
+          .probeRemoteAccess()
+          .then((owner) => {
+            this.statusState.remoteAccessOwner = owner;
+            this.emitStatus();
+            if (owner === false) {
+              this.deps.onNotice?.(
+                this.deps.t?.("hub.remoteAccessLimited") ||
+                  "This DSH host granted only limited access to this connection, so some actions may be refused.",
+                "warning",
+              );
+            }
+          })
+          .catch(() => {
+            /* 老宿主没有该流:按 owner 处理(不需要降级) */
+          });
       },
       onEmit: (event, args) => {
         if (event.startsWith("api-session/")) {
@@ -145,7 +167,6 @@ export class DshHub {
   get status(): HubStatus {
     return { ...this.statusState, presetAuthoring: this.presetAuthoring };
   }
-
   onStatus(listener: (status: HubStatus) => void): () => void {
     this.statusListeners.add(listener);
     listener(this.status);
@@ -558,6 +579,15 @@ export class DshHub {
       if (reason === "TOO_MANY_IMAGES" || reason === "IMAGES_TOO_LARGE") return "The image batch is too large (count/size limit): remove some images and retry";
       if (reason === "INVALID_IMAGE_BASE64") return "Image data is invalid: re-pick the image";
       if (reason) return error.message;
+    }
+    // 0.2.1 网关授权:非 owner 连接越权调用 → 明确说明是权限问题,而不是「未知错误」
+    if (error instanceof DshApiError) {
+      const denied = DshApiClient.describeDenied(error);
+      if (denied) {
+        this.statusState.remoteAccessOwner = false;
+        this.emitStatus();
+        return denied;
+      }
     }
     return error instanceof DshApiError ? `${error.code}: ${error.message}` : String(error);
   }

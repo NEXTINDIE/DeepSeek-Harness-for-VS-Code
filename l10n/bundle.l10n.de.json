@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "Uneingeschränkter Zugriff auf das Internet und jede Datei auf Ihrem Computer.",
   "perm.desc.custom": "Eigene Kombination (in den Einstellungen bearbeiten).",
   "commit.modelRestoreFailed": "Die Commit-Nachricht wurde erstellt, aber das Standardmodell konnte nicht auf {model} zurückgesetzt werden. Bitte wählen Sie es erneut im Modellmenü (das Speichern im Hintergrund ist möglicherweise fehlgeschlagen).",
-  "notice.openImageFailed": "Bild konnte nicht geöffnet werden: {error}"
+  "notice.openImageFailed": "Bild konnte nicht geöffnet werden: {error}",
+  "hub.remoteAccessLimited": "Dieser DSH-Host hat dieser Verbindung nur eingeschränkten Zugriff gewährt; einige Aktionen können abgelehnt werden."
 }

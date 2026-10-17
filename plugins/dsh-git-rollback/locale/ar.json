@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "تراجع Git (نقاط تحقق لكل دور)",
+    "description": "نقاط تحقق Git لكل دور في DeepSeek Harness: /rollback /redo /checkpoints /undo، واستعادة غير مُدمِّرة، وفواصل استعادة على مستوى الدور في واجهة الويب."
+  }
+}

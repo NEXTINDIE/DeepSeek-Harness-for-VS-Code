@@ -106,7 +106,7 @@ export interface PanelsContext {
   /** 宿主是否仍提供预设作者端点(0.1.7-rc.2 起移除;undefined = 尚未探测)。 */
   presetAuthoring?: boolean;
   /** 输入区偏好(发送快捷键 / 字体 / 产物折叠);由宿主 init 与设置回执下发。 */
-  composerPrefs?: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean };
+  composerPrefs?: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string };
   post: (msg: Record<string, unknown>) => void;
   el: (tag: string, cls?: string, text?: string) => HTMLElement;
   t: (zh: string, params?: Record<string, string | number>) => string;
@@ -1245,6 +1245,38 @@ export function createPanels(ctx: PanelsContext) {
         "ws-note",
         t("按 Enter 是发送还是换行由此决定;输入框左下角的胶囊也能一键切换,设置会全局保存(dsh.sendKey)。"),
       ),
+    );
+
+    // 方向键历史召回(issue #20 反馈):默认「到边界才召回」,也可改成一按就召回或关闭
+    const HISTORY_KEY_MODES: { id: "edge" | "always" | "off"; label: string; description: string }[] = [
+      {
+        id: "edge",
+        label: "↑/↓ 到边界才召回历史",
+        description: "光标还能上下移动时只移动光标;已经到首行 / 末行时,那一次按键立即调回历史(推荐:不会抢走光标移动)",
+      },
+      {
+        id: "always",
+        label: "↑/↓ 一按就召回历史",
+        description: "普通 ↑/↓ 不再移动光标,按下即调回上一条 / 下一条输入;要移动光标请用鼠标或 ←/→",
+      },
+      { id: "off", label: "关闭 ↑/↓ 召回", description: "普通方向键只移动光标;仍可用 Ctrl/Alt + ↑/↓ 调回历史" },
+    ];
+    const historyTitle = ctx.el("div", "ws-note", t("输入历史:↑/↓ 调回之前发送过的内容"));
+    section.append(historyTitle);
+    const historyRow = ctx.el("div", "settings-language-row");
+    for (const mode of HISTORY_KEY_MODES) {
+      const active = (ctx.composerPrefs?.historyKey ?? "edge") === mode.id;
+      const btn = ctx.el("button", "settings-tab" + (active ? " active" : ""), `${active ? "✓" : " "} ${t(mode.label)}`) as HTMLButtonElement;
+      btn.title = t(mode.description);
+      btn.addEventListener("click", () => {
+        if (active) return;
+        post({ kind: "setHistoryKey", historyKey: mode.id });
+      });
+      historyRow.append(btn);
+    }
+    section.append(historyRow);
+    section.append(
+      ctx.el("div", "ws-note", t("Ctrl/Alt + ↑/↓ 在任何模式下都能立即调回历史;模式保存在 dsh.historyKey。")),
     );
 
     // 输入字体与产物折叠:与 dsh.uiFontFamily / dsh.autoCollapseProducedFiles 同步

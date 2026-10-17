@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Fonte (CSS font-family) do painel de chat. Deixe vazio para seguir a fonte da interface do VS Code.",
   "config.newSessionOnStartup": "Cria automaticamente uma sessão vazia ao abrir o painel (sem clicar em +); uma sessão lembrada é restaurada em vez disso.",
   "config.rememberLastSession": "Lembra a última sessão usada em cada espaço de trabalho e a restaura ao reabrir o VS Code.",
-  "config.autoCollapseProducedFiles": "Recolhe a lista de arquivos produzidos em um resumo de uma linha (clique para expandir), para não encher conversas longas de cartões."
+  "config.autoCollapseProducedFiles": "Recolhe a lista de arquivos produzidos em um resumo de uma linha (clique para expandir), para não encher conversas longas de cartões.",
+  "config.historyKey": "Quando ↑/↓ recuperam entradas anteriores: apenas na borda do texto (padrão), a cada tecla ou nunca",
+  "config.historyKey.edge": "Apenas na borda: ↑/↓ movem o cursor enquanto ele puder se mover; na borda essa tecla recupera o histórico",
+  "config.historyKey.always": "A cada tecla: ↑/↓ recuperam imediatamente a entrada anterior/seguinte e não movem o cursor",
+  "config.historyKey.off": "Nunca: ↑/↓ apenas movem o cursor (Ctrl/Alt + ↑/↓ ainda recuperam o histórico)"
 }

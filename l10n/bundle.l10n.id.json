@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "Akses tanpa batas ke internet dan berkas apa pun di komputer Anda.",
   "perm.desc.custom": "Kombinasi kustom (edit di Pengaturan).",
   "commit.modelRestoreFailed": "Pesan commit berhasil dibuat, tetapi model bawaan tidak dapat dikembalikan ke {model}. Pilih lagi di daftar model (penyimpanan latar belakang host mungkin gagal).",
-  "notice.openImageFailed": "Gagal membuka gambar: {error}"
+  "notice.openImageFailed": "Gagal membuka gambar: {error}",
+  "hub.remoteAccessLimited": "Host DSH ini hanya memberikan akses terbatas untuk koneksi ini; beberapa tindakan mungkin ditolak."
 }

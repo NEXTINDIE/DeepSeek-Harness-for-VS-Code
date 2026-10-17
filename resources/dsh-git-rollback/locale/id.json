@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pembatalan Git (checkpoint per giliran)",
+    "description": "Checkpoint Git per giliran untuk DeepSeek Harness: /rollback /redo /checkpoints /undo, pemulihan non-destruktif, dan pemisah pemulihan per giliran di Web UI."
+  }
+}

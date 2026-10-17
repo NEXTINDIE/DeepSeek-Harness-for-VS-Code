@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Keluarga font (CSS font-family) panel obrolan. Kosongkan untuk mengikuti font UI VS Code.",
   "config.newSessionOnStartup": "Buat sesi kosong otomatis saat panel obrolan dibuka (tanpa menekan +); sesi yang diingat akan dipulihkan.",
   "config.rememberLastSession": "Ingat sesi terakhir per workspace dan pulihkan saat VS Code dibuka kembali.",
-  "config.autoCollapseProducedFiles": "Ringkas daftar berkas hasil menjadi satu baris (klik untuk membuka) agar percakapan panjang tidak penuh kartu berkas."
+  "config.autoCollapseProducedFiles": "Ringkas daftar berkas hasil menjadi satu baris (klik untuk membuka) agar percakapan panjang tidak penuh kartu berkas.",
+  "config.historyKey": "Kapan ↑/↓ memanggil input sebelumnya: hanya di tepi teks (default), setiap penekanan, atau tidak pernah",
+  "config.historyKey.edge": "Hanya di tepi: ↑/↓ memindahkan kursor selama masih bisa; di tepi, penekanan itu memanggil riwayat",
+  "config.historyKey.always": "Setiap penekanan: ↑/↓ langsung memanggil input sebelumnya/berikutnya dan tidak memindahkan kursor",
+  "config.historyKey.off": "Tidak pernah: ↑/↓ hanya memindahkan kursor (Ctrl/Alt + ↑/↓ tetap memanggil riwayat)"
 }

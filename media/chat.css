@@ -8,6 +8,21 @@
   --dsh-accent: var(--vscode-focusBorder, #007fd4);
   --dsh-muted: var(--vscode-descriptionForeground, #9d9d9d);
   --dsh-code-bg: var(--vscode-textCodeBlock-background, #1e1e1e);
+  /* ---- 卡片 / 按钮的语义色(一律映射 VS Code 主题变量,不写死颜色) ----
+     待处理卡片(计划待审 / 提问 / 审批)统一用「面板底色 + 细边框 + 左侧分类导轨」,
+     不再整块染色:暗色主题下大片彩色底会让正文对比度下降,也与 VS Code 的通知卡不一致。 */
+  --dsh-surface: var(--vscode-editorWidget-background, #252526);
+  --dsh-surface-soft: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.08));
+  --dsh-surface-border: var(--vscode-panel-border, #3c3c3c);
+  --dsh-btn2-bg: var(--vscode-button-secondaryBackground, #3a3d41);
+  --dsh-btn2-fg: var(--vscode-button-secondaryForeground, #ffffff);
+  --dsh-btn2-hover: var(--vscode-button-secondaryHoverBackground, #45494e);
+  --dsh-danger: var(--vscode-errorForeground, #f14c4c);
+  --dsh-danger-bg: var(--vscode-inputValidation-errorBackground, rgba(241, 76, 76, 0.14));
+  --dsh-danger-border: var(--vscode-inputValidation-errorBorder, #be1100);
+  --dsh-warn: var(--vscode-charts-orange, #d18616);
+  --dsh-info: var(--vscode-charts-blue, #3794ff);
+  --dsh-plan: var(--vscode-charts-purple, #b180d7);
   /* 原生控件(下拉弹层 / 复选框 / 滚动条)跟随 VS Code 主题,
      避免暗色主题下原生 select 弹层渲染成白底浅字 */
   color-scheme: light dark;
@@ -176,25 +191,25 @@ button {
 }
 
 .dialog-box {
-  width: min(340px, 100%);
+  width: min(360px, 100%);
   background: var(--vscode-editorWidget-background, #252526);
-  border: 1px solid var(--dsh-border);
+  border: 1px solid var(--dsh-surface-border);
   border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 16px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
 .dialog-title {
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .dialog-text {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--dsh-muted);
-  margin-bottom: 10px;
-  line-height: 1.5;
+  margin-bottom: 12px;
+  line-height: 1.55;
 }
 
 .dialog-input {
@@ -228,14 +243,42 @@ button {
   gap: 8px;
 }
 
-.dialog-cancel {
+/*
+ * 注意选择器要带 .btn:通用 .btn 规则在文件更靠后的位置(同特异性、后写者胜),
+ * 只写 .dialog-confirm 会被 .btn 的次要按钮底色覆盖 —— 之前对话框的「确定」一直是灰的。
+ */
+.btn.dialog-cancel {
   background: transparent;
-  border: 1px solid var(--dsh-border);
+  border: 1px solid var(--dsh-surface-border);
   color: var(--dsh-fg);
 }
 
-.dialog-confirm {
-  background: var(--dsh-btn-bg);
+.btn.dialog-cancel:hover {
+  background: var(--dsh-btn2-bg);
+  filter: none;
+}
+
+.btn.dialog-confirm {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.btn.dialog-confirm:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+  filter: none;
+}
+
+/* 「清除」等第三类动作:与次要按钮同形,但用危险色文字提示破坏性 */
+.btn.dialog-confirm2 {
+  background: transparent;
+  border: 1px solid var(--dsh-surface-border);
+  color: var(--dsh-danger);
+}
+
+.btn.dialog-confirm2:hover {
+  background: var(--dsh-danger-bg);
+  border-color: var(--dsh-danger-border);
+  filter: none;
 }
 
 /* ---------- 回退确认(代码审核)与检查点清单弹窗 ---------- */
@@ -654,11 +697,11 @@ button {
 }
 
 .session-btn-dot.dot-warn {
-  background: #f48771;
+  background: var(--dsh-danger);
 }
 
 .session-btn-dot.dot-unread {
-  background: #4ec9b0;
+  background: var(--vscode-charts-green, #89d185);
 }
 
 .session-dropdown-menu {
@@ -743,7 +786,7 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4ec9b0;
+  background: var(--vscode-charts-green, #89d185);
   flex: none;
 }
 
@@ -779,22 +822,23 @@ button {
   border: 1px solid transparent;
 }
 
+/* 会话行徽标:类别色一律取主题语义色,亮色主题下也可读(旧的写死色在白底上会发灰) */
 .badge-approval {
-  color: #f48771;
-  background: rgba(244, 135, 113, 0.1);
-  border-color: rgba(244, 135, 113, 0.45);
+  color: var(--dsh-danger);
+  background: var(--dsh-danger-bg);
+  border-color: var(--dsh-danger-border);
 }
 
 .badge-plan {
-  color: #dcdcaa;
-  background: rgba(220, 220, 170, 0.1);
-  border-color: rgba(220, 220, 170, 0.45);
+  color: var(--dsh-plan);
+  background: var(--dsh-surface-soft);
+  border-color: var(--dsh-plan);
 }
 
 .badge-question {
-  color: #6cb8ff;
-  background: rgba(0, 127, 212, 0.1);
-  border-color: rgba(0, 127, 212, 0.45);
+  color: var(--dsh-info);
+  background: var(--dsh-surface-soft);
+  border-color: var(--dsh-info);
 }
 
 .badge-running {
@@ -821,18 +865,32 @@ button {
 }
 
 .btn {
-  background: var(--dsh-btn-bg);
-  color: var(--dsh-btn-fg);
-  border: none;
-  border-radius: 8px;
-  padding: 4px 10px;
+  background: var(--dsh-btn2-bg);
+  color: var(--dsh-btn2-fg);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 12px;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .btn:hover {
-  filter: brightness(1.1);
+  background: var(--dsh-btn2-hover);
+  filter: none;
+}
+
+.btn:focus-visible {
+  outline: 1px solid var(--dsh-accent);
+  outline-offset: 1px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-icon {
@@ -849,15 +907,15 @@ button {
 }
 
 .status-dot.ok {
-  background: #4ec9b0;
+  background: var(--vscode-charts-green, #89d185);
 }
 
 .status-dot.starting {
-  background: #dcdcaa;
+  background: var(--dsh-warn);
 }
 
 .status-dot.err {
-  background: #f48771;
+  background: var(--dsh-danger);
   cursor: pointer;
 }
 
@@ -954,7 +1012,7 @@ button {
 }
 
 .goal-bar-fill.complete {
-  background: #4ec9b0;
+  background: var(--vscode-charts-green, #89d185);
 }
 
 /* ---------- 消息区 ---------- */
@@ -999,13 +1057,36 @@ button {
   padding-left: 4px;
 }
 
-.msg-note,
-.msg-queued {
+/* 系统提示词等 note 默认居中显示(真正的系统卡片由 .system-note 改成整宽)。
+   注意:纯斜杠命令(如 /plan、/compact)虽然也走 note 节点,但它是**用户动作**,
+   由 .msg-cmd 改成右侧对齐的胶囊(见下方),不继承这里的虚线与居中。 */
+.msg-note {
   align-self: center;
   color: var(--dsh-muted);
   font-size: 11px;
   border: 1px dashed var(--dsh-border);
   background: transparent;
+}
+
+/* 排队中的消息:也是「我要发的」,与用户气泡同侧、实线淡底,只靠徽标表达"等待发送" */
+.msg-queued {
+  align-self: flex-end;
+  max-width: 92%;
+  color: var(--dsh-fg);
+  font-size: 11px;
+  border: 1px solid var(--dsh-surface-border);
+  background: var(--dsh-surface-soft);
+  border-radius: 10px;
+}
+
+/* 斜杠命令记录:右侧对齐、实线淡底,和用户消息同侧,一眼看出是自己发的指令 */
+.msg-note.msg-cmd {
+  align-self: flex-end;
+  max-width: 92%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--dsh-muted);
 }
 
 .msg-role {
@@ -1088,12 +1169,16 @@ button {
 }
 
 /* ---------- 附件上下文折叠块 ---------- */
+/*
+ * 折叠时是一颗紧贴用户消息一侧的小胶囊(实线淡底),展开后才显示正文。
+ * 旧版是右对齐的虚线方框:折叠态只剩一条短虚线,既看不出是什么、又和命令记录叠在一起。
+ */
 .attach-card {
   align-self: flex-end;
   max-width: 94%;
-  border: 1px dashed var(--dsh-border);
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--vscode-input-background, var(--dsh-input-bg));
   padding: 0;
   overflow: hidden;
 }
@@ -1651,7 +1736,7 @@ button {
 
 .attachment-chip.auto {
   border-color: var(--dsh-accent);
-  color: #6cb8ff;
+  color: var(--dsh-info);
 }
 
 /* 可点击查看的附件芯片(文件/文件夹/图片):悬停提示可点,并给一个轻微的高亮 */
@@ -1937,8 +2022,8 @@ button {
 }
 
 .running-chip {
-  border-color: #dcdcaa;
-  color: #dcdcaa;
+  border-color: var(--dsh-warn);
+  color: var(--dsh-warn);
 }
 
 .subagent-preview {
@@ -2532,19 +2617,25 @@ button {
 /* ---------- 待处理(审批/提问) ---------- */
 .pending-area {
   flex-shrink: 0;
-  padding: 0 12px;
+  padding: 2px 12px 4px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   max-height: 55%;
   overflow-y: auto;
 }
 
+/*
+ * 待处理卡片(计划待审 / 提问 / 工具审批 / 插件审批)的公共外观:
+ * VS Code 面板式表面 + 1px 主题边框 + 3px 左侧分类导轨。
+ * 分类只体现在导轨与头部图标的颜色上,正文保持主题前景色,长文本更易读。
+ */
 .pending-card {
-  border: 1px solid #dcdcaa;
-  background: rgba(220, 220, 170, 0.06);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border: 1px solid var(--dsh-surface-border);
+  border-left: 3px solid var(--dsh-surface-border);
+  background: var(--dsh-surface);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .pending-title {
@@ -2589,7 +2680,7 @@ button {
 
 .option-row:has(input:checked) {
   border-color: var(--dsh-accent);
-  background: rgba(0, 127, 212, 0.09);
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 127, 212, 0.12));
 }
 
 /* 原生控件隐藏,由视觉标识(序号圆点/复选框方块)代替,label 点击仍可切换 */
@@ -2631,7 +2722,7 @@ button {
 .option-row:has(input:checked) .option-mark {
   background: var(--dsh-accent);
   border-color: var(--dsh-accent);
-  color: #fff;
+  color: var(--vscode-button-foreground, #fff);
 }
 
 .option-row:has(input:checked) .mark-check svg {
@@ -2710,8 +2801,7 @@ button {
 
 /* ---------- 提问卡片(网页端分页布局:头部 + 题面 + 页脚[翻页/跳过/提交]) ---------- */
 .question-card {
-  border-color: var(--dsh-accent);
-  background: rgba(0, 127, 212, 0.05);
+  border-left-color: var(--dsh-info);
   padding: 0;
   overflow: hidden;
 }
@@ -2720,14 +2810,16 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px 7px;
-  border-bottom: 1px solid var(--dsh-border);
-  color: var(--dsh-accent);
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--dsh-surface-border);
+  background: var(--dsh-surface-soft);
+  color: var(--dsh-info);
 }
 
 .question-head-title {
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 13px;
+  letter-spacing: 0;
   color: var(--dsh-fg);
 }
 
@@ -2767,16 +2859,18 @@ button {
 .question-countdown {
   flex: none;
   font-size: 11px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  border: 1px solid var(--dsh-accent);
-  color: var(--dsh-accent);
+  border: 1px solid var(--dsh-surface-border);
+  background: var(--dsh-surface);
+  color: var(--dsh-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .question-countdown-expired {
-  border-color: var(--dsh-border);
+  border-color: var(--dsh-surface-border);
   color: var(--dsh-muted);
+  opacity: 0.85;
 }
 
 .question-count {
@@ -2821,16 +2915,16 @@ button {
 
 /* 折叠态:仅保留标题栏(细边框 + 淡背景) */
 .question-card.question-minimized {
-  background: rgba(0, 127, 212, 0.03);
+  background: var(--dsh-surface);
 }
 
 .question-card.question-minimized .question-head {
   border-bottom: none;
-  padding-bottom: 8px;
+  padding-bottom: 9px;
 }
 
 .question-body {
-  padding: 8px 10px 10px;
+  padding: 10px 12px 12px;
   max-height: 46vh;
   overflow-y: auto;
 }
@@ -2841,15 +2935,15 @@ button {
   gap: 6px;
   font-weight: 600;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .question-detail {
   font-size: 11.5px;
   color: var(--dsh-muted);
-  margin: 4px 0 2px;
+  margin: 6px 0 2px;
   white-space: pre-wrap;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .question-footer {
@@ -2857,8 +2951,8 @@ button {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  border-top: 1px solid var(--dsh-border);
-  padding: 6px 10px 8px;
+  border-top: 1px solid var(--dsh-surface-border);
+  padding: 8px 12px;
 }
 
 .question-pager {
@@ -2903,7 +2997,7 @@ button {
   flex-basis: 100%;
   order: 10;
   font-size: 11px;
-  color: #f48771;
+  color: var(--dsh-danger);
 }
 
 .question-footer-actions {
@@ -2937,9 +3031,12 @@ button {
 }
 
 /* 计划审批卡片:整体限高 + 计划内容内部滚动,标题与按钮始终可见 */
+/*
+ * 计划待审卡片:与提问卡同一套表面,导轨换成主题紫(网页端 plan 语义色)。
+ * 头部不再整行染色,只让图标带颜色;正文放进独立的滚动区,长计划可读可滚。
+ */
 .plan-card {
-  border-color: #dcdcaa;
-  background: rgba(220, 220, 170, 0.06);
+  border-left-color: var(--dsh-plan);
   padding: 0;
   overflow: hidden;
   display: flex;
@@ -2948,8 +3045,8 @@ button {
 }
 
 .plan-card .question-head {
-  border-color: #dcdcaa;
-  color: #dcdcaa;
+  border-color: var(--dsh-surface-border);
+  color: var(--dsh-plan);
   flex-shrink: 0;
 }
 
@@ -2957,34 +3054,293 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  border: 1px solid var(--dsh-border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin: 8px 10px;
-  font-size: 12px;
-  line-height: 1.55;
+  border: 1px solid var(--dsh-surface-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  background: var(--vscode-editor-background, var(--dsh-code-bg));
+  color: var(--dsh-fg);
+}
+
+.plan-detail-box > :first-child {
+  margin-top: 0;
+}
+
+.plan-detail-box > :last-child {
+  margin-bottom: 0;
+}
+
+.plan-detail-box h1 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.plan-detail-box h2,
+.plan-detail-box h3 {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 14px 0 6px;
+  color: var(--dsh-fg);
+}
+
+.plan-detail-box h2:first-child,
+.plan-detail-box h3:first-child {
+  margin-top: 0;
+}
+
+.plan-detail-box ul,
+.plan-detail-box ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.plan-detail-box li {
+  margin: 3px 0;
+}
+
+.plan-detail-box code {
   background: var(--dsh-code-bg);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11.5px;
+}
+
+/* 卡片内的代码块:与全文预览同款盒子,避免多行示例被当正文排 */
+.plan-detail-box pre {
+  background: var(--dsh-code-bg);
+  border: 1px solid var(--dsh-surface-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+.plan-detail-box pre code {
+  background: none;
+  padding: 0;
+}
+
+.plan-detail-box table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.plan-detail-box th,
+.plan-detail-box td {
+  border: 1px solid var(--dsh-surface-border);
+  padding: 4px 8px;
+  text-align: left;
 }
 
 .plan-card .question-footer-actions {
-  margin: 0 10px 10px;
+  margin: 0 12px 10px;
   flex-shrink: 0;
   justify-content: flex-end;
 }
 
 .plan-card .plan-custom-row {
-  margin: 0 10px 6px;
+  margin: 0 12px 8px;
   flex-shrink: 0;
+}
+
+/* 计划卡头部的次级入口(查看全文 / 打开计划文件) */
+.plan-head-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.plan-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--vscode-textLink-foreground, var(--dsh-info));
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.plan-link:hover {
+  text-decoration: underline;
+}
+
+.plan-link:focus-visible {
+  outline: 1px solid var(--dsh-accent);
+  outline-offset: 2px;
+}
+
+/* 「关闭审阅,去补充意见」:与拒绝同形的次要动作,但语气中性(不是否决) */
+.plan-close-btn {
+  background: transparent;
+  border: 1px solid var(--dsh-surface-border);
+  color: var(--dsh-muted);
+}
+
+.plan-close-btn:hover {
+  background: var(--dsh-btn2-bg);
+  color: var(--dsh-fg);
+  filter: none;
+}
+
+/* ---------- 计划全文预览(对齐网页端 PlanPreview:整页 Markdown) ---------- */
+.plan-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.plan-preview-box {
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 100%);
+  max-height: min(88vh, 960px);
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--dsh-surface-border);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.plan-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--dsh-surface-border);
+  background: var(--dsh-surface-soft);
+  color: var(--dsh-plan);
+  flex: none;
+}
+
+.plan-preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsh-fg);
+}
+
+.plan-preview-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
+  flex: none;
+}
+
+.plan-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 32px;
+  background: var(--vscode-editor-background, var(--dsh-bg));
+  color: var(--dsh-fg);
+  font-size: 14px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.plan-preview-body > :first-child {
+  margin-top: 0;
+}
+
+.plan-preview-body h1 {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.plan-preview-body h2 {
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 22px 0 8px;
+}
+
+.plan-preview-body h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 18px 0 6px;
+}
+
+.plan-preview-body p,
+.plan-preview-body ul,
+.plan-preview-body ol,
+.plan-preview-body pre,
+.plan-preview-body table {
+  margin: 10px 0;
+}
+
+.plan-preview-body ul,
+.plan-preview-body ol {
+  padding-left: 22px;
+}
+
+.plan-preview-body li {
+  margin: 4px 0;
+}
+
+.plan-preview-body code {
+  background: var(--dsh-code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12.5px;
+}
+
+.plan-preview-body pre {
+  background: var(--dsh-code-bg);
+  border: 1px solid var(--dsh-surface-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.plan-preview-body pre code {
+  background: none;
+  padding: 0;
+}
+
+@media (max-width: 720px) {
+  .plan-preview-overlay {
+    padding: 0;
+  }
+
+  .plan-preview-box {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+
+  .plan-preview-body {
+    padding: 16px 18px 28px;
+  }
 }
 
 .skip-btn {
   background: transparent;
-  border: 1px solid var(--dsh-border);
+  border: 1px solid var(--dsh-surface-border);
   color: var(--dsh-muted);
 }
 
 .skip-btn:hover {
-  border-color: var(--dsh-muted);
+  background: var(--dsh-btn2-bg);
+  border-color: var(--dsh-surface-border);
   color: var(--dsh-fg);
 }
 
@@ -2993,48 +3349,50 @@ button {
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 12.5px;
+  margin-bottom: 6px;
 }
 
+/* 主操作:走主题主按钮色(界面里唯一的强调色块) */
 .btn-allow {
-  background: #2ea043;
-  color: #fff;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
   border: 1px solid transparent;
 }
 
 .btn-allow:hover {
-  background: #3fb950;
+  background: var(--vscode-button-hoverBackground, #1177bb);
   filter: none;
 }
 
+/* 次要 / 否决操作:默认与普通次要按钮一致,悬停才透出风险色,避免整块红框的压力感 */
 .btn-reject {
   background: transparent;
-  color: #f48771;
-  border: 1px solid #f48771;
+  color: var(--dsh-fg);
+  border: 1px solid var(--dsh-surface-border);
 }
 
 .btn-reject:hover {
-  background: rgba(244, 135, 113, 0.12);
-  color: #f48771;
+  background: var(--dsh-danger-bg);
+  border-color: var(--dsh-danger-border);
+  color: var(--dsh-danger);
   filter: none;
 }
 
 /* ---------- 审批卡片(网页端 ApprovalFlow 同款:色点条 + 工具徽标 + 原因 + 命令预览) ---------- */
 .approval-card {
-  border-color: rgba(244, 135, 113, 0.55);
-  background: rgba(244, 135, 113, 0.05);
+  border-left-color: var(--dsh-warn);
   padding: 0;
   overflow: hidden;
 }
 
-/* Cordis 插件审批卡(网页端 Cordis 浮窗面板同款:紫色点缀区分工具审批) */
+/* Cordis 插件审批卡(网页端 Cordis 浮窗面板同款:紫色导轨区分工具审批) */
 .cordis-approval-card {
-  border-color: rgba(139, 122, 214, 0.55);
-  background: rgba(139, 122, 214, 0.06);
+  border-left-color: var(--dsh-plan);
 }
 
 .cordis-approval-card .cordis-dot {
-  background: #8b7ad6;
+  background: var(--dsh-plan);
 }
 
 .cordis-meta {
@@ -3050,23 +3408,34 @@ button {
   font-family: var(--vscode-editor-font-family, monospace);
 }
 
+/* 次要的「允许后续版本」:保留一点插件紫的描边以区别于普通次要按钮,但不抢主操作 */
 .btn-allow-plugin {
-  border-color: rgba(139, 122, 214, 0.6);
+  background: transparent;
+  color: var(--dsh-fg);
+  border: 1px solid var(--dsh-plan);
+}
+
+.btn-allow-plugin:hover {
+  background: var(--dsh-surface-soft);
+  border-color: var(--dsh-plan);
+  color: var(--dsh-fg);
+  filter: none;
 }
 
 .approval-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px 7px;
-  border-bottom: 1px solid var(--dsh-border);
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--dsh-surface-border);
+  background: var(--dsh-surface-soft);
 }
 
 .approval-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e9950c;
+  background: var(--dsh-warn);
   flex: none;
   animation: approval-pulse 1.4s ease-in-out infinite;
 }
@@ -3089,8 +3458,8 @@ button {
 .approval-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 10px 12px;
   max-height: 30vh;
   overflow-y: auto;
 }
@@ -3100,35 +3469,37 @@ button {
   font-size: 10.5px;
   border-radius: 999px;
   padding: 2px 9px;
-  background: rgba(244, 135, 113, 0.12);
-  color: #f48771;
-  border: 1px solid rgba(244, 135, 113, 0.4);
+  background: var(--dsh-surface-soft);
+  color: var(--dsh-fg);
+  border: 1px solid var(--dsh-surface-border);
+  font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
 }
 
 .approval-headline {
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-wrap: break-word;
 }
 
 .approval-command {
   margin: 0;
   font-size: 11.5px;
-  background: var(--dsh-code-bg);
-  border: 1px solid var(--dsh-border);
+  background: var(--vscode-editor-background, var(--dsh-code-bg));
+  border: 1px solid var(--dsh-surface-border);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 7px 9px;
   white-space: pre-wrap;
   word-break: break-all;
-  opacity: 0.9;
+  font-family: var(--vscode-editor-font-family, monospace);
+  line-height: 1.5;
 }
 
 .approval-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 10px 10px;
+  padding: 0 12px 10px;
 }
 
 /* ---------- 输入区(Codex 风格大输入框) ---------- */
@@ -3996,7 +4367,15 @@ button {
   font-size: 11px;
   color: var(--dsh-muted);
   font-family: var(--vscode-editor-font-family, Consolas, monospace);
-  opacity: 0.9;
+  /* 命令胶囊:输入框底色 + 控件描边,亮色主题下也能看清边界 */
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  border-radius: 999px;
+  background: var(--vscode-input-background, var(--dsh-input-bg));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .plus-menu-item {
@@ -4141,33 +4520,33 @@ button {
 }
 
 .plan-chip {
-  border-color: #dcdcaa;
-  background: rgba(220, 220, 170, 0.12);
-  color: #dcdcaa;
+  border-color: var(--dsh-plan);
+  background: var(--dsh-surface-soft);
+  color: var(--dsh-plan);
 }
 
 .goal-chip {
   border-color: var(--dsh-accent);
-  background: rgba(0, 127, 212, 0.12);
-  color: #6cb8ff;
+  background: var(--vscode-list-activeSelectionBackground, rgba(0, 127, 212, 0.12));
+  color: var(--dsh-info);
 }
 
 .goal-chip.done {
-  border-color: #4ec9b0;
-  background: rgba(78, 201, 176, 0.1);
-  color: #4ec9b0;
+  border-color: var(--vscode-charts-green, #89d185);
+  background: var(--dsh-surface-soft);
+  color: var(--vscode-charts-green, #89d185);
 }
 
 .goal-chip.blocked {
-  border-color: #f48771;
-  background: rgba(244, 135, 113, 0.1);
-  color: #f48771;
+  border-color: var(--dsh-danger);
+  background: var(--dsh-danger-bg);
+  color: var(--dsh-danger);
 }
 
 .goal-chip.paused {
-  border-color: #dcdcaa;
-  background: rgba(220, 220, 170, 0.1);
-  color: #dcdcaa;
+  border-color: var(--dsh-warn);
+  background: var(--dsh-surface-soft);
+  color: var(--dsh-warn);
 }
 
 .mode-chip:hover {

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Retour Git (points de contrôle par tour)",
+    "description": "Points de contrôle Git par tour pour DeepSeek Harness : /rollback /redo /checkpoints /undo, restauration non destructive et séparateurs de restauration par tour dans l'interface Web."
+  }
+}

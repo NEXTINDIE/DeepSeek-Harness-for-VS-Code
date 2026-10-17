@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Police (CSS font-family) du panneau de discussion. Laisser vide pour suivre la police de l'interface VS Code.",
   "config.newSessionOnStartup": "Créer automatiquement une session vide à l'ouverture du panneau (sans cliquer sur +) ; une session mémorisée est restaurée à la place.",
   "config.rememberLastSession": "Mémoriser la dernière session utilisée par espace de travail et la restaurer au redémarrage de VS Code.",
-  "config.autoCollapseProducedFiles": "Réduire la liste des fichiers produits à un résumé d'une ligne (cliquer pour développer), pour éviter que les longues discussions soient remplies de cartes."
+  "config.autoCollapseProducedFiles": "Réduire la liste des fichiers produits à un résumé d'une ligne (cliquer pour développer), pour éviter que les longues discussions soient remplies de cartes.",
+  "config.historyKey": "Quand ↑/↓ rappellent les saisies précédentes : uniquement au bord du texte (par défaut), à chaque appui, ou jamais",
+  "config.historyKey.edge": "Uniquement au bord : ↑/↓ déplacent le curseur tant qu'il peut bouger, et rappellent l'historique quand il ne peut plus",
+  "config.historyKey.always": "À chaque appui : ↑/↓ rappellent immédiatement la saisie précédente/suivante, sans déplacer le curseur",
+  "config.historyKey.off": "Jamais : ↑/↓ ne déplacent que le curseur (Ctrl/Alt + ↑/↓ rappellent toujours l'historique)"
 }

@@ -57,6 +57,10 @@ for (const name of names) {
   if (existsSync(join(src, "lib"))) cpSync(join(src, "lib"), join(dst, "lib"), { recursive: true });
   cpSync(pkgFile, join(dst, "package.json"));
   if (existsSync(join(src, "README.md"))) cpSync(join(src, "README.md"), join(dst, "README.md"));
+  // 0.2.1 起的插件显示元数据:图标与 locale/<lang>.json(插件管理页的图标 + 多语言标题/描述)。
+  // 漏拷会让宿主回退到包名、并在清单声明了 icon 时给出元数据诊断错误,因此必须随包同步。
+  if (existsSync(join(src, "icon.svg"))) cpSync(join(src, "icon.svg"), join(dst, "icon.svg"));
+  if (existsSync(join(src, "locale"))) cpSync(join(src, "locale"), join(dst, "locale"), { recursive: true });
 
   const pkg = JSON.parse(readFileSync(pkgFile, "utf8"));
   console.log(`[sync-plugins] ${name}@${pkg.version} -> resources/${name}`);

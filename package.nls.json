@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Font family (CSS font-family) for the chat panel. Leave empty to follow the VS Code UI font. On Windows, \"Microsoft YaHei UI\", \"Microsoft YaHei\", sans-serif gives better Chinese glyphs.",
   "config.newSessionOnStartup": "Automatically create an empty session when the chat panel opens (no need to click +); a remembered session is restored instead when available.",
   "config.rememberLastSession": "Remember the last session used in each workspace and restore it when VS Code reopens.",
-  "config.autoCollapseProducedFiles": "Collapse the produced-files list into a one-line summary by default (click to expand), so long conversations are not filled with deliverable cards."
+  "config.autoCollapseProducedFiles": "Collapse the produced-files list into a one-line summary by default (click to expand), so long conversations are not filled with deliverable cards.",
+  "config.historyKey": "How ↑/↓ recall previous inputs: only at the edge of the text (default), on every press, or never",
+  "config.historyKey.edge": "Only at the edge: ↑/↓ move the caret while it can still move, and recall history on the press that cannot move further",
+  "config.historyKey.always": "On every press: ↑/↓ recall the previous/next input immediately and never move the caret",
+  "config.historyKey.off": "Never: plain ↑/↓ only move the caret (Ctrl/Alt + ↑/↓ still recall history)"
 }

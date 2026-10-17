@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "Accès illimité à Internet et à n'importe quel fichier de votre ordinateur.",
   "perm.desc.custom": "Combinaison personnalisée (à modifier dans les paramètres).",
   "commit.modelRestoreFailed": "Le message de commit a été généré, mais le modèle par défaut n'a pas pu être rétabli sur {model}. Veuillez le resélectionner dans la liste des modèles (l'enregistrement en arrière-plan a peut-être échoué).",
-  "notice.openImageFailed": "Impossible d'ouvrir l'image : {error}"
+  "notice.openImageFailed": "Impossible d'ouvrir l'image : {error}",
+  "hub.remoteAccessLimited": "Cet hôte DSH n'a accordé qu'un accès limité à cette connexion ; certaines actions peuvent être refusées."
 }

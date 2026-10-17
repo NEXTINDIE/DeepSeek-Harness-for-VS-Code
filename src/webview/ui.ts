@@ -91,6 +91,11 @@ interface QuestionInfo {
   remainingMs?: number | null;
   /** 限时提问对应的工具调用 id(作答走 userQuestions/answer)。 */
   callId?: string;
+  /**
+   * 由 userQuestions 投影还原的卡片(刷新/切换会话后重建)。
+   * 这类卡片没有 waterfall 的 frameRpcId,只能按 callId 作答,且不参与 $events 的撤回。
+   */
+  fromProjection?: boolean;
 }
 
 /** Cordis 动态插件审批请求(网页端 Cordis 浮窗面板同款)。 */
@@ -276,6 +281,16 @@ const state = {
   rollback: undefined as { sessionId: string; available: boolean; checkpoints: { turn: number; time: number }[] } | undefined,
   /** 计划模式状态(plan/mode 事件) */
   planMode: false,
+  /**
+   * 计划模式投影(dsh-plan-mode 的 `plan`):{active, pending}。
+   * 有效目标态 = pending ? !active : active —— 与网页端 PlanChip 同一折算,
+   * 这样「刚发送 /plan、命令还在飞」时芯片显示的是目标态而不是旧态。
+   */
+  plan: undefined as { active: boolean; pending: boolean } | undefined,
+  /** 最近一次计划审阅的全文(查看全文 / 关闭审阅后复查都从这里取) */
+  planReview: undefined as { text: string; title?: string; frameRpcId?: string } | undefined,
+  /** 计划落盘文件(.dsh/plans/plan-*.md,宿主 init 时给出):供「打开计划文件」入口使用 */
+  planFile: undefined as string | undefined,
   /** 本轮工具节点(回合结束时折叠为摘要) */
   currentTurnTools: [] as NodeState[],
   /** 附件:自动附加的激活文件 + 手动选择 */
@@ -288,6 +303,13 @@ const state = {
   stats: undefined as { sessionStats?: any; tokenUsage?: any } | undefined,
   /** 待办事项(todos 投影) */
   todos: undefined as { content: string; status: "pending" | "in_progress" | "completed" }[] | null | undefined,
+  /**
+   * 当前生效的工作目录(0.2.1 workingDirectory 投影)。
+   * 与会话头 cwd 不同:后者是创建时的项目目录,这里是 working_directory 工具切换后的基准。
+   */
+  workingDirectory: undefined as string | null | undefined,
+  /** 限时提问投影(0.2.x userQuestions:active 仍可作答,settled 已结算) */
+  userQuestions: undefined as { active: { callId: string; questions: any[]; state?: string }[]; settled: { callId: string; answers: any[] }[] } | undefined,
   /** 逐消息反馈(0.1.7 messageFeedback;messageId → 当前值) */
   feedback: [] as { messageId: string; rating: "positive" | "negative"; version: string; note?: string; updatedAt?: number }[],
   /** 宿主是否仍提供预设作者端点(0.1.7-rc.2 起移除) */
@@ -770,6 +792,24 @@ const EN_TEXT: Record<string, string> = {
   "✏️ 重命名会话": "✏️ Rename session",
   "🔀 分叉会话": "🔀 Fork session",
   "🗄️ 归档会话": "🗄️ Archive session",
+  // ---- 0.2.1:会话工作目录 / 复制会话 ID ----
+  "📋 复制会话 ID": "📋 Copy session ID",
+  "已复制会话 ID": "Session ID copied",
+  "工作目录:{name}": "Working directory: {name}",
+  "当前生效的工作目录:{path}\n点击在资源管理器中显示": "Effective working directory: {path}\nClick to reveal in the file explorer",
+  "工作目录已切换为 {path}": "Working directory changed to {path}",
+  // ---- 计划审阅(对齐网页端 PlanReviewPanel / PlanPreview) ----
+  "查看全文": "View full text",
+  "在整页预览中查看完整计划": "Read the complete plan in a full-page preview",
+  "计划预览": "Plan preview",
+  "打开计划文件": "Open plan file",
+  "没有可显示的计划内容": "No plan content to show",
+  "关闭审阅,去补充意见": "Close review and add comments",
+  "关闭本次计划审阅;Agent 会结束本轮并等待你直接输入修改意见":
+    "Close this plan review; the agent will end the turn and wait for your comments",
+  "已关闭计划审阅:请直接输入修改意见,Agent 正在等待你的反馈":
+    "Plan review closed: type your changes and the agent, which is waiting, will pick them up",
+  "📝 计划模式(切换中…)": "📝 Plan mode (switching…)",
   "📝 计划模式": "📝 Plan mode",
   "点击退出计划模式(发送 /plan off)": "Click to exit plan mode (sends /plan off)",
   "🎯 目标模式": "🎯 Goal mode",
@@ -1017,6 +1057,19 @@ const EN_TEXT: Record<string, string> = {
     "Timed question: when the wait expires the agent carries on, and you can still answer later.",
   // ---- 输入历史(↑/↓ 调回,issue #20) ----
   "历史 {index}/{total}": "History {index}/{total}",
+  // ---- 输入历史:↑/↓ 召回时机(dsh.historyKey) ----
+  "输入历史:↑/↓ 调回之前发送过的内容": "Input history: ↑/↓ recall what you sent before",
+  "↑/↓ 到边界才召回历史": "↑/↓ recall only at the edge",
+  "光标还能上下移动时只移动光标;已经到首行 / 末行时,那一次按键立即调回历史(推荐:不会抢走光标移动)":
+    "Move the caret while it can still move; once it is on the first/last line, that press recalls history (recommended: never steals caret movement)",
+  "↑/↓ 一按就召回历史": "↑/↓ recall on every press",
+  "普通 ↑/↓ 不再移动光标,按下即调回上一条 / 下一条输入;要移动光标请用鼠标或 ←/→":
+    "Plain ↑/↓ no longer move the caret and recall the previous/next input immediately; move the caret with the mouse or ←/→",
+  "关闭 ↑/↓ 召回": "Disable ↑/↓ recall",
+  "普通方向键只移动光标;仍可用 Ctrl/Alt + ↑/↓ 调回历史":
+    "Plain arrow keys only move the caret; Ctrl/Alt + ↑/↓ still recall history",
+  "Ctrl/Alt + ↑/↓ 在任何模式下都能立即调回历史;模式保存在 dsh.historyKey。":
+    "Ctrl/Alt + ↑/↓ recall history immediately in every mode; the mode is stored in dsh.historyKey.",
   "已是最早的输入": "Already at the earliest input",
   // ---- 会话被其他 DSH 实例占用(session/writer-held) ----
   "当前会话已被其他 DSH 实例占用(桌面端 / 另一个 dsh web),不能切换模型、重命名或发送消息;换一个会话或退出该实例后重试":
@@ -1440,8 +1493,10 @@ const sessionMenu = el("div", "session-menu");
 sessionMenu.hidden = true;
 const menuRename = el("button", "session-menu-item", t("✏️ 重命名会话"));
 const menuFork = el("button", "session-menu-item", t("🔀 分叉会话"));
+// 0.2.1:会话菜单支持复制会话 ID(网页端同款;排查 / 报告问题时可直接粘贴)
+const menuCopyId = el("button", "session-menu-item", t("📋 复制会话 ID"));
 const menuArchive = el("button", "session-menu-item", t("🗄️ 归档会话"));
-sessionMenu.append(menuRename, menuFork, menuArchive);
+sessionMenu.append(menuRename, menuFork, menuCopyId, menuArchive);
 const moreAnchor = el("div", "session-menu-anchor");
 moreAnchor.append(btnMore, sessionMenu);
 
@@ -2142,8 +2197,23 @@ const composerHintText = hint;
 // 发送键切换胶囊:紧跟提示文案,点一下即切换(Enter 发送 ⇄ Ctrl+Enter 发送),无需进设置
 const sendKeyChip = el("button", "hint-sendkey") as HTMLButtonElement;
 sendKeyChip.type = "button";
+/**
+ * 会话工作目录芯片(0.2.1):显示 working_directory 工具切换后的**生效**目录。
+ * 会话头的 cwd 是创建时的项目目录、不随工具变化,因此两者可能不同;这里只显示生效值,
+ * 悬停给出完整路径,点击在资源管理器中定位。未发生过切换时整个芯片隐藏(不制造噪音)。
+ */
+const cwdChip = el("button", "hint-cwd") as HTMLButtonElement;
+cwdChip.type = "button";
+cwdChip.hidden = true;
+const cwdChipIcon = lineIcon(ICONS.folder, 11);
+const cwdChipText = el("span", "hint-cwd-text");
+cwdChip.append(cwdChipIcon, cwdChipText);
+cwdChip.addEventListener("click", () => {
+  const cwd = state.workingDirectory;
+  if (typeof cwd === "string" && cwd) vscode.postMessage({ kind: "revealInExplorer", path: cwd });
+});
 const hintRow = el("div", "hint-row");
-hintRow.append(hint, sendKeyChip);
+hintRow.append(hint, sendKeyChip, cwdChip);
 // 对话框顶部行:左上角 ＋ 添加文件 + 附件芯片;右上角 预设(新会话下拉 / 已开始会话纯文本标签)
 const composerTop = el("div", "composer-top");
 attachmentsRow.append(btnAddAttach);
@@ -2536,18 +2606,49 @@ input.addEventListener("keydown", (e) => {
     }
   }
   // 输入历史(issue #20):↑/↓ 调回之前发送的内容。
-  // 规则:未在浏览历史时,只有光标位于首行行首 / 末行末尾(或全选)才接管,避免劫持文本内的光标移动;
-  // 已在浏览历史时,↑ 继续回溯而不再重复「行首」判定(调回后光标在末尾,否则第二次 ↑ 就失效)。
+  //
+  // 触发时机(0.13.41 重做):旧实现用「光标是否在绝对首字符 / 文本末字符」判断边界,
+  // 于是有两个反直觉:
+  //   ① 自动折行的长单行文本:光标在末尾时按 ↑ 会立刻召回历史 —— 但用户只是想往上挪一行;
+  //   ② 多行文本:必须先按若干次 ↑ 把光标挪到首行,再按一次才会召回 —— 感觉「怎么按都不切」。
+  // 现在改为**看光标到底还能不能动**:先让浏览器处理默认行为,松开键时若光标没动(已在视觉首/末行),
+  // 那一次按键就立即召回;光标动了就只是移动光标。既不会劫持折行文本,又不需要多按一次。
+  // Ctrl/Alt + ↑/↓ 永远立即召回;`dsh.historyKey` 可把普通方向键改成 always(一按就召回)或 off。
   if (!e.isComposing && !mentionState && !slashState) {
-    if (e.key === "ArrowUp" && canRecallBackward()) {
+    const plainArrow = (e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey && !e.metaKey;
+    const withModifier = (e.key === "ArrowUp" || e.key === "ArrowDown") && (e.ctrlKey || e.altKey);
+    if (withModifier) {
+      // 显式召回组合键:不涉及光标移动语义,立即生效
       e.preventDefault();
-      historyBackward();
+      if (e.key === "ArrowUp") historyBackward();
+      else if (historyCursor !== -1) historyForward();
       return;
     }
-    if (e.key === "ArrowDown" && historyCursor !== -1 && (caretAtEnd() || allSelected())) {
-      e.preventDefault();
-      historyForward();
-      return;
+    if (plainArrow && historyKeyMode !== "off") {
+      const up = e.key === "ArrowUp";
+      // 已在浏览历史:↑ 立即继续回溯(调回后光标在末尾,再判定「能不能动」会卡住);
+      // ↓ 只在光标已到末尾(或全选)时前移,否则交给光标移动。
+      const browsing = historyCursor !== -1;
+      if (browsing && up) {
+        e.preventDefault();
+        historyBackward();
+        return;
+      }
+      if (browsing && !up && (caretAtEnd() || allSelected())) {
+        e.preventDefault();
+        historyForward();
+        return;
+      }
+      if (historyKeyMode === "always" && (up || (caretAtEnd() || allSelected()))) {
+        e.preventDefault();
+        if (up) historyBackward();
+        else historyForward();
+        return;
+      }
+      // edge 模式:先不拦截,交由浏览器移动光标;keyup 时再判定是否已在边界
+      if (!browsing && historyKeyMode === "edge") {
+        pendingArrow = { key: up ? "ArrowUp" : "ArrowDown", pos: input.selectionStart ?? 0, value: input.value, scrollTop: input.scrollTop };
+      }
     }
     if (e.key === "Escape" && historyCursor !== -1) {
       e.preventDefault();
@@ -2572,6 +2673,24 @@ input.addEventListener("keydown", (e) => {
 input.addEventListener("blur", () => {
   closeMention();
   closeSlash();
+  // 失焦时丢弃待判定的方向键(否则下一次 keyup 会误触发召回)
+  pendingArrow = null;
+});
+
+// 方向键松开:edge 模式下由「光标是否移动过」决定这次按键是移动光标还是召回历史。
+input.addEventListener("keyup", (e) => {
+  if (!pendingArrow || pendingArrow.key !== e.key) return;
+  const { pos, value, scrollTop, key } = pendingArrow;
+  pendingArrow = null;
+  // 弹层(提及 / 斜杠)在按键之间被打开时,方向键属于弹层导航:丢弃待判定状态
+  if (mentionState || slashState) return;
+  // 文本被改过或光标位置变了 → 这次按键在移动光标,不召回
+  if (input.value !== value) return;
+  if ((input.selectionStart ?? 0) !== pos || (input.selectionEnd ?? 0) !== pos) return;
+  // 光标没动 = 已在视觉首/末行的边界,这一次按键直接召回
+  input.scrollTop = scrollTop;
+  if (key === "ArrowUp") historyBackward();
+  else if (historyCursor !== -1) historyForward();
 });
 
 // ---------- 粘贴支持:剪贴板图片 → 图片附件;复制的本地文件/文件夹 → 文件附件 ----------
@@ -3042,6 +3161,13 @@ menuFork.addEventListener("click", () => {
   sessionMenu.hidden = true;
   vscode.postMessage({ kind: "fork" });
 });
+menuCopyId.addEventListener("click", () => {
+  sessionMenu.hidden = true;
+  // 剪贴板由宿主写入(vscode.env.clipboard),webview 里没有直接的剪贴板权限
+  if (!state.current) return;
+  vscode.postMessage({ kind: "copyText", text: state.current });
+  showToast(t("已复制会话 ID"), "info");
+});
 menuArchive.addEventListener("click", async () => {
   sessionMenu.hidden = true;
   const ok = await showDialog({
@@ -3070,6 +3196,17 @@ let historyDraft = "";
 let historyHintTimer: number | null = null;
 /** 程序化写入输入框期间为 true:避免把「历史调回」误判为用户编辑。 */
 let writingHistoryText = false;
+
+/**
+ * 方向键历史召回模式(dsh.historyKey):
+ * - `edge`(默认):光标已经在视觉首行 / 末行时那一次按键就召回,否则只移动光标;
+ * - `always`:普通 ↑/↓ 一律召回,不移动光标;
+ * - `off`:普通 ↑/↓ 从不召回(Ctrl/Alt + ↑/↓ 仍可用)。
+ */
+let historyKeyMode: "edge" | "always" | "off" = "edge";
+
+/** 等待 keyup 判定的方向键(edge 模式):记录按下时的光标位置与文本。 */
+let pendingArrow: { key: "ArrowUp" | "ArrowDown"; pos: number; value: string; scrollTop: number } | null = null;
 
 /** 从 VS Code webview 状态恢复历史(窗口重载后仍可用;旧版 API 缺失时静默跳过)。 */
 function restoreInputHistory() {
@@ -3228,10 +3365,13 @@ let autoCollapseProducedFiles = true;
 /** 输入区字体(留空跟随 VS Code 界面字体)。 */
 let composerFontFamily = "";
 
-function applyComposerPrefs(prefs: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean } | undefined) {
+function applyComposerPrefs(prefs: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string } | undefined) {
   if (!prefs) return;
   sendKeyMode = prefs.sendKey === "ctrl-enter" || prefs.sendKey === "shift-enter" ? prefs.sendKey : "enter";
   if (typeof prefs.autoCollapseProducedFiles === "boolean") autoCollapseProducedFiles = prefs.autoCollapseProducedFiles;
+  // 方向键历史召回模式(默认 edge:光标到不了才召回)
+  historyKeyMode = prefs.historyKey === "always" || prefs.historyKey === "off" ? prefs.historyKey : "edge";
+  pendingArrow = null;
   // 字体:用户显式配置时覆盖主题字体(--dsh-font);留空则继续跟随 VS Code 界面字体
   const family = (prefs.fontFamily ?? "").trim();
   composerFontFamily = family;
@@ -3301,6 +3441,105 @@ sendKeyChip.addEventListener("click", () => {
   const next = SEND_KEY_ORDER[(SEND_KEY_ORDER.indexOf(sendKeyMode) + 1) % SEND_KEY_ORDER.length];
   setSendKeyMode(next);
 });
+
+/**
+ * 会话工作目录芯片(0.2.1 workingDirectory):只显示「当前生效」目录。
+ * 与提示文本同排、位于右侧;未切换过目录时隐藏,避免和普通会话混淆。
+ */
+function renderWorkingDirectoryChip() {
+  if (!cwdChip) return;
+  const cwd = state.workingDirectory;
+  if (typeof cwd !== "string" || cwd === "") {
+    cwdChip.hidden = true;
+    cwdChip.title = "";
+    return;
+  }
+  const parts = cwd.split(/[\\/]+/).filter(Boolean);
+  const label = parts.length > 0 ? parts[parts.length - 1] : cwd;
+  cwdChipText.textContent = t("工作目录:{name}", { name: label });
+  cwdChip.title = t("当前生效的工作目录:{path}\n点击在资源管理器中显示", { path: cwd });
+  cwdChip.setAttribute("aria-label", cwdChip.title);
+  cwdChip.hidden = false;
+}
+
+/**
+ * 计划全文预览覆盖层(对齐网页端 PlanPreview:整页 Markdown、14px/1.75、可滚动)。
+ * 卡片内只保留摘要滚动区,长计划在这里读更从容;Esc 或点遮罩关闭。
+ */
+function openPlanPreview() {
+  const plan = state.planReview;
+  if (!plan || !plan.text) {
+    showToast(t("没有可显示的计划内容"), "warning");
+    return;
+  }
+  const overlay = el("div", "plan-preview-overlay");
+  const box = el("div", "plan-preview-box");
+  const head = el("div", "plan-preview-head");
+  head.append(lineIcon(ICONS.ledger, 15), el("span", "plan-preview-title", plan.title || t("计划预览")));
+  const actions = el("div", "plan-preview-actions");
+  if (typeof state.planFile === "string" && state.planFile) {
+    const open = el("button", "btn", t("打开计划文件"));
+    open.title = state.planFile;
+    open.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path: String(state.planFile) }));
+    actions.append(open);
+  }
+  const closeBtn = el("button", "btn", t("关闭"));
+  closeBtn.addEventListener("click", () => close());
+  actions.append(closeBtn);
+  head.append(actions);
+  const body = el("div", "plan-preview-body");
+  setHtml(body, plan.text);
+  box.append(head, body);
+  overlay.append(box);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    close();
+  };
+  function close() {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  }
+  document.addEventListener("keydown", onKey);
+  document.body.append(overlay);
+}
+
+/**
+ * 用 userQuestions 投影还原待答的限时提问卡片(0.2.x)。
+ * 在线期间的卡片由 $events waterfall 帧实时建立(带 frameRpcId);投影负责「刷新页面 /
+ * 切换会话之后」仍能看到待答提问 —— 此前这类提问一刷新就消失,只能等 Agent 自己继续。
+ * 已有卡片(同一 callId)不覆盖,避免抢掉 waterfall 卡片上的倒计时状态。
+ */
+function applyUserQuestionsProjection() {
+  const value = state.userQuestions;
+  if (!value || !state.current) return;
+  const known = new Set<string>();
+  for (const question of state.questions.values()) {
+    if (question.callId) known.add(question.callId);
+  }
+  let added = false;
+  for (const entry of value.active ?? []) {
+    if (!entry?.callId || known.has(entry.callId)) continue;
+    // 计划审阅走单独卡片,投影里没有 intent 信息,只在有普通问题时还原
+    const questions = (entry.questions ?? []).filter((q) => q && typeof q.id === "string");
+    if (questions.length === 0) continue;
+    state.questions.set(`proj:${entry.callId}`, {
+      sessionId: state.current,
+      frameRpcId: `proj:${entry.callId}`,
+      questions,
+      callId: entry.callId,
+      // 投影不携带剩余等待时间:按「等待已到期、仍可作答」呈现(0.2.0 异步问答语义)
+      remainingMs: null,
+      fromProjection: true,
+    });
+    added = true;
+  }
+  if (added) renderPending();
+}
+
 
 // ---------- 渲染:消息 ----------
 
@@ -3745,8 +3984,14 @@ function renderNode(node: NodeState): HTMLElement {
     }
     case "note": {
       const wrap = el("div", "msg msg-note");
+      // 空文本的 note 不渲染成空框:以前会留下一条居中的虚线段(用户反馈的「短圆点虚线」)
+      if ((node.text ?? "").trim() === "") {
+        wrap.hidden = true;
+        return wrap;
+      }
       if (node.cmd) {
-        // 斜杠命令执行记录:小字命令行,不展开
+        // 斜杠命令执行记录:右边对齐的「用户动作」小胶囊(不是系统提示,不该居中)
+        wrap.classList.add("msg-cmd");
         const body = el("div", "msg-body cmd-note");
         setHtml(body, node.text ?? "");
         wrap.append(body);
@@ -3795,6 +4040,11 @@ function renderNode(node: NodeState): HTMLElement {
     }
     case "queued": {
       const wrap = el("div", "msg msg-queued");
+      // 空排队项(内容被清空/只有空文本)同样不画空框,避免残留下一条虚线
+      if ((node.text ?? "").trim() === "" && (node.images?.length ?? 0) === 0) {
+        wrap.hidden = true;
+        return wrap;
+      }
       const head = el("div", "msg-queued-head");
       head.append(el("span", "msg-queued-badge", t("⏳ 排队中(运行结束后自动发送)")));
       const actions = el("span", "msg-queued-actions");
@@ -4663,6 +4913,17 @@ function handleEvent(wire: WireEvent) {
         finishCompactionRow(checkpoint.compactionId, checkpoint.sourceCommandId);
         break;
       }
+      // 0.2.1 工作目录切换通告:宿主把它注入为 user/message(source.kind = "working-directory"),
+      // 不是用户说的话 —— 渲染成小字提示,否则会被误当成用户提问
+      if (data?.source?.kind === "working-directory") {
+        const cwd = (extractText(data?.content) ?? "").trim();
+        if (cwd) {
+          state.workingDirectory = cwd;
+          renderWorkingDirectoryChip();
+          appendNode({ kind: "note", key: `cwd:${ev.seq}`, el: null, text: t("工作目录已切换为 {path}", { path: cwd }), cmd: true });
+        }
+        break;
+      }
       const text = extractText(data?.content);
       const id: string | undefined = data?.id;
       if (id && state.queuedIds.has(id)) {
@@ -5121,7 +5382,18 @@ function handleEvent(wire: WireEvent) {
     }
     case "plan/mode": {
       state.planMode = !!data?.active;
+      // 事件是即时信号;投影稍后会给出权威值(含 pending)
+      state.plan = { active: !!data?.active, pending: false };
       renderModeChips();
+      break;
+    }
+    // 0.2.1 工作目录切换(working_directory 工具提交后由宿主写入日志)
+    case "working-directory/change": {
+      const cwd = typeof data?.cwd === "string" ? data.cwd : "";
+      if (cwd === "") break;
+      state.workingDirectory = cwd;
+      renderWorkingDirectoryChip();
+      appendNode({ kind: "note", key: `cwd:${ev.seq}`, el: null, text: t("工作目录已切换为 {path}", { path: cwd }), cmd: true });
       break;
     }
     case "turn/end": {
@@ -5389,12 +5661,15 @@ let chipsSignature = "";
 
 function renderModeChips() {
   const inner = state.goal?.goal;
-  const sig = `${state.planMode}|${inner?.id ?? ""}|${inner?.phase ?? ""}`;
+  // 计划模式:优先用 `plan` 投影的有效目标态,投影缺席时退回 plan/mode 事件
+  const planActive = state.plan ? (state.plan.pending ? !state.plan.active : state.plan.active) : state.planMode;
+  const planPending = state.plan?.pending === true;
+  const sig = `${planActive}|${planPending}|${inner?.id ?? ""}|${inner?.phase ?? ""}`;
   if (sig === chipsSignature) return;
   chipsSignature = sig;
   modeChips.innerHTML = "";
-  if (state.planMode) {
-    const chip = el("span", "mode-chip plan-chip", t("📝 计划模式"));
+  if (planActive) {
+    const chip = el("span", "mode-chip plan-chip", planPending ? t("📝 计划模式(切换中…)") : t("📝 计划模式"));
     chip.title = t("点击退出计划模式(发送 /plan off)");
     const close = el("button", "chip-close", "×");
     chip.append(close);
@@ -6913,11 +7188,27 @@ function renderPending() {
     const planItems = items.filter((i) => (i as { intent?: { kind?: string } }).intent?.kind === "plan-review" && i.detail);
     const normalItems = items.filter((i) => !planItems.includes(i));
 
-    // ---------- 计划审批卡片(与网页端 PlanReviewPanel 一致:去聊天里说 / 拒绝 / 确认执行) ----------
+    // ---------- 计划审批卡片(对齐网页端 PlanReviewPanel:查看全文 / 补充意见 / 拒绝 / 确认执行) ----------
     for (const item of planItems) {
+      // 记住全文:查看全文、关闭审阅后复查、以及计划文件按钮都从这里取
+      state.planReview = { text: item.detail ?? "", title: (item as { header?: string }).header || undefined, frameRpcId: question.frameRpcId };
       const card = el("div", "pending-card pending-question plan-card");
       const head = el("div", "question-head");
-      head.append(el("span", "question-head-title", "📋 " + t("计划待审")));
+      head.append(lineIcon(ICONS.ledger, 14), el("span", "question-head-title", t("计划待审")));
+      const headActions = el("div", "plan-head-actions");
+      // 网页端 PlanPreview 的入口:在卡片内只放摘要区,全文用覆盖层看(可滚动、14px/1.75)
+      const fullBtn = el("button", "plan-link", t("查看全文"));
+      fullBtn.title = t("在整页预览中查看完整计划");
+      fullBtn.addEventListener("click", () => openPlanPreview());
+      headActions.append(fullBtn);
+      // 计划已落盘为 .dsh/plans/plan-*.md 时,额外提供「打开计划文件」
+      if (typeof state.planFile === "string" && state.planFile) {
+        const fileBtn = el("button", "plan-link", t("打开计划文件"));
+        fileBtn.title = state.planFile;
+        fileBtn.addEventListener("click", () => vscode.postMessage({ kind: "openFile", path: String(state.planFile) }));
+        headActions.append(fileBtn);
+      }
+      head.append(headActions);
       card.append(head);
       const planBox = el("div", "plan-detail-box");
       setHtml(planBox, item.detail ?? "");
@@ -6943,6 +7234,18 @@ function renderPending() {
       const customInput = makeCustomAnswerInput(t("输入修改意见,回车发送"), sendCustom);
       customRow.append(customInput);
       const actions = el("div", "question-footer-actions");
+      // 关闭审阅并补充意见(0.2.1 行为):关闭后宿主直接结束本轮等待用户反馈,
+      // 不再额外调用模型;因此这里只取消提问并把光标交回输入框。
+      const closeReview = el("button", "btn plan-close-btn", t("关闭审阅,去补充意见"));
+      closeReview.title = t("关闭本次计划审阅;Agent 会结束本轮并等待你直接输入修改意见");
+      closeReview.addEventListener("click", () => {
+        vscode.postMessage({ kind: "answerCancel", frameRpcId: question.frameRpcId });
+        state.questions.delete(question.frameRpcId);
+        renderPending();
+        input.focus();
+        showToast(t("已关闭计划审阅:请直接输入修改意见,Agent 正在等待你的反馈"), "info");
+      });
+      actions.append(closeReview);
       // 拒绝:提交非批准选项(无该选项时不显示,与网页端一致)
       if (declineOption) {
         const declineBtn = el("button", "btn btn-reject", t("拒绝"));
@@ -6958,8 +7261,8 @@ function renderPending() {
         });
         actions.append(declineBtn);
       }
-      // 确认执行:提交批准选项
-      const approveBtn = el("button", "btn btn-allow", `✅ ${t("确认执行")}`);
+      // 确认执行:提交批准选项(主操作,靠主题主按钮色区分,不再用 ✅ 前缀抢视觉)
+      const approveBtn = el("button", "btn btn-allow", t("确认执行"));
       approveBtn.title = approveOption?.description ?? "";
       approveBtn.addEventListener("click", () => {
         vscode.postMessage({
@@ -7194,7 +7497,8 @@ function renderPending() {
     // ---------- Cordis 插件审批卡(网页端 Cordis 浮窗面板同款:仅允许此版本 / 允许后续版本 / 拒绝) ----------
     const card = el("div", "pending-card pending-cordis cordis-approval-card");
     const head = el("div", "approval-head");
-    head.append(el("span", "approval-dot cordis-dot"), el("span", "approval-title", "🧩 " + t("Cordis 插件审批")));
+    // 头部只留一个分类色点(与工具审批一致);标题不再叠 emoji,避免同一行出现两种图标语言
+    head.append(el("span", "approval-dot cordis-dot"), el("span", "approval-title", t("Cordis 插件审批")));
     card.append(head);
     const body = el("div", "approval-body");
     const toolChip = el("span", "approval-tool", request.name || request.pluginId);
@@ -7212,14 +7516,16 @@ function renderPending() {
       state.cordisRequests.delete(request.requestId);
       renderPending();
     });
-    const allowOnce = el("button", "btn btn-allow", `✓ ${t("仅允许此版本")}`);
+    // 权限层级靠按钮主次表达:仅当前版本 = 主操作(蓝);包含后续版本 = 次要操作(灰),
+    // 避免两个同等强调的主按钮并排,也避免 ✓ / ✓✓ 前缀噪音。
+    const allowOnce = el("button", "btn btn-allow", t("仅允许此版本"));
     allowOnce.title = t("仅授权当前版本运行,后续版本更新时需再次审批");
     allowOnce.addEventListener("click", () => {
       vscode.postMessage({ kind: "cordisApprove", request, approveFutureVersions: false });
       state.cordisRequests.delete(request.requestId);
       renderPending();
     });
-    const allowPlugin = el("button", "btn btn-allow btn-allow-plugin", `✓✓ ${t("允许后续版本")}`);
+    const allowPlugin = el("button", "btn btn-allow-plugin", t("允许后续版本"));
     allowPlugin.title = t("授权此插件的所有后续版本自动运行,无需再次审批");
     allowPlugin.addEventListener("click", () => {
       vscode.postMessage({ kind: "cordisApprove", request, approveFutureVersions: true });
@@ -7424,6 +7730,7 @@ function applyLanguage() {
   renderContextMeter();
   renderStatsLine();
   renderTodos();
+  renderWorkingDirectoryChip();
   renderAttachments();
   updateSubagentButton();
   renderPending();
@@ -7463,6 +7770,12 @@ function handleMessage(msg: any) {
       state.permissions = msg.permissions;
       state.stats = msg.stats;
       state.todos = msg.todos;
+      // 0.2.1:当前生效目录与限时提问投影(会话头 cwd 只作回退显示)
+      state.workingDirectory = typeof msg.workingDirectory === "string" ? msg.workingDirectory : (msg.workingDirectory === null ? null : undefined);
+      state.userQuestions = msg.userQuestions;
+      state.plan = msg.plan;
+      state.planReview = undefined;
+      if (msg.plan) state.planMode = msg.plan.active === true;
       state.lang = msg.lang ?? "zh-cn";
       state.languagePref = msg.languagePref ?? "auto";
       // 骨架期创建的静态控件文案(输入框 placeholder、按钮 title、工具标签等)在
@@ -7504,8 +7817,11 @@ function handleMessage(msg: any) {
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
+      // 0.2.x:限时提问投影还原(本轮没收到 waterfall 帧的待答提问)
+      applyUserQuestionsProjection();
       // 持久化的计划文本文件:重启后重放时并入最后一个回合的产物卡,便于重新打开继续修改
       if (typeof msg.planFile === "string" && msg.planFile) {
+        state.planFile = msg.planFile;
         const lastAssistant = [...state.nodes].reverse().find((n) => n.kind === "assistant");
         if (lastAssistant) {
           const files = [...(lastAssistant.deliverables ?? [])];
@@ -7524,6 +7840,12 @@ function handleMessage(msg: any) {
       renderContextMeter();
       renderStatsLine();
       renderTodos();
+      renderWorkingDirectoryChip();
+      // 计划模式芯片必须在这里重画:init 会先按 msg.plan 更新 state.plan,
+      // 而模式芯片的绘制发生在渲染段(仅 plan 投影消息与 plan/mode 事件时才画),
+      // 漏了这一句 → 切换会话/重载后芯片要等下一条事件才出现。
+      chipsSignature = "";
+      renderModeChips();
       updateRunning();
       updateStatus(state.status);
       if (state.current) {
@@ -7786,6 +8108,28 @@ function handleMessage(msg: any) {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       state.todos = msg.value;
       renderTodos();
+      break;
+    }
+    case "workingDirectory": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      // 0.2.1:会话生效目录变化 → 更新底栏目录芯片(会话头 cwd 不随之改变)
+      state.workingDirectory = typeof msg.cwd === "string" ? msg.cwd : null;
+      renderWorkingDirectoryChip();
+      break;
+    }
+    case "userQuestions": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      // 0.2.x 限时提问投影:刷新/切换会话后由投影还原待答卡片(在线期间仍由 waterfall 帧即时补)
+      state.userQuestions = msg.value;
+      applyUserQuestionsProjection();
+      break;
+    }
+    case "plan": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      // 计划模式投影:权威的 {active, pending},芯片按 pending ? !active : active 折算
+      state.plan = msg.value;
+      if (msg.value) state.planMode = msg.value.active === true;
+      renderModeChips();
       break;
     }
     case "permissions": {

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 回滚(回合级检查点)",
+    "description": "为 DeepSeek Harness 提供逐回合的 Git 检查点:/rollback /redo /checkpoints /undo、非破坏式还原,并在网页端显示回合级还原分隔线。"
+  }
+}

@@ -45,6 +45,7 @@ import type {
   SubagentEntry,
   SubagentPromptReceipt,
   WorkspaceItem,
+  RemoteAccessFrame,
 } from "./types";
 import type {
   CordisPluginRow,
@@ -148,6 +149,50 @@ export class DshApiClient {
   /** 是否已持有认证 cookie。 */
   get authenticated(): boolean {
     return this.cookie !== undefined;
+  }
+
+  /**
+   * 本连接在网关授权模型里的身份(0.2.1 的 remoteAccess/follow 基线帧)。
+   * undefined = 尚未得知;true = owner(全量权限);false = 受限调用方(逐资源 grants)。
+   * 用启动令牌换取 cookie 的本机连接正常为 owner。
+   */
+  remoteAccessOwner: boolean | undefined;
+
+  /**
+   * 打开 remoteAccess/follow 并读取基线帧。
+   * 老宿主没有该流(404/流被拒)时返回 undefined,调用方按「无需降级」处理。
+   */
+  async probeRemoteAccess(timeoutMs = 6000): Promise<boolean | undefined> {
+    return new Promise<boolean | undefined>((resolve) => {
+      let settled = false;
+      const finish = (value: boolean | undefined) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        handle?.cancel();
+        this.remoteAccessOwner = value;
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish(undefined), timeoutMs);
+      const handle = this.openStream("remoteAccess/follow", {}, {
+        onItem: (value) => {
+          const frame = value as RemoteAccessFrame | undefined;
+          if (frame?.type !== "baseline") return;
+          finish(frame.owner === true);
+        },
+        onError: () => finish(undefined),
+        onEnd: () => finish(undefined),
+      });
+    });
+  }
+
+  /** 把所有网关授权拒绝翻成可读文案(remote-access/denied 的 details 带 action 与 reason)。 */
+  static describeDenied(error: { code?: string; message?: string; details?: unknown }): string | undefined {
+    if (error.code !== "remote-access/denied") return undefined;
+    const details = (error.details ?? {}) as { action?: string; reason?: string };
+    const action = typeof details.action === "string" && details.action ? details.action : "";
+    const reason = typeof details.reason === "string" && details.reason ? details.reason : "";
+    return action ? `网关拒绝本次调用(${action}):${reason || "该连接没有足够的访问权限"}` : `网关拒绝本次调用:${reason || "该连接没有足够的访问权限"}`;
   }
 
   private async ensureAuth(force = false): Promise<void> {

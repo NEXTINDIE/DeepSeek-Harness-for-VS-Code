@@ -61,5 +61,9 @@
   "config.uiFontFamily": "Familia tipográfica (CSS font-family) del panel de chat. Déjalo vacío para usar la fuente de la interfaz de VS Code.",
   "config.newSessionOnStartup": "Crea automáticamente una sesión vacía al abrir el panel (sin pulsar +); se restaura la sesión recordada si existe.",
   "config.rememberLastSession": "Recuerda la última sesión usada en cada espacio de trabajo y la restaura al reabrir VS Code.",
-  "config.autoCollapseProducedFiles": "Contrae la lista de archivos producidos a un resumen de una línea (clic para expandir), para que las conversaciones largas no se llenen de tarjetas."
+  "config.autoCollapseProducedFiles": "Contrae la lista de archivos producidos a un resumen de una línea (clic para expandir), para que las conversaciones largas no se llenen de tarjetas.",
+  "config.historyKey": "Cuándo ↑/↓ recuperan entradas anteriores: solo en el borde del texto (predeterminado), en cada pulsación o nunca",
+  "config.historyKey.edge": "Solo en el borde: ↑/↓ mueven el cursor mientras pueda moverse; en el borde esa pulsación recupera el historial",
+  "config.historyKey.always": "En cada pulsación: ↑/↓ recuperan de inmediato la entrada anterior/siguiente y no mueven el cursor",
+  "config.historyKey.off": "Nunca: ↑/↓ solo mueven el cursor (Ctrl/Alt + ↑/↓ siguen recuperando el historial)"
 }

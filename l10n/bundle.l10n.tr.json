@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "İnternete ve bilgisayarınızdaki her dosyaya sınırsız erişim.",
   "perm.desc.custom": "Özel bileşim (Ayarlar'dan düzenleyin).",
   "commit.modelRestoreFailed": "Commit mesajı oluşturuldu ancak varsayılan model {model} olarak geri alınamadı. Lütfen model listesinden yeniden seçin (arka planda kaydetme başarısız olmuş olabilir).",
-  "notice.openImageFailed": "Görsel açılamadı: {error}"
+  "notice.openImageFailed": "Görsel açılamadı: {error}",
+  "hub.remoteAccessLimited": "Bu DSH ana bilgisayarı bu bağlantıya yalnızca sınırlı erişim verdi; bazı işlemler reddedilebilir."
 }

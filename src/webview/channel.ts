@@ -353,6 +353,24 @@ export class ChatChannel {
         }),
       },
       {
+        // 0.2.1 会话工作目录:workingDirectory 投影 / working-directory/change 事件
+        dispose: store.on("workingDirectory", (sid: string, cwd: string | null) => {
+          if (sid === store.currentSessionId) this.post({ kind: "workingDirectory", sessionId: sid, cwd });
+        }),
+      },
+      {
+        // 0.2.x 限时提问投影(active/settled):刷新或切换会话后仍能还原待答卡片
+        dispose: store.on("userQuestions", (sid: string, value: unknown) => {
+          if (sid === store.currentSessionId) this.post({ kind: "userQuestions", sessionId: sid, value });
+        }),
+      },
+      {
+        // 计划模式投影(dsh-plan-mode):驱动模式芯片
+        dispose: store.on("plan", (sid: string, value: unknown) => {
+          if (sid === store.currentSessionId) this.post({ kind: "plan", sessionId: sid, value });
+        }),
+      },
+      {
         // 逐消息反馈(0.1.7 feedback/message-put|delete 会话事件):推给当前会话的界面
         dispose: store.on("feedbackChanged", (sid: string) => {
           if (sid === store.currentSessionId) {
@@ -482,14 +500,22 @@ export class ChatChannel {
    * 输入区偏好(issue #21):发送快捷键、面板字体、产物列表默认折叠。
    * 从设置读取,init 时下发(设置变更后 VS Code 会重新解析 webview)。
    */
-  private composerPrefs(): { sendKey: "enter" | "ctrl-enter" | "shift-enter"; fontFamily: string; autoCollapseProducedFiles: boolean } {
+  private composerPrefs(): {
+    sendKey: "enter" | "ctrl-enter" | "shift-enter";
+    fontFamily: string;
+    autoCollapseProducedFiles: boolean;
+    historyKey: "edge" | "always" | "off";
+  } {
     const cfg = vscode.workspace.getConfiguration("dsh");
     const raw = cfg.get<string>("sendKey");
     const sendKey = raw === "ctrl-enter" || raw === "shift-enter" ? raw : "enter";
+    const rawHistory = cfg.get<string>("historyKey");
+    const historyKey = rawHistory === "always" || rawHistory === "off" ? rawHistory : "edge";
     return {
       sendKey,
       fontFamily: (cfg.get<string>("uiFontFamily") ?? "").trim(),
       autoCollapseProducedFiles: cfg.get<boolean>("autoCollapseProducedFiles") !== false,
+      historyKey,
     };
   }
 
@@ -845,6 +871,12 @@ export class ChatChannel {
       permissions: current ? this.mergePermissions(current, store.permissions.get(current)) : undefined,
       stats: current ? store.stats.get(current) : undefined,
       todos: current ? store.todos.get(current) : undefined,
+      // 0.2.1:当前生效工作目录(与会话头 cwd 不同,后者是创建时的项目目录)
+      workingDirectory: current ? (store.workingDirectories.get(current) ?? null) : undefined,
+      // 0.2.x:限时提问投影(刷新后仍可还原待答卡片)
+      userQuestions: current ? store.userQuestions.get(current) : undefined,
+      // 0.2.x:计划模式投影(有效态 = pending ? !active : active)
+      plan: current ? store.plans.get(current) : undefined,
       feedback: current ? [...(store.feedback.get(current)?.values() ?? [])] : undefined,
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
       planFile: current ? this.planFiles.get(current) : undefined,
@@ -1688,6 +1720,17 @@ export class ChatChannel {
         }
         break;
       }
+      case "copyText": {
+        // 会话菜单「复制会话 ID」(0.2.1 网页端同款):剪贴板只有宿主能写
+        if (typeof msg.text === "string" && msg.text) {
+          try {
+            await vscode.env.clipboard.writeText(msg.text);
+          } catch (error) {
+            this.post({ kind: "notice", message: String(error), level: "error" });
+          }
+        }
+        break;
+      }
       case "rollbackApply": {
         // 回合级回退:统一走服务端插件命令通道(命令结果摘要经 runCommandAndNotify 透传)
         // 支持按回合号 /rollback N,或按检查点提交 /rollback <sha>(分叉分隔线兜底路径)
@@ -2080,6 +2123,19 @@ export class ChatChannel {
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.languageSetFailed", { error: String(error) }), level: "error" });
           }
+        }
+        break;
+      }
+      case "setHistoryKey": {
+        // 方向键历史召回模式(写入 dsh.historyKey,全局):edge / always / off
+        const raw = msg.historyKey;
+        if (raw === "edge" || raw === "always" || raw === "off") {
+          try {
+            await vscode.workspace.getConfiguration("dsh").update("historyKey", raw, vscode.ConfigurationTarget.Global);
+          } catch (error) {
+            console.warn("[dsh] dsh.historyKey not registered, keeping the in-session choice:", error);
+          }
+          this.post({ kind: "composerPrefs", value: this.composerPrefs() });
         }
         break;
       }

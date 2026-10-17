@@ -61,5 +61,9 @@
   "config.uiFontFamily": "聊天面板的字体族(CSS font-family)。留空跟随 VS Code 界面字体;Windows 中文用户可填 \"Microsoft YaHei UI\", \"Microsoft YaHei\", sans-serif 以获得更好的中文字形。",
   "config.newSessionOnStartup": "打开聊天面板时自动新建一个空会话(无需手动点「＋」);已有上次会话时优先恢复。",
   "config.rememberLastSession": "记住每个工作区最后使用的会话,重新打开 VS Code 时自动恢复。",
-  "config.autoCollapseProducedFiles": "产物文件列表默认折叠为一行摘要(点击展开),避免多轮对话后被大量产物卡片占满。"
+  "config.autoCollapseProducedFiles": "产物文件列表默认折叠为一行摘要(点击展开),避免多轮对话后被大量产物卡片占满。",
+  "config.historyKey": "↑/↓ 调回历史输入的时机:只在光标到达边界时(默认)、每次按键都调回、或关闭",
+  "config.historyKey.edge": "只在边界召回:光标还能上下移动时只移动光标;已经到不了更上方 / 更下方时,那一次按键立即调回历史",
+  "config.historyKey.always": "一按就召回:↑/↓ 直接调回上一条 / 下一条输入,不再移动光标",
+  "config.historyKey.off": "关闭:普通 ↑/↓ 只移动光标;仍可用 Ctrl/Alt + ↑/↓ 调回历史"
 }

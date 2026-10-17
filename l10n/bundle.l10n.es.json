@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "Acceso sin restricciones a Internet y a cualquier archivo de tu equipo.",
   "perm.desc.custom": "Combinación personalizada (edítala en Ajustes).",
   "commit.modelRestoreFailed": "El mensaje de commit se generó, pero no se pudo restaurar el modelo predeterminado a {model}. Vuelve a elegirlo en la lista de modelos (puede que el guardado en segundo plano haya fallado).",
-  "notice.openImageFailed": "No se pudo abrir la imagen: {error}"
+  "notice.openImageFailed": "No se pudo abrir la imagen: {error}",
+  "hub.remoteAccessLimited": "Este host DSH solo concedió acceso limitado a esta conexión; algunas acciones pueden rechazarse."
 }

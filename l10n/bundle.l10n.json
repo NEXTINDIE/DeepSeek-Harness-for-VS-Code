@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "Unrestricted access to the internet and any file on your computer.",
   "perm.desc.custom": "Custom combination (edit it in Settings).",
   "commit.modelRestoreFailed": "The commit message was generated, but the default model could not be restored to {model}. Please pick it again in the model dropdown (the host's background save may have failed).",
-  "notice.openImageFailed": "Could not open the image: {error}"
+  "notice.openImageFailed": "Could not open the image: {error}",
+  "hub.remoteAccessLimited": "This DSH host granted only limited access to this connection, so some actions may be refused."
 }

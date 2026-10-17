@@ -198,5 +198,6 @@
   "perm.desc.dangerFullAccess": "可不受限制地存取網際網路和你電腦上的任何檔案",
   "perm.desc.custom": "自訂組合(在設定中編輯)",
   "commit.modelRestoreFailed": "提交訊息已產生,但預設模型未能還原為 {model}。請在模型下拉中重新選擇一次(主機背景儲存可能失敗)。",
-  "notice.openImageFailed": "開啟圖片失敗:{error}"
+  "notice.openImageFailed": "開啟圖片失敗:{error}",
+  "hub.remoteAccessLimited": "該 DSH 主機只給本連線授予受限存取權限,部分操作可能被拒絕。"
 }

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Reversión de Git (puntos de control por turno)",
+    "description": "Puntos de control Git por turno para DeepSeek Harness: /rollback /redo /checkpoints /undo, restauración no destructiva y separadores de restauración por turno en la interfaz web."
+  }
+}

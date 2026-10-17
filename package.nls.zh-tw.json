@@ -61,5 +61,9 @@
   "config.uiFontFamily": "聊天面板的字型(CSS font-family)。留空跟隨 VS Code 介面字型;Windows 使用者可填 \"Microsoft JhengHei UI\", \"Microsoft JhengHei\", sans-serif。",
   "config.newSessionOnStartup": "開啟聊天面板時自動建立一個空工作階段(無需手動點「＋」);若有上次的工作階段則優先恢復。",
   "config.rememberLastSession": "記住每個工作區最後使用的工作階段,重新開啟 VS Code 時自動恢復。",
-  "config.autoCollapseProducedFiles": "產物檔案清單預設折疊為一行摘要(點擊展開),避免多輪對話被大量產物卡片佔滿。"
+  "config.autoCollapseProducedFiles": "產物檔案清單預設折疊為一行摘要(點擊展開),避免多輪對話被大量產物卡片佔滿。",
+  "config.historyKey": "↑/↓ 調回歷史輸入的時機:只在游標到達邊界時(預設)、每次按鍵都調回、或關閉",
+  "config.historyKey.edge": "只在邊界召回:游標還能上下移動時只移動游標;已經到不了更上方 / 更下方時,該次按鍵立即調回歷史",
+  "config.historyKey.always": "一按就召回:↑/↓ 直接調回上一條 / 下一條輸入,不再移動游標",
+  "config.historyKey.off": "關閉:一般 ↑/↓ 只移動游標;仍可用 Ctrl/Alt + ↑/↓ 調回歷史"
 }

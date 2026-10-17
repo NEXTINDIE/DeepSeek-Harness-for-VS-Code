@@ -61,5 +61,9 @@
   "config.uiFontFamily": "채팅 패널 글꼴(CSS font-family). 비워 두면 VS Code UI 글꼴을 따릅니다. 한국어는 \"Malgun Gothic\", sans-serif 를 권장합니다.",
   "config.newSessionOnStartup": "채팅 패널을 열 때 빈 세션을 자동으로 만듭니다(＋를 누를 필요 없음). 기억된 세션이 있으면 그것을 복원합니다.",
   "config.rememberLastSession": "작업 영역별로 마지막으로 사용한 세션을 기억하고 VS Code 재시작 시 복원합니다.",
-  "config.autoCollapseProducedFiles": "산출물 파일 목록을 기본적으로 한 줄 요약으로 접습니다(클릭하여 펼침). 긴 대화가 산출물 카드로 가득 차는 것을 막습니다."
+  "config.autoCollapseProducedFiles": "산출물 파일 목록을 기본적으로 한 줄 요약으로 접습니다(클릭하여 펼침). 긴 대화가 산출물 카드로 가득 차는 것을 막습니다.",
+  "config.historyKey": "↑/↓로 이전 입력을 불러오는 시점: 커서가 끝에 있을 때만(기본), 매번, 사용 안 함",
+  "config.historyKey.edge": "끝에서만: 커서가 움직일 수 있으면 이동하고, 더 못 움직이는 누름에서 기록을 불러옵니다",
+  "config.historyKey.always": "매번: ↑/↓가 이전/다음 입력을 즉시 불러오고 커서는 움직이지 않습니다",
+  "config.historyKey.off": "사용 안 함: 일반 ↑/↓는 커서만 이동(Ctrl/Alt + ↑/↓로는 기록을 불러올 수 있음)"
 }
