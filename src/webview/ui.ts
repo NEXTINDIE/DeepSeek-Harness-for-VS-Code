@@ -4527,23 +4527,44 @@ function parsePresentedFiles(rawArgs: unknown): { path: string; description?: st
   }
 }
 
-/** 交付文件卡(网页端 PresentedFileCard 同款:文件图标 + 名称 + 描述 + 打开/更多)。 */
+/**
+ * 文件类型图标(对齐网页端的 FileTypeIcon):按扩展名给一个类型桶,
+ * 桶决定图标与底色 —— 之前所有产物都用同一个「复制」图标,看起来像误触按钮。
+ */
+function presentedIconTone(name: string): { icon: string; tone: string } {
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"].includes(ext)) return { icon: ICONS.image, tone: "image" };
+  if (["vsix", "zip", "tar", "gz", "tgz", "7z", "rar", "jar", "whl"].includes(ext)) return { icon: ICONS.box, tone: "package" };
+  if (["ts", "tsx", "js", "jsx", "mjs", "cjs", "json", "jsonc", "py", "ps1", "sh", "bash", "css", "scss", "html", "htm", "yml", "yaml", "toml", "ini", "sql", "go", "rs", "java", "c", "h", "cpp", "cs", "rb", "php"].includes(ext))
+    return { icon: ICONS.file, tone: "code" };
+  if (["md", "markdown", "txt", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "log"].includes(ext))
+    return { icon: ICONS.ledger, tone: "doc" };
+  return { icon: ICONS.file, tone: "plain" };
+}
+
+/** 交付文件卡(网页端 PresentedFileCard 同款:类型图标 + 名称 + 描述 + 打开/更多,整卡可点)。 */
 function buildPresentedCard(file: { path: string; description?: string }): HTMLElement {
   const card = el("div", "deliverable-card");
   const name = basename(file.path);
   const ext = name.includes(".") ? name.split(".").pop()!.toUpperCase() : "";
-  const icon = el("span", "deliverable-icon");
-  icon.append(lineIcon(ICONS.copy, 16));
+  const { icon: iconPaths, tone } = presentedIconTone(name);
+  const icon = el("span", `deliverable-icon tone-${tone}`);
+  icon.append(lineIcon(iconPaths, 18));
   const body = el("div", "deliverable-body");
   body.append(el("div", "deliverable-name", name));
   body.append(el("div", "deliverable-desc", (file.description ?? "").trim() || ext || t("文件")));
+  // 网页端整卡可点即预览:这里同样点卡片任意处打开(按钮各自 stopPropagation)
+  const openFile = () => vscode.postMessage({ kind: "openFile", path: file.path });
+  card.title = t("点击打开:{path}", { path: file.path });
+  card.addEventListener("click", openFile);
   const split = el("div", "deliverable-split");
-  const open = el("button", "deliverable-open", t("打开"));
+  const open = el("button", "deliverable-open");
   open.type = "button";
-  open.title = file.path;
+  open.title = t("打开");
+  open.append(lineIcon(ICONS.rightUp, 14));
   open.addEventListener("click", (e) => {
     e.stopPropagation();
-    vscode.postMessage({ kind: "openFile", path: file.path });
+    openFile();
   });
   const more = el("button", "deliverable-more");
   more.type = "button";
@@ -4561,7 +4582,9 @@ function buildPresentedCard(file: { path: string; description?: string }): HTMLE
         });
         menu.append(row);
       };
-      add(ICONS.rightUp, t("用默认应用打开"), () => vscode.postMessage({ kind: "openInDefaultApp", path: file.path }));
+      add(ICONS.rightUp, t("打开"), () => vscode.postMessage({ kind: "openFile", path: file.path }));
+      add(ICONS.copy, t("复制路径"), () => vscode.postMessage({ kind: "copyText", text: file.path }));
+      add(ICONS.globe, t("用默认应用打开"), () => vscode.postMessage({ kind: "openInDefaultApp", path: file.path }));
       add(ICONS.folder, t("在资源管理器中显示"), () => vscode.postMessage({ kind: "revealInExplorer", path: file.path }));
     });
   });

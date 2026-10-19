@@ -1,6 +1,17 @@
 # Changelog
 
 
+## 0.13.57
+- **Deliverable cards now match the web card anatomy.** Every presented file used to show the same copy glyph as its icon — it looked like a stray button. Icons are now a 34px rounded tile tinted by file type with the matching pictogram: images (purple), archives and .vsix (amber), source and config files (blue), documents (green), everything else neutral. Same name + description layout, same one-line height.
+- **The whole card opens the file**, like the web's full-card preview target, while the action buttons stop propagation so a click never fires twice.
+- **Actions are icon buttons instead of a text button.** The right-hand split control is now 打开 (arrow) + chevron, and the menu lists 打开 / 复制路径 / 用默认应用打开 / 在资源管理器中显示 — all with line icons, no emoji.
+- Verified with an 8-check harness (four cards rendered with the expected per-type tones and distinct icons, whole-card click, single fire from the open button, four menu entries with no emoji, 复制路径 sending copyText) plus all eleven existing suites, typecheck and 684 keys; the cards were rendered from the real bundle.
+- **交付文件卡对齐网页端**。之前每张产物卡都用同一个「复制」图形当图标,看起来像个多余按钮。现在图标改成 34px 圆角瓷砖,按文件类型着色并配对应图形:图片(紫)、压缩包与 .vsix(琥珀)、源码与配置(蓝)、文档(绿),其余中性色;名称 + 描述的两行结构与行高保持不变。
+- **整张卡可点即打开**,与网页端"整卡预览"一致;操作按钮各自 stopPropagation,不会触发两次。
+- **操作改成图标按钮**:右侧是「打开」(箭头)+ 展开箭头,菜单为 打开 / 复制路径 / 用默认应用打开 / 在资源管理器中显示,全部线性图标、无 emoji。
+- 验证:8 项夹具(四张卡的类型色调与图形各不相同、整卡点击、打开按钮只触发一次、菜单四项无 emoji、复制路径发出 copyText)+ 既有十一套夹具、typecheck 与 684 键;卡片用真实包渲染核对。
+
+
 ## 0.13.56
 - **Settings forms are no longer a dense grid.** Every schema field now renders as label + one-line description + a full-width control, with a 14px rhythm between fields, 30px-tall inputs, a focus ring taken from the theme, a divider above the action row and roomier section padding. Nested objects keep their disclosure group, and the "discover models" block got the same breathing room (2 columns that collapse to 1 below 430px).
 - **Buttons use line icons instead of emoji.** 保存 / 重置命名空间 / 发现模型 / 清除 now carry the save, refresh, search and trash glyphs from the shared icon set (drawn in the current foreground colour), so they match the rest of the UI and read the same in light and dark themes.

@@ -5076,15 +5076,42 @@ button {
   background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
 }
 
+/* 文件类型图标:圆角方块 + 类型色调(对齐网页端 FileTypeIcon 的观感) */
 .deliverable-icon {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--dsh-border);
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
-  color: var(--vscode-textLink-foreground, #4d93f8);
+  border: 1px solid var(--dsh-border);
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.08));
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 类型色调:与网页端一致的做法——底色很淡,图标本身取类型色 */
+.deliverable-icon.tone-image {
+  color: var(--vscode-charts-purple, #b180d7);
+  background: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 14%, transparent);
+}
+
+.deliverable-icon.tone-package {
+  color: var(--vscode-charts-orange, #d18616);
+  background: color-mix(in srgb, var(--vscode-charts-orange, #d18616) 14%, transparent);
+}
+
+.deliverable-icon.tone-code {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 12%, transparent);
+}
+
+.deliverable-icon.tone-doc {
+  color: var(--vscode-charts-green, #89d185);
+  background: color-mix(in srgb, var(--vscode-charts-green, #89d185) 12%, transparent);
+}
+
+.deliverable-icon.tone-plain {
+  color: var(--vscode-descriptionForeground);
 }
 
 .deliverable-body {
@@ -5121,11 +5148,13 @@ button {
 }
 
 .deliverable-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: transparent;
   color: var(--dsh-fg);
-  font-size: 12px;
-  padding: 0 12px;
+  padding: 0 10px;
   height: 28px;
   cursor: pointer;
 }
