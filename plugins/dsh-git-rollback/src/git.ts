@@ -110,11 +110,38 @@ export function sanitizeRefPart(value: string) {
 export function shortHash(hash: string) {
     return String(hash).slice(0, 8);
 }
-export function checkpointRef(refPrefix: string, sid: string) {
-    return `${refPrefix}/checkpoints/${sanitizeRefPart(sid)}`;
+/**
+ * 会话在不同工作目录(典型:Git 工作树)之间切换时,给引用加一段稳定的作用域后缀。
+ * 生效目录与会话头 cwd(项目原始目录)一致时返回 undefined —— 保持旧的引用名,
+ * 老会话的检查点链不会因为这次升级而失联。
+ */
+export function cwdScope(cwd: string, headerCwd: string | undefined) {
+    if (!headerCwd)
+        return cwdToken(cwd);
+    const norm = (p: string) => String(p).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    if (norm(cwd) === norm(headerCwd))
+        return undefined;
+    return cwdToken(cwd);
 }
-export function saveRef(refPrefix: string, sid: string) {
-    return `${refPrefix}/saves/${sanitizeRefPart(sid)}`;
+/** 目录 → 8 位十六进制令牌(FNV-1a,跨平台稳定,无需读盘)。 */
+function cwdToken(cwd: string) {
+    let h = 0x811c9dc5;
+    const s = String(cwd).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    for (let i = 0; i < s.length; i += 1) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, "0");
+}
+/** 检查点链引用;scope 存在时按「会话 + 目录」分链,避免工作树之间互相覆盖。 */
+export function checkpointRef(refPrefix: string, sid: string, scope?: string) {
+    const base = `${refPrefix}/checkpoints/${sanitizeRefPart(sid)}`;
+    return scope ? `${base}-${scope}` : base;
+}
+/** /rollback 的保存点引用(与检查点链同样按目录分链)。 */
+export function saveRef(refPrefix: string, sid: string, scope?: string) {
+    const base = `${refPrefix}/saves/${sanitizeRefPart(sid)}`;
+    return scope ? `${base}-${scope}` : base;
 }
 export function recordPath(cwd: string, sid: string) {
     return join(cwd, RECORD_DIR, `${sanitizeRefPart(sid)}.json`);

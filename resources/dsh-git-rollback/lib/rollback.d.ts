@@ -2,6 +2,8 @@ export interface RollbackOptions {
     gitBin: string;
     refPrefix: string;
     commitPrefix: string;
+    /** 生效目录作用域(会话切到工作树等其它目录时非空),决定检查点/保存点引用的后缀。 */
+    scope?: string;
 }
 export type CommandText = {
     kind: "success";

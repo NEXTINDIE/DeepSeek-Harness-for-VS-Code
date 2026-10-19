@@ -65,5 +65,9 @@
   "config.historyKey": "How ↑/↓ recall previous inputs: only at the edge of the text (default), on every press, or never",
   "config.historyKey.edge": "Only at the edge: ↑/↓ move the caret while it can still move, and recall history on the press that cannot move further",
   "config.historyKey.always": "On every press: ↑/↓ recall the previous/next input immediately and never move the caret",
-  "config.historyKey.off": "Never: plain ↑/↓ only move the caret (Ctrl/Alt + ↑/↓ still recall history)"
+  "config.historyKey.off": "Never: plain ↑/↓ only move the caret (Ctrl/Alt + ↑/↓ still recall history)",
+  "config.stepCollapse": "When to collapse the collapsed step summary of a turn's thinking and tool calls.",
+  "config.stepCollapse.end": "Collapse after the answer finishes",
+  "config.stepCollapse.next": "Collapse when the next message arrives",
+  "config.stepCollapse.never": "Never collapse automatically"
 }

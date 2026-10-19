@@ -440,6 +440,95 @@ function markdownHtml(text: string): string {
 
 function setHtml(node: HTMLElement, text: string) {
   node.innerHTML = markdownHtml(text);
+  decorateCodeBlocks(node);
+}
+
+/**
+ * 代码块外观对齐网页端:围栏代码外面套一个盒子,顶部一条 header(语言标签 + 复制按钮)。
+ * 纯装饰,不改变内容;流式重绘会整块重建,因此只在存在未装饰的 pre 时工作。
+ */
+function decorateCodeBlocks(root: HTMLElement) {
+  const pres = root.querySelectorAll<HTMLPreElement>("pre");
+  for (const pre of pres) {
+    const parent = pre.parentElement;
+    if (!parent || parent.classList.contains("code-block")) continue;
+    // 工具行 / 差异视图自带容器,不重复包装
+    if (pre.classList.contains("tool-pre") || parent.classList.contains("diff-view")) continue;
+    const code = pre.querySelector("code");
+    const langClass = code?.className ?? "";
+    const lang = /language-([\w+#.-]+)/.exec(langClass)?.[1] ?? "";
+    const wrapper = el("div", "code-block");
+    const head = el("div", "code-head");
+    head.append(el("span", "code-lang", lang ? langLabel(lang) : t("代码块")));
+    const actions = el("span", "code-actions");
+    const copyBtn = el("button", "code-copy") as HTMLButtonElement;
+    copyBtn.type = "button";
+    copyBtn.title = t("复制代码");
+    copyBtn.append(lineIcon(ICONS.copy, 12));
+    copyBtn.addEventListener("click", () => {
+      const text = code?.textContent ?? pre.textContent ?? "";
+      vscode.postMessage({ kind: "copyText", text });
+      copyBtn.title = t("已复制");
+      copyBtn.classList.add("copied");
+      window.setTimeout(() => {
+        copyBtn.title = t("复制代码");
+        copyBtn.classList.remove("copied");
+      }, 1200);
+    });
+    actions.append(copyBtn);
+    head.append(actions);
+    parent.insertBefore(wrapper, pre);
+    wrapper.append(head, pre);
+  }
+}
+
+/** 常见语言 id → 展示名(与网页端一致的大小写习惯)。 */
+function langLabel(lang: string): string {
+  const lower = lang.toLowerCase();
+  const KNOWN: Record<string, string> = {
+    ts: "TypeScript",
+    typescript: "TypeScript",
+    tsx: "TSX",
+    js: "JavaScript",
+    javascript: "JavaScript",
+    jsx: "JSX",
+    json: "JSON",
+    jsonc: "JSON",
+    sh: "Shell",
+    bash: "Shell",
+    shell: "Shell",
+    zsh: "Shell",
+    ps1: "PowerShell",
+    powershell: "PowerShell",
+    pwsh: "PowerShell",
+    py: "Python",
+    python: "Python",
+    yml: "YAML",
+    yaml: "YAML",
+    md: "Markdown",
+    markdown: "Markdown",
+    html: "HTML",
+    css: "CSS",
+    scss: "SCSS",
+    diff: "Diff",
+    patch: "Diff",
+    sql: "SQL",
+    go: "Go",
+    rust: "Rust",
+    rs: "Rust",
+    java: "Java",
+    c: "C",
+    cpp: "C++",
+    "c++": "C++",
+    cs: "C#",
+    csharp: "C#",
+    xml: "XML",
+    toml: "TOML",
+    ini: "INI",
+    text: "Text",
+    txt: "Text",
+  };
+  return KNOWN[lower] ?? lang;
 }
 
 function escapeHtml(s: string): string {
@@ -547,6 +636,10 @@ const ICONS = {
   x: "M18 6 6 18|M6 6l12 12",
   edit: "M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
   eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  // 保存(软盘)
+  save: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z|M17 21v-8H7v8|M7 3v5h8",
+  // 刷新(环形箭头)
+  refresh: "M21 12a9 9 0 1 1-3-6.7|M21 3v6h-6",
   trash: "M3 6h18|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6",
   folder: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
   back: "M19 12H5|M12 19l-7-7 7-7",
@@ -1299,6 +1392,49 @@ const EN_TEXT: Record<string, string> = {
   "点击查看文件": "Click to view the file",
   "点击在资源管理器中显示": "Click to reveal in the file explorer",
   "点击查看图片": "Click to view the image",
+  // ---- 对话内图片:点击放大 ----
+  "点击查看大图": "Click to enlarge",
+  "发现模型": "Discover models",
+  "JSON 格式有误,修正后才会保存。": "Invalid JSON — the value will not be saved until it is fixed.",
+  "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "No presets could be parsed from the host settings; showing the generic form below.",
+  // ---- 工作树卡片 ----
+  "工作树": "Worktree",
+  "定位": "Reveal",
+  "在资源管理器中显示该工作树": "Reveal this worktree in the explorer",
+  "复制路径": "Copy path",
+  // ---- 账号卡片 / 代码块 / 设置分区(0.2.1 accountController) ----
+  "DeepSeek 账号": "DeepSeek account",
+  "读取账号状态中…": "Reading account status…",
+  "当前宿主的 dsh web 未启用 DeepSeek 账号功能(需要 0.2.1 及以上并升级 profile)。": "This host's dsh web does not expose the DeepSeek account controller (requires 0.2.1+ with an upgraded profile).",
+  "未登录": "Not signed in",
+  "登录后可使用账号模型,并在这里查看余额与用量。": "Sign in to use account models and see your balance and usage here.",
+  "登录 DeepSeek 账号": "Sign in with DeepSeek",
+  "用量": "Usage",
+  "充值": "Top up",
+  "已登录": "Signed in",
+  "退出登录": "Sign out",
+  "余额": "Balance",
+  "赠送额度": "Bonus credit",
+  "余额读取失败或暂不可用。": "Balance could not be read or is currently unavailable.",
+  "宿主没有提供默认权限设置。": "This host does not provide default permission settings.",
+  "代码块": "Code",
+  "复制代码": "Copy code",
+  "已复制": "Copied",
+  "已在浏览器中打开登录页,完成后回到这里即可": "Opened the sign-in page in your browser; come back here when you are done.",
+  "登录流程已取消": "Sign-in cancelled",
+  "无法开始登录": "Could not start sign-in",
+  // ---- 思考翻译(0.2.1 cotTranslation) ----
+  "译": "Translate",
+  "把这段思考翻译成界面语言": "Translate this reasoning into the interface language",
+  "翻译中…": "Translating…",
+  "译文": "Translation",
+  "(已按单次上限截断)": "(truncated at the per-request limit)",
+  "原文": "Original",
+  "翻译失败": "Translation failed",
+  // ---- 工作步骤收起时机(设置页) ----
+  "工作步骤:思考与工具调用段的自动收起时机": "Work steps: when to auto-collapse reasoning and tool-call groups",
+  "设置在 dsh.stepCollapse;手动展开过的段不会因为重绘又被收起。": "Stored in dsh.stepCollapse; a group you expand by hand is not collapsed again by a re-render.",
+  "图片": "image",
   "查看文件": "View file",
   "先把图片保存为临时文件,再交给系统默认应用": "Saves the image to a temporary file, then opens it with the system default app",
   "加载失败": "Load failed",
@@ -2023,7 +2159,44 @@ function renderCheckpointsDialog(data: { head: string; dirty: number; sessions: 
   rbConfirm.hidden = true;
 }
 
+// ---------- Git 工作树卡片(0.2.1 create_worktree 的可视化入口) ----------
+/** 渲染工作树卡片:分支 + 路径 + 定位 / 复制。非 linked worktree 时整体隐藏。 */
+function renderWorktreeCard() {
+  worktreeArea.innerHTML = "";
+  const info = worktreeInfo;
+  if (!info || !info.isWorktree) {
+    worktreeArea.hidden = true;
+    return;
+  }
+  worktreeArea.hidden = false;
+  const card = el("div", "worktree-card");
+  const icon = el("span", "worktree-icon");
+  icon.append(lineIcon(ICONS.branch, 13));
+  const body = el("span", "worktree-body");
+  const title = el("span", "worktree-title", t("工作树"));
+  const branch = el("span", "worktree-branch", info.branch ?? "—");
+  const path = el("span", "worktree-path", info.path);
+  path.title = info.path;
+  body.append(title, branch, path);
+  const actions = el("span", "worktree-actions");
+  const reveal = el("button", "mini-btn") as HTMLButtonElement;
+  reveal.textContent = t("定位");
+  reveal.title = t("在资源管理器中显示该工作树");
+  reveal.addEventListener("click", () => vscode.postMessage({ kind: "revealInExplorer", path: info.path }));
+  const copy = el("button", "mini-btn") as HTMLButtonElement;
+  copy.textContent = t("复制路径");
+  copy.title = info.path;
+  copy.addEventListener("click", () => vscode.postMessage({ kind: "copyText", text: info.path }));
+  actions.append(reveal, copy);
+  card.append(icon, body, actions);
+  worktreeArea.append(card);
+}
+
 // goal 进度卡
+// Git 工作树卡片(linked worktree 时出现,主检出隐藏)
+const worktreeArea = el("div", "worktree-area");
+worktreeArea.hidden = true;
+
 const goalArea = el("div", "goal-area");
 goalArea.hidden = true;
 
@@ -2249,7 +2422,7 @@ const plusMenu = el("div", "plus-menu");
 plusMenu.hidden = true;
 composer.append(plusMenu);
 
-root.append(header, goalArea, messages, conversationBottom, pendingArea, statusRow, composer, statsLine);
+root.append(header, worktreeArea, goalArea, messages, conversationBottom, pendingArea, statusRow, composer, statsLine);
 app.append(root);
 
 // ---------- 事件 ----------
@@ -2562,6 +2735,8 @@ input.addEventListener("input", () => {
   updateSendButton();
   updateMention();
   updateSlash();
+  // 草稿即时保存(去抖):面板重载 / 关闭窗口后仍能恢复未发送内容
+  scheduleDraftSave();
   // 用户手动编辑历史调回的文本 = 放弃历史浏览并保留当前文本(避免 ↓ 把编辑内容顶掉)
   if (historyCursor !== -1 && !writingHistoryText) {
     historyDraft = input.value;
@@ -3221,6 +3396,18 @@ let writingHistoryText = false;
  */
 let historyKeyMode: "edge" | "always" | "off" = "edge";
 
+/** 工作步骤(思考/工具段)自动收起时机(dsh.stepCollapse):回答结束 / 下一条消息到来 / 从不。 */
+let stepCollapseMode: "end" | "next" | "never" = "end";
+
+/** 思考翻译能力(0.2.1 实验性 cotTranslation):不可用时思考行末不出现「译」按钮。 */
+let cotTranslationAvailable = false;
+
+/** 当前会话的 Git 工作树信息(linked worktree 才显示卡片)。 */
+let worktreeInfo: { path: string; branch?: string; isWorktree: boolean } | null = null;
+/** 待回填的翻译请求:requestId → 渲染目标。 */
+const pendingTranslations = new Map<string, { host: HTMLElement; button: HTMLButtonElement }>();
+let translateRequestSeq = 0;
+
 /** 等待 keyup 判定的方向键(edge 模式):记录按下时的光标位置与文本。 */
 let pendingArrow: { key: "ArrowUp" | "ArrowDown"; pos: number; value: string; scrollTop: number } | null = null;
 
@@ -3244,6 +3431,88 @@ function persistInputHistory() {
   } catch {
     // 状态 API 不可用:本次会话内仍可用,只是不跨窗口重载
   }
+}
+
+// ---------- 按会话的草稿(0.2.1-rc.1:「新会话支持预填未发送的提示;恢复草稿或切换工作区时保留引用」) ----------
+/**
+ * 草稿 = 输入框文字 + 手工附件 + 图片。
+ * 之前切换会话时输入框内容会被带到新会话里(既可能误发,也可能丢稿),这里按会话 id 分开存:
+ * 切走时存档、切回时还原;发送成功后清掉该会话的草稿。持久化到 webview state,窗口重载后仍在。
+ */
+interface ComposerDraft {
+  text: string;
+  attachments: { kind: "file" | "folder"; path: string; label?: string }[];
+  images: { data: string; mediaType: string; name: string }[];
+}
+const DRAFT_MAX = 20;
+let drafts = new Map<string, ComposerDraft>();
+
+function restoreDrafts() {
+  try {
+    const saved = vscode.getState?.() as { drafts?: unknown } | undefined;
+    if (!saved?.drafts || typeof saved.drafts !== "object") return;
+    for (const [sid, value] of Object.entries(saved.drafts as Record<string, unknown>)) {
+      const draft = value as Partial<ComposerDraft> | undefined;
+      if (!draft || typeof draft.text !== "string") continue;
+      drafts.set(sid, {
+        text: draft.text,
+        attachments: Array.isArray(draft.attachments) ? draft.attachments.filter((a) => !!a && typeof a.path === "string") : [],
+        images: Array.isArray(draft.images) ? draft.images.filter((i) => !!i && typeof i.data === "string") : [],
+      });
+    }
+  } catch {
+    drafts = new Map();
+  }
+}
+
+function persistDrafts() {
+  try {
+    const current = (vscode.getState?.() as Record<string, unknown> | undefined) ?? {};
+    const plain: Record<string, ComposerDraft> = {};
+    // 只保留最近写入的若干条,避免 webview state 无限增长
+    for (const [sid, draft] of [...drafts.entries()].slice(-DRAFT_MAX)) plain[sid] = draft;
+    vscode.setState?.({ ...current, drafts: plain });
+  } catch {
+    // 状态 API 不可用:本次会话内仍生效
+  }
+}
+
+/** 把当前输入区内容存为该会话的草稿(空草稿直接从表里删掉)。 */
+function saveDraftOf(sessionId: string | null | undefined) {
+  if (!sessionId) return;
+  const text = input.value;
+  const manual = state.attachments
+    .filter((a) => !a.auto)
+    .map((a) => ({ kind: a.kind, path: a.path, label: a.label }));
+  const images = state.images.map((i) => ({ data: i.data, mediaType: i.mediaType, name: i.name }));
+  if (!text.trim() && manual.length === 0 && images.length === 0) drafts.delete(sessionId);
+  else drafts.set(sessionId, { text, attachments: manual, images });
+  persistDrafts();
+}
+
+let draftSaveTimer: number | null = null;
+/** 去抖保存草稿(输入事件很密,setState 也有成本)。 */
+function scheduleDraftSave() {
+  if (draftSaveTimer !== null) window.clearTimeout(draftSaveTimer);
+  draftSaveTimer = window.setTimeout(() => {
+    draftSaveTimer = null;
+    saveDraftOf(state.current);
+  }, 400);
+}
+
+/** 还原某会话的草稿(没有草稿就清空输入区,避免上一个会话的内容残留)。 */function restoreDraftOf(sessionId: string | null | undefined) {
+  const draft = sessionId ? drafts.get(sessionId) : undefined;
+  const text = draft?.text ?? "";
+  if (input.value !== text) {
+    input.value = text;
+    exitHistoryBrowsing();
+  }
+  // 自动挂上的「当前文件」条目保留(由 activeFile 驱动),只替换手工附件
+  state.attachments = [...state.attachments.filter((a) => a.auto), ...(draft?.attachments ?? []).map((a) => ({ ...a, label: a.label ?? a.path }))];
+  state.images = (draft?.images ?? []).map((i) => ({ ...i }));
+  renderAttachments();
+  autoResize();
+  updateSendButton();
 }
 
 /** 记录一条已发送的输入(连续重复不入栈)。 */
@@ -3371,6 +3640,7 @@ function historyForwardAtLatest() {
 }
 
 restoreInputHistory();
+restoreDrafts();
 
 // ---------- 输入区偏好(issue #21:发送快捷键 / 面板字体 / 产物列表折叠) ----------
 
@@ -3381,12 +3651,14 @@ let autoCollapseProducedFiles = true;
 /** 输入区字体(留空跟随 VS Code 界面字体)。 */
 let composerFontFamily = "";
 
-function applyComposerPrefs(prefs: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string } | undefined) {
+function applyComposerPrefs(prefs: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string; stepCollapse?: string } | undefined) {
   if (!prefs) return;
   sendKeyMode = prefs.sendKey === "ctrl-enter" || prefs.sendKey === "shift-enter" ? prefs.sendKey : "enter";
   if (typeof prefs.autoCollapseProducedFiles === "boolean") autoCollapseProducedFiles = prefs.autoCollapseProducedFiles;
   // 方向键历史召回模式(默认 edge:光标到不了才召回)
   historyKeyMode = prefs.historyKey === "always" || prefs.historyKey === "off" ? prefs.historyKey : "edge";
+  // 工作步骤收起时机(默认 end:回答结束后收起;next:下一条消息到来时;never:不自动收起)
+  stepCollapseMode = prefs.stepCollapse === "next" || prefs.stepCollapse === "never" ? prefs.stepCollapse : "end";
   pendingArrow = null;
   // 字体:用户显式配置时覆盖主题字体(--dsh-font);留空则继续跟随 VS Code 界面字体
   const family = (prefs.fontFamily ?? "").trim();
@@ -3472,9 +3744,10 @@ function renderWorkingDirectoryChip() {
   }
   const parts = cwd.split(/[\\/]+/).filter(Boolean);
   const label = parts.length > 0 ? parts[parts.length - 1] : cwd;
-  cwdChipText.textContent = t("工作目录:{name}", { name: label });
+  // 只显示目录名(前缀由提示行的位置与图标表达):完整路径在 title 里,窄侧栏也不会被撑开
+  cwdChipText.textContent = label;
   cwdChip.title = t("当前生效的工作目录:{path}\n点击在资源管理器中显示", { path: cwd });
-  cwdChip.setAttribute("aria-label", cwdChip.title);
+  cwdChip.setAttribute("aria-label", t("工作目录:{name}", { name: label }));
   cwdChip.hidden = false;
 }
 
@@ -4423,6 +4696,18 @@ function renderAssistantBlocks(assistant: NodeState): HTMLElement {
       const nameSpan = el("span", "step-name");
       nameSpan.append(icon, title);
       summary.append(nameSpan, el("span", "step-sep"), preview);
+      // 思考翻译(0.2.1 cotTranslation,默认未组合):能力可用时才出现「译」
+      const translateBtn = el("button", "think-translate", t("译")) as HTMLButtonElement;
+      translateBtn.type = "button";
+      translateBtn.title = t("把这段思考翻译成界面语言");
+      translateBtn.hidden = !cotTranslationAvailable;
+      translateBtn.addEventListener("click", (event) => {
+        // summary 的点击会切换 details:翻译按钮必须拦下,避免顺带折叠思考
+        event.preventDefault();
+        event.stopPropagation();
+        toggleReasoningTranslation(details, block, translateBtn);
+      });
+      summary.append(translateBtn);
       if (first && assistant.reasoningMs !== undefined) {
         summary.append(el("span", "step-suffix", fmtDuration(assistant.reasoningMs)));
       }
@@ -4477,6 +4762,31 @@ interface GroupSummaryRow extends HTMLButtonElement {
   __refresh?: () => void;
   /** 应用折叠态(true = 收起本段过程行),重绘后恢复用户选择。 */
   __applyCollapsed?: (collapsed: boolean) => void;
+  /** 本段起点 index(记入 groupCollapsed,重绘后据此恢复收起态)。 */
+  __start?: number;
+}
+
+/**
+ * 收起某条回答的全部过程段(自动收起与手动点击走同一份记忆 groupCollapsed,
+ * 因此后续流式重绘不会把收起的段重新展开)。
+ */
+function collapseAllGroupsOf(node: NodeState | undefined) {
+  if (!node) return;
+  const rows = (node.groupSummaries ?? []) as GroupSummaryRow[];
+  if (rows.length === 0) return;
+  const set = (node.groupCollapsed ??= new Set<number>());
+  for (const row of rows) {
+    row.__applyCollapsed?.(true);
+    if (typeof row.__start === "number") set.add(row.__start);
+  }
+}
+
+/** 收起所有已回答回合的过程段(「下一条消息到来时收起」)。 */
+function collapseGroupsOfFinishedTurns() {
+  for (const node of state.nodes) {
+    if (node.kind !== "assistant") continue;
+    collapseAllGroupsOf(node);
+  }
 }
 
 /** 过程段分组的边界:段落起点 index(afterBlock)与结束 index(不含)。 */
@@ -4556,6 +4866,7 @@ function buildGroupSummary(assistant: NodeState, start: number, end: number, gro
     chevron.append(lineIcon(collapsed ? ICONS.down2 : ICONS.up2, 12));
   };
   row.__applyCollapsed = applyCollapsed;
+  row.__start = start;
   row.addEventListener("click", () => {
     applyCollapsed(!collapsed);
     // 记住用户选择:整块重绘(流式/工具结果)后仍保持收起
@@ -4569,6 +4880,53 @@ function buildGroupSummary(assistant: NodeState, start: number, end: number, gro
 /** 工具结果落地后刷新本回合各过程段的动作清单(不整块重绘,避免打断展开态)。 */
 function refreshGroupSummaries(assistant: NodeState | undefined) {
   for (const row of assistant?.groupSummaries ?? []) row.__refresh?.();
+}
+
+/**
+ * 翻译一段思考:首次点击请求宿主(cotTranslation/translate),译成后插在原文下方;
+ * 再点一次收起译文。译文是纯文本,原样按行渲染(不解析 markdown,避免二次注入)。
+ */
+function toggleReasoningTranslation(details: HTMLElement, block: BlockState, button: HTMLButtonElement) {
+  const existing = details.querySelector(".think-translation");
+  if (existing) {
+    existing.remove();
+    button.classList.remove("active");
+    return;
+  }
+  if (!cotTranslationAvailable) return;
+  if (!block.text.trim()) return;
+  button.disabled = true;
+  button.textContent = "…";
+  translateRequestSeq += 1;
+  const requestId = `tr-${translateRequestSeq}`;
+  const host = el("div", "think-translation");
+  host.textContent = t("翻译中…");
+  details.append(host);
+  pendingTranslations.set(requestId, { host, button });
+  vscode.postMessage({ kind: "translateReasoning", requestId, text: block.text });
+}
+
+/** 应用翻译结果(成功:渲染译文;失败:在译文位置显示原因并恢复按钮)。 */
+function applyReasoningTranslation(msg: { requestId?: string; ok?: boolean; text?: string; error?: string; truncated?: boolean }) {
+  const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+  const entry = pendingTranslations.get(requestId);
+  if (!entry) return;
+  pendingTranslations.delete(requestId);
+  entry.button.disabled = false;
+  if (msg.ok === true && typeof msg.text === "string" && msg.text.trim()) {
+    entry.host.textContent = "";
+    entry.host.append(el("div", "think-translation-label", t("译文")));
+    const body = el("div", "think-translation-body");
+    body.textContent = msg.text;
+    entry.host.append(body);
+    if (msg.truncated) entry.host.append(el("div", "think-translation-note", t("(已按单次上限截断)")));
+    entry.button.textContent = t("原文");
+    entry.button.classList.add("active");
+    return;
+  }
+  entry.host.remove();
+  entry.button.textContent = t("译");
+  showToast(msg.error ? String(msg.error) : t("翻译失败"), "warning");
 }
 
 /** 思考预览:取首个非空行,压缩空白并截断(网页端 Think 行的一行摘要同款)。 */
@@ -5380,6 +5738,8 @@ function handleEvent(wire: WireEvent) {
       if (state.turnStarts.length > 0) {
         appendNode({ kind: "turn-divider", key: `turn-div:${ev.seq}`, el: null, turn: typeof data.turn === "number" ? data.turn : undefined });
       }
+      // 「下一条消息到来时收起」:新回合开始即收起之前各回合的过程段
+      if (stepCollapseMode === "next") collapseGroupsOfFinishedTurns();
       state.running = true;
       state.currentTurnTools = [];
       state.turnToolGroup = null;
@@ -5437,6 +5797,11 @@ function handleEvent(wire: WireEvent) {
       const finishedTurn = state.currentStreamTurn ?? (typeof data.turn === "number" ? data.turn : undefined);
       state.currentStreamTurn = undefined;
       if (typeof finishedTurn === "number") state.turnEndMs.set(finishedTurn, ev.time);
+      // 「回答结束后收起」:本回合的过程段立刻收起(用户手动展开过的段同样走 groupCollapsed)
+      if (stepCollapseMode === "end") {
+        const latest = [...state.nodes].reverse().find((n) => n.kind === "assistant");
+        collapseAllGroupsOf(latest);
+      }
       // 兜底:回合结束时把仍未随 assistant/message 落地的 chunkrow 行按 index 合入该回合节点
       // (覆盖无 message 结束的中断回合,以及任何行先于节点创建到达的顺序组合)
       // 回合结束:刷新操作条可见性(最新回合恢复常显;仍在运行时其余回合保持 hover 才显示)
@@ -6900,11 +7265,15 @@ function renderImageChips() {
 }
 
 /** 图片附件预览弹层:输入区已持有 dataURL,直接显示即可(与消息内联图片同源数据)。 */
-function openImagePreview(img: { data: string; mediaType: string; name: string }) {
+/**
+ * 图片预览弹层(输入区图片芯片与对话内缩略图共用)。
+ * `name` 是「用默认应用打开」时落盘的文件名;`label` 是弹层里显示的说明(缺省用 name)。
+ */
+function openImagePreview(img: { data: string; mediaType: string; name: string; label?: string }) {
   const overlay = el("div", "image-preview-overlay");
   const box = el("div", "image-preview-box");
   const head = el("div", "image-preview-head");
-  head.append(el("span", "image-preview-name", img.name));
+  head.append(el("span", "image-preview-name", img.label ?? img.name));
   const actions = el("span", "image-preview-actions");
   const openBtn = el("button", "mini-btn", t("用默认应用打开"));
   openBtn.title = t("先把图片保存为临时文件,再交给系统默认应用");
@@ -6938,9 +7307,31 @@ function applyAttachmentData(msg: { attachmentId: string; data?: string; mediaTy
     frame.append(el("span", "msg-image-error", `⚠️ ${msg.error ?? t("加载失败")}`));
     return;
   }
+  const mediaType = msg.mediaType ?? "image/png";
   const img = el("img", "msg-image");
-  img.src = `data:${msg.mediaType ?? "image/png"};base64,${msg.data}`;
+  img.src = `data:${mediaType};base64,${msg.data}`;
   img.alt = "image";
+  // 点击缩略图放大:与输入区图片芯片共用同一个预览弹层(可 Esc/点遮罩关闭,也可交给系统默认应用)
+  frame.classList.add("clickable");
+  frame.title = t("点击查看大图");
+  frame.setAttribute("role", "button");
+  frame.tabIndex = 0;
+  const ext = mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : mediaType === "image/gif" ? "gif" : mediaType === "image/svg+xml" ? "svg" : "png";
+  const open = () =>
+    openImagePreview({
+      data: msg.data as string,
+      mediaType,
+      // 落盘文件名保持机器可读;弹层标题显示人类可读的类型说明
+      name: `${t("图片")}-${msg.attachmentId.slice(0, 8)}.${ext}`,
+      label: `${t("图片")} · ${ext.toUpperCase()}`,
+    });
+  frame.addEventListener("click", open);
+  frame.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
   frame.append(img);
 }
 
@@ -7778,6 +8169,10 @@ function handleMessage(msg: any) {
     }
     case "init": {
       stopTurnStatus();
+      // 按会话草稿:切走前先存档当前输入区(文字 + 手工附件 + 图片),切回时原样还原
+      const previousSession = state.current;
+      const nextSession: string | null = msg.current ?? null;
+      if (previousSession && previousSession !== nextSession) saveDraftOf(previousSession);
       // 输入区偏好(issue #21):发送快捷键 / 面板字体 / 产物列表默认折叠
       applyComposerPrefs(msg.composerPrefs);
       state.sessions = msg.sessions ?? [];
@@ -7800,6 +8195,7 @@ function handleMessage(msg: any) {
       state.todos = msg.todos;
       // 0.2.1:当前生效目录与限时提问投影(会话头 cwd 只作回退显示)
       state.workingDirectory = typeof msg.workingDirectory === "string" ? msg.workingDirectory : (msg.workingDirectory === null ? null : undefined);
+      cotTranslationAvailable = msg.cotTranslation?.available === true;
       state.userQuestions = msg.userQuestions;
       state.plan = msg.plan;
       state.planReview = undefined;
@@ -7869,6 +8265,8 @@ function handleMessage(msg: any) {
       renderStatsLine();
       renderTodos();
       renderWorkingDirectoryChip();
+      // 还原本会话的草稿(没有则清空,避免把上一个会话的内容带过来)
+      restoreDraftOf(state.current);
       // 计划模式芯片必须在这里重画:init 会先按 msg.plan 更新 state.plan,
       // 而模式芯片的绘制发生在渲染段(仅 plan 投影消息与 plan/mode 事件时才画),
       // 漏了这一句 → 切换会话/重载后芯片要等下一条事件才出现。
@@ -7887,6 +8285,22 @@ function handleMessage(msg: any) {
       // 无论当前是否已选会话都刷新,保证 @ 提及菜单始终可用(此前仅在已选会话时触发一次)
       vscode.postMessage({ kind: "getClaudeConfig" });
       scrollToBottom();
+      break;
+    }
+    case "cotTranslation": {
+      // 能力探测结果(探测是异步的,可能在历史渲染之后到达)
+      cotTranslationAvailable = msg.available === true;
+      for (const btn of document.querySelectorAll<HTMLButtonElement>(".think-translate")) btn.hidden = !cotTranslationAvailable;
+      break;
+    }
+    case "worktree": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      worktreeInfo = msg.info && typeof msg.info === "object" ? msg.info : null;
+      renderWorktreeCard();
+      break;
+    }
+    case "reasoningTranslation": {
+      applyReasoningTranslation(msg);
       break;
     }
     case "activeFile": {
@@ -8308,6 +8722,15 @@ function handleMessage(msg: any) {
     case "searchResults":
       panels.renderSearchResults(msg);
       break;
+    case "accountState":
+      // DeepSeek 账号状态:交给设置页(未打开时只更新本地视图,不重绘)
+      panels.setAccount(msg);
+      break;
+    case "accountSignInStarted":
+      if (msg.ok && msg.opened) showToast(t("已在浏览器中打开登录页,完成后回到这里即可"), "info");
+      else if (msg.ok) showToast(t("登录流程已取消"), "info");
+      else showToast(msg.error ? String(msg.error) : t("无法开始登录"), "warning");
+      break;
     case "settingsDescribe":
       panels.updateSettingsDescribe(msg);
       break;
@@ -8406,6 +8829,11 @@ function sendCurrent() {
   input.value = "";
   autoResize();
   updateSendButton();
+  // 发送成功即清掉该会话的草稿(附件已随消息发出)
+  if (state.current) {
+    drafts.delete(state.current);
+    persistDrafts();
+  }
 }
 
 window.addEventListener("message", (event) => {

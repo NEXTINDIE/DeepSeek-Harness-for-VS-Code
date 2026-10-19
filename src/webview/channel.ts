@@ -6,6 +6,7 @@ import { basename, isAbsolute, join } from "node:path";
 import type { DshHub } from "../dsh/hub";
 import { DshApiError } from "../dsh/apiClient";
 import { isHiddenCommitSession } from "../dsh/commitMessage";
+import { resolveWorktree } from "../dsh/worktree";
 import { folderCwd } from "../dsh/participantSessions";
 import {
   allCheckpointSummaries,
@@ -356,6 +357,10 @@ export class ChatChannel {
         // 0.2.1 会话工作目录:workingDirectory 投影 / working-directory/change 事件
         dispose: store.on("workingDirectory", (sid: string, cwd: string | null) => {
           if (sid === store.currentSessionId) this.post({ kind: "workingDirectory", sessionId: sid, cwd });
+          // 目录变化(含 create_worktree 切进新工作树)后,工作树卡片与检查点记录都要刷新
+          if (sid === store.currentSessionId) void this.postWorktree(sid);
+          // 目录变化(含 create_worktree 切进新工作树)后,检查点记录换了位置,重读一次
+          if (sid === store.currentSessionId) this.scheduleRollbackRefresh(sid);
         }),
       },
       {
@@ -496,6 +501,63 @@ export class ChatChannel {
     await this.pushFullState();
   }
 
+  /** 工作树信息缓存(按目录):目录不变时不重复跑 git。 */
+  private worktreeCache = new Map<string, Awaited<ReturnType<typeof resolveWorktree>> | null>();
+
+  /**
+   * 解析并推送会话的 Git 工作树信息(分支 / 路径 / 是否 linked worktree)。
+   * 只有 linked worktree 才在界面上出卡片;主检出与普通目录不打扰用户。
+   */
+  async postWorktree(sessionId: string | undefined): Promise<void> {
+    const cwd = this.sessionCwd(sessionId);
+    if (!sessionId || !cwd) {
+      this.post({ kind: "worktree", sessionId: sessionId ?? "", info: null });
+      return;
+    }
+    const cached = this.worktreeCache.get(cwd);
+    if (cached !== undefined) {
+      this.post({ kind: "worktree", sessionId, info: cached });
+      return;
+    }
+    try {
+      const info = (await resolveWorktree(cwd)) ?? null;
+      this.worktreeCache.set(cwd, info);
+      this.post({ kind: "worktree", sessionId, info });
+    } catch (error) {
+      this.post({ kind: "worktree", sessionId, info: null });
+      this.log(`[worktree] ${String(error)}`);
+    }
+  }
+
+  /**
+   * 思考翻译能力变化:探测完成或宿主侧重新探测后,把可用性推给界面
+   * (可用时思考行末出现「译」按钮;不可用时隐藏,不影响任何已渲染内容)。
+   */
+  postCotTranslation(): void {
+    const cot = this.hub.cotTranslation;
+    this.post({ kind: "cotTranslation", available: cot.available, targetLanguage: cot.targetLanguage });
+  }
+
+  /**
+   * 账号状态变化(account/watch):只推状态字段,资料与余额仍由 accountGet 拉取。
+   * 界面收到后按「登录态变化」合并并自动补拉余额 —— 用户不用再点刷新。
+   */
+  postAccountState(view?: {
+    status: "signed-out" | "credential-stored";
+    links: { usageUrl: string; topUpUrl: string };
+    attempt: null | { id: string; phase: string; authorizeUrl?: string; expiresAt?: number; errorCode?: string };
+  }): void {
+    const current = view ?? this.hub.accountView;
+    if (!current) return;
+    this.post({
+      kind: "accountState",
+      available: true,
+      signedIn: current.status === "credential-stored",
+      links: current.links,
+      attempt: current.attempt ?? null,
+    });
+  }
+
   /**
    * 输入区偏好(issue #21):发送快捷键、面板字体、产物列表默认折叠。
    * 从设置读取,init 时下发(设置变更后 VS Code 会重新解析 webview)。
@@ -505,17 +567,21 @@ export class ChatChannel {
     fontFamily: string;
     autoCollapseProducedFiles: boolean;
     historyKey: "edge" | "always" | "off";
+    stepCollapse: "end" | "next" | "never";
   } {
     const cfg = vscode.workspace.getConfiguration("dsh");
     const raw = cfg.get<string>("sendKey");
     const sendKey = raw === "ctrl-enter" || raw === "shift-enter" ? raw : "enter";
     const rawHistory = cfg.get<string>("historyKey");
     const historyKey = rawHistory === "always" || rawHistory === "off" ? rawHistory : "edge";
+    const rawSteps = cfg.get<string>("stepCollapse");
+    const stepCollapse = rawSteps === "next" || rawSteps === "never" ? rawSteps : "end";
     return {
       sendKey,
       fontFamily: (cfg.get<string>("uiFontFamily") ?? "").trim(),
       autoCollapseProducedFiles: cfg.get<boolean>("autoCollapseProducedFiles") !== false,
       historyKey,
+      stepCollapse,
     };
   }
 
@@ -854,6 +920,8 @@ export class ChatChannel {
       languagePref: this.languagePref(),
       agentDirs: this.agentDirsConfig(),
       composerPrefs: this.composerPrefs(),
+      // 思考翻译能力(0.2.1 实验性插件 cotTranslation):不可用时界面不显示「译」按钮
+      cotTranslation: { available: this.hub.cotTranslation.available, targetLanguage: this.hub.cotTranslation.targetLanguage },
       status: this.hub.status,
       sessions: this.serializeSessions(),
       ...this.serializeWorkspaces(),
@@ -915,23 +983,36 @@ export class ChatChannel {
     this.rollbackRefreshTimers.set(sessionId, timer);
   }
 
+  /**
+   * 会话的**生效**工作目录(0.2.1 workingDirectory 投影);取不到时回退会话头 cwd / 工作区根目录。
+   * 检查点的读写、预览、撤销必须全部走这里:Agent 切进 Git 工作树后,记录写在那边,
+   * 按会话头 cwd 读会读到旧树甚至空记录,「还原检查点」就会静默无效。
+   */
+  private sessionCwd(sessionId: string | undefined): string | undefined {
+    if (!sessionId) return folderCwd();
+    const effective = this.hub.store.workingDirectories.get(sessionId);
+    if (typeof effective === "string" && effective) return effective;
+    return this.hub.store.sessions.get(sessionId)?.cwd ?? folderCwd();
+  }
   /** 读取会话的回合快照记录并推送给前端(消息操作条据此显示回退按钮)。 */
   private async refreshRollback(sessionId: string) {
-    const session = this.hub.store.sessions.get(sessionId);
-    const cwd = session?.cwd ?? folderCwd();
+    // 读**生效**工作目录:Agent 用 working_directory / create_worktree 切走后,
+    // 快照记录写在那个目录下;仍按会话头 cwd 读会读到旧树/空记录,「还原检查点」就会静默无效。
+    const cwd = this.sessionCwd(sessionId);
     if (!cwd) {
       this.post({ kind: "rollback", sessionId, available: false, checkpoints: [] });
       return;
     }
     const record = await loadRollbackRecord(cwd, sessionId);
     if (!record || record.checkpoints.length === 0) {
-      this.post({ kind: "rollback", sessionId, available: false, checkpoints: [] });
+      this.post({ kind: "rollback", sessionId, available: false, checkpoints: [], cwd });
       return;
     }
     this.post({
       kind: "rollback",
       sessionId,
       available: true,
+      cwd,
       checkpoints: record.checkpoints.map((t) => ({ turn: t.turn, time: t.time })),
     });
   }
@@ -1754,7 +1835,7 @@ export class ChatChannel {
         if (!sid) break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         let preview: Awaited<ReturnType<typeof rollbackPreview>>;
         let targetSessionId: string | undefined;
         let targetCommit: string | undefined;
@@ -1796,7 +1877,7 @@ export class ChatChannel {
         if (!sid) break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
         const turn = typeof msg.turn === "number" ? msg.turn : undefined;
         const preview = cwd && record ? await rollbackPreview(cwd, record, turn) : undefined;
@@ -1814,7 +1895,7 @@ export class ChatChannel {
         if (!sid || typeof msg.path !== "string") break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
         const turn = typeof msg.turn === "number" ? msg.turn : undefined;
         const entry = record && (typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1]);
@@ -1834,7 +1915,7 @@ export class ChatChannel {
         if (!sid) break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const summary = cwd ? await allCheckpointSummaries(cwd) : undefined;
         this.post({
           kind: "rollbackCheckpointsData",
@@ -1850,7 +1931,7 @@ export class ChatChannel {
         if (!sid) break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
         const turn = typeof msg.turn === "number" ? msg.turn : undefined;
         const preview = cwd && record ? await scopedTurnStats(cwd, record, turn) : undefined;
@@ -1868,7 +1949,7 @@ export class ChatChannel {
         if (!sid || typeof msg.path !== "string") break;
         const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
         const turn = typeof msg.turn === "number" ? msg.turn : undefined;
         const stats = cwd && record ? await scopedTurnStats(cwd, record, turn) : undefined;
@@ -1895,7 +1976,7 @@ export class ChatChannel {
         const sid = typeof msg.sessionId === "string" ? msg.sessionId : current;
         if (!sid || typeof msg.path !== "string") break;
         const session = store.sessions.get(sid);
-        const cwd = session?.cwd ?? folderCwd();
+        const cwd = this.sessionCwd(sid);
         const record = cwd ? await loadRollbackRecord(cwd, sid) : undefined;
         const turn = typeof msg.turn === "number" ? msg.turn : undefined;
         const entry = record && (typeof turn === "number" ? record.checkpoints.find((c) => c.turn === turn) : record.checkpoints[record.checkpoints.length - 1]);
@@ -2058,6 +2139,84 @@ export class ChatChannel {
         break;
       }
       // ---------- 设置 / 凭据 / LLM ----------
+      case "openExternal": {
+        // 用系统浏览器打开外部链接(账号的用量 / 充值页)
+        const url = typeof msg.url === "string" ? msg.url : "";
+        if (/^https?:\/\//i.test(url)) {
+          try {
+            await vscode.env.openExternal(vscode.Uri.parse(url));
+          } catch (error) {
+            this.log(`[openExternal] ${String(error)}`);
+          }
+        }
+        break;
+      }
+      case "accountGet": {
+        // DeepSeek 账号:状态 + 资料 + 余额(0.2.1 accountController;老宿主 404 → available:false)
+        try {
+          const st = await this.hub.client.accountState();
+          const meta = { version: this.ctx.extension.packageJSON.version as string, locale: effectiveLanguage(), timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 };
+          const signedIn = st.status === "credential-stored";
+          const [profile, balance] = signedIn
+            ? await Promise.all([
+                this.hub.client.accountProfile(meta).catch(() => ({ status: "failed" as const })),
+                this.hub.client.accountBalance(meta).catch(() => ({ status: "failed" as const })),
+              ])
+            : [undefined, undefined];
+          this.post({
+            kind: "accountState",
+            requestId: msg.requestId,
+            available: true,
+            signedIn,
+            links: st.links,
+            attempt: st.attempt ?? null,
+            profile: profile && profile.status === "ready" ? profile.value : undefined,
+            wallets: balance && balance.status === "ready" ? balance.value : undefined,
+            bonusWallets: balance && balance.status === "ready" ? balance.bonusWallets : undefined,
+            balanceFailed: !!balance && balance.status === "failed",
+          });
+        } catch (error) {
+          const unavailable = error instanceof DshApiError && error.code === "method-unavailable";
+          this.post({ kind: "accountState", requestId: msg.requestId, available: !unavailable, error: String(error) });
+        }
+        break;
+      }
+      case "accountSignIn": {
+        // 登录:宿主给出 authorizeUrl,扩展用系统浏览器打开,用户完成后再拉一次状态
+        try {
+          const started = await this.hub.client.accountStartSignIn();
+          const url = typeof started?.authorizeUrl === "string" ? started.authorizeUrl : undefined;
+          if (url) await vscode.env.openExternal(vscode.Uri.parse(url));
+          this.post({ kind: "accountSignInStarted", ok: true, opened: !!url });
+        } catch (error) {
+          this.post({ kind: "accountSignInStarted", ok: false, error: String(error) });
+        }
+        break;
+      }
+      case "accountCancelSignIn": {
+        try {
+          await this.hub.client.accountCancelSignIn();
+        } catch {
+          /* 取消失败无需打扰用户 */
+        }
+        this.post({ kind: "accountSignInStarted", ok: true, cancelled: true });
+        break;
+      }
+      case "accountSignOut": {
+        try {
+          await this.hub.client.accountSignOut();
+        } catch (error) {
+          this.post({ kind: "notice", message: t("notice.accountSignOutFailed"), level: "warning" });
+          this.log(`[account] signOut failed: ${String(error)}`);
+        }
+        try {
+          const st = await this.hub.client.accountState();
+          this.post({ kind: "accountState", available: true, signedIn: st.status === "credential-stored", links: st.links, attempt: null });
+        } catch {
+          /* 状态读取失败时保留界面原状 */
+        }
+        break;
+      }
       case "settingsGet": {
         try {
           const value = await this.hub.settingsDescribe();
@@ -2134,6 +2293,52 @@ export class ChatChannel {
             await vscode.workspace.getConfiguration("dsh").update("historyKey", raw, vscode.ConfigurationTarget.Global);
           } catch (error) {
             console.warn("[dsh] dsh.historyKey not registered, keeping the in-session choice:", error);
+          }
+          this.post({ kind: "composerPrefs", value: this.composerPrefs() });
+        }
+        break;
+      }
+      case "translateReasoning": {
+        // 思考翻译(0.2.1 cotTranslation):能力不可用时明确回错,界面保留原文
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const raw = typeof msg.text === "string" ? msg.text : "";
+        const cot = this.hub.cotTranslation;
+        if (!cot.available) {
+          this.post({ kind: "reasoningTranslation", requestId, ok: false, error: t("reasoning.translateUnavailable") });
+          break;
+        }
+        if (!raw.trim()) {
+          this.post({ kind: "reasoningTranslation", requestId, ok: false, error: t("reasoning.translateEmpty") });
+          break;
+        }
+        const max = cot.maxTextChars > 0 ? cot.maxTextChars : 4000;
+        const text = raw.length > max ? raw.slice(0, max) : raw;
+        try {
+          const translated = await this.hub.client.cotTranslationTranslate({
+            text,
+            targetLanguage: cot.targetLanguage || "auto",
+            ...(current ? { sessionId: current } : {}),
+          });
+          this.post({
+            kind: "reasoningTranslation",
+            requestId,
+            ok: true,
+            text: typeof translated === "string" ? translated : "",
+            truncated: text.length < raw.length,
+          });
+        } catch (error) {
+          this.post({ kind: "reasoningTranslation", requestId, ok: false, error: String(error) });
+        }
+        break;
+      }
+      case "setStepCollapse": {
+        // 工作步骤自动收起时机(写入 dsh.stepCollapse,全局):end / next / never
+        const raw = msg.stepCollapse;
+        if (raw === "end" || raw === "next" || raw === "never") {
+          try {
+            await vscode.workspace.getConfiguration("dsh").update("stepCollapse", raw, vscode.ConfigurationTarget.Global);
+          } catch (error) {
+            console.warn("[dsh] dsh.stepCollapse not registered, keeping the in-session choice:", error);
           }
           this.post({ kind: "composerPrefs", value: this.composerPrefs() });
         }

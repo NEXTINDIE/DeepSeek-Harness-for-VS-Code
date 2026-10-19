@@ -3,6 +3,8 @@ export interface CheckpointOptions {
     gitBin: string;
     refPrefix: string;
     commitPrefix: string;
+    /** 生效目录作用域(会话切到工作树等其它目录时非空),决定检查点链的引用后缀。 */
+    scope?: string;
 }
 /**
  * 全量快照提交:返回新提交;无改动(树与父一致)时返回 {ok, unchanged}。

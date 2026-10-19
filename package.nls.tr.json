@@ -65,5 +65,9 @@
   "config.historyKey": "↑/↓ önceki girişleri ne zaman geri getirsin: yalnızca metnin kenarında (varsayılan), her basışta veya hiç",
   "config.historyKey.edge": "Yalnızca kenarda: ↑/↓ imleç hareket edebildikçe onu taşır, edemediğinde o basış geçmişi getirir",
   "config.historyKey.always": "Her basışta: ↑/↓ önceki/sonraki girişi hemen getirir, imleç hareket etmez",
-  "config.historyKey.off": "Hiç: ↑/↓ yalnızca imleci taşır (Ctrl/Alt + ↑/↓ geçmişi getirir)"
+  "config.historyKey.off": "Hiç: ↑/↓ yalnızca imleci taşır (Ctrl/Alt + ↑/↓ geçmişi getirir)",
+  "config.stepCollapse": "Bir turdaki akıl yürütme ve araç çağrısı adımlarının otomatik toplanma zamanı.",
+  "config.stepCollapse.end": "Yanıt bittiğinde topla",
+  "config.stepCollapse.next": "Sonraki mesaj geldiğinde topla",
+  "config.stepCollapse.never": "Asla otomatik toplama"
 }

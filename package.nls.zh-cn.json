@@ -65,5 +65,9 @@
   "config.historyKey": "↑/↓ 调回历史输入的时机:只在光标到达边界时(默认)、每次按键都调回、或关闭",
   "config.historyKey.edge": "只在边界召回:光标还能上下移动时只移动光标;已经到不了更上方 / 更下方时,那一次按键立即调回历史",
   "config.historyKey.always": "一按就召回:↑/↓ 直接调回上一条 / 下一条输入,不再移动光标",
-  "config.historyKey.off": "关闭:普通 ↑/↓ 只移动光标;仍可用 Ctrl/Alt + ↑/↓ 调回历史"
+  "config.historyKey.off": "关闭:普通 ↑/↓ 只移动光标;仍可用 Ctrl/Alt + ↑/↓ 调回历史",
+  "config.stepCollapse": "工作步骤(思考与工具调用)在什么时机自动收起。",
+  "config.stepCollapse.end": "回答结束后收起",
+  "config.stepCollapse.next": "下一条消息到来时收起",
+  "config.stepCollapse.never": "从不自动收起"
 }

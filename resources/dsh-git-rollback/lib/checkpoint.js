@@ -71,8 +71,8 @@ export async function snapshotCommit(gitBin, cwd, parent, message) {
     }
 }
 /** 当前检查点 tip(链头);返回是否来自 ref(决定 update-ref 的 old 值)。 */
-async function currentTip(gitBin, cwd, sid, refPrefix, record) {
-    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(refPrefix, sid)]);
+async function currentTip(gitBin, cwd, sid, opts, record) {
+    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid, opts.scope)]);
     if (tip.ok && /^[0-9a-f]{40}$/.test(tip.stdout))
         return { commit: tip.stdout, fromRef: true };
     const last = record?.checkpoints[record.checkpoints.length - 1];
@@ -88,7 +88,7 @@ export async function checkpointTurn(gitBin, cwd, sid, turn, time, opts) {
     const record = readRecord(cwd, sid) ?? { version: 2, sessionId: sid, cwd, checkpoints: [], rolls: [] };
     if (record.checkpoints.some((c) => c.turn === turn))
         return; // 幂等
-    const tipInfo = await currentTip(gitBin, cwd, sid, opts.refPrefix, record);
+    const tipInfo = await currentTip(gitBin, cwd, sid, opts, record);
     let parent = tipInfo.commit;
     if (!parent) {
         const head = await gitExec(gitBin, cwd, ["rev-parse", "--verify", "HEAD"]);
@@ -110,7 +110,7 @@ export async function checkpointTurn(gitBin, cwd, sid, turn, time, opts) {
     if (!snap.unchanged) {
         // ref 已存在 → old = 当前值(CAS);首创建 → old = 全零(必须不存在)
         const oldValue = tipInfo.fromRef && tipInfo.commit ? tipInfo.commit : "";
-        const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid), snap.commit, oldValue]);
+        const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid, opts.scope), snap.commit, oldValue]);
         if (!refResult.ok) {
             console.error("[dsh-git-rollback] checkpoint ref update failed:", refResult.stderr);
         }
@@ -148,8 +148,8 @@ export async function checkpointTurnEnd(gitBin, cwd, sid, turn, time, opts) {
             console.error("[dsh-git-rollback] turn-end checkpoint failed:", snap.reason);
         return; // 无改动:不记录 after
     }
-    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid)]);
-    const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid), snap.commit, tip.ok ? tip.stdout : ""]);
+    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid, opts.scope)]);
+    const refResult = await gitExec(gitBin, cwd, ["update-ref", checkpointRef(opts.refPrefix, sid, opts.scope), snap.commit, tip.ok ? tip.stdout : ""]);
     if (!refResult.ok) {
         console.error("[dsh-git-rollback] turn-end ref update failed:", refResult.stderr);
         return;
@@ -163,7 +163,7 @@ export async function checkpointTurnEnd(gitBin, cwd, sid, turn, time, opts) {
  * 解析提交信息里的 `turn <N>`,越新越靠后。
  */
 export async function foldCheckpoints(gitBin, cwd, sid, opts) {
-    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid)]);
+    const tip = await gitExec(gitBin, cwd, ["rev-parse", "--verify", checkpointRef(opts.refPrefix, sid, opts.scope)]);
     if (!tip.ok)
         return [];
     const out = [];

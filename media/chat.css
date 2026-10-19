@@ -1028,6 +1028,72 @@ button {
   padding: 0 10px 8px;
 }
 
+/* ---------- Git 工作树卡片(只在 linked worktree 里出现) ---------- */
+.worktree-area {
+  flex-shrink: 0;
+  padding: 0 10px 6px;
+}
+
+.worktree-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  border-left: 2px solid var(--vscode-charts-purple, #b180d7);
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.05));
+  font-size: 11px;
+  min-width: 0;
+}
+
+.worktree-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--vscode-charts-purple, #b180d7);
+}
+
+.worktree-body {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.worktree-title {
+  flex: none;
+  color: var(--vscode-descriptionForeground);
+}
+
+.worktree-branch {
+  flex: none;
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  color: var(--vscode-textLink-foreground, #3794ff);
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree-path {
+  flex: 1;
+  min-width: 0;
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.worktree-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+
 .goal-card {
   border: 1px solid var(--dsh-accent);
   background: rgba(0, 127, 212, 0.08);
@@ -1146,7 +1212,8 @@ button {
 
 .msg-assistant {
   background: transparent;
-  align-self: flex-start;
+  /* 与网页端一致:回答占满正文宽度(段落按面板宽度换行,代码块也铺满,而不是缩到内容宽度) */
+  align-self: stretch;
   padding-left: 4px;
 }
 
@@ -1467,6 +1534,90 @@ button {
   padding: 0;
 }
 
+/* ---------- 代码块(对齐网页端:header 一条,语言标签 + 复制) ---------- */
+.code-block {
+  margin: 8px 0;
+  /* 代码块总是占满正文宽度(父级是 shrink-to-fit 时也如此),与网页端一致 */
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--dsh-code-bg);
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px 3px 10px;
+  background: var(--vscode-editorWidget-background, var(--dsh-surface-soft));
+  border-bottom: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+  user-select: none;
+}
+
+.code-lang {
+  font-variant: all-small-caps;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.code-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.code-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.code-copy:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.16));
+  color: var(--vscode-foreground);
+}
+
+.code-copy.copied {
+  color: var(--vscode-charts-green, #89d185);
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: none;
+  border: none;
+  border-radius: 0;
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.code-block pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
 .block {
   margin-bottom: 6px;
   min-width: 0;
@@ -1731,6 +1882,67 @@ button {
 
 .step-row[open] > .step-line .step-chevron {
   transform: rotate(180deg);
+}
+
+/* ---------- 思考翻译(0.2.1 实验性 cotTranslation;能力不可用时按钮 hidden) ---------- */
+.think-translate {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  border-radius: 999px;
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.think-translate:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.16));
+  color: var(--vscode-foreground);
+}
+
+.think-translate.active {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.think-translate:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.think-translate[hidden] {
+  display: none;
+}
+
+.think-translation {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--vscode-charts-blue, #3794ff);
+  background: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--vscode-foreground);
+}
+
+.think-translation-label {
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+}
+
+.think-translation-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.think-translation-note {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
 }
 
 .step-body {
@@ -3790,6 +4002,55 @@ button {
   outline-offset: 1px;
 }
 
+/*
+ * 会话工作目录芯片(0.2.1 workingDirectory):与左侧「Enter 发送」胶囊同一套尺寸(10px / 1.4 / 1px 6px / 1px 边框),
+ * 靠右对齐。之前缺这段样式 —— 裸 <button> 走了宿主默认按钮外观(灰底、13px、默认内边距),所以显得又大又突兀。
+ * 只显示目录名,完整路径放 title。
+ */
+.hint-cwd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  margin-left: auto;
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 1px 6px;
+  color: var(--vscode-descriptionForeground);
+  background: none;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hint-cwd[hidden] {
+  display: none;
+}
+
+.hint-cwd:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+  color: var(--vscode-foreground);
+}
+
+.hint-cwd:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.hint-cwd svg {
+  flex: none;
+  opacity: 0.85;
+}
+
+.hint-cwd-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- 底部行:+ 菜单与上下文进度 ---------- */
 .composer {
   position: relative;
@@ -5779,18 +6040,322 @@ button {
   background: rgba(55, 148, 255, 0.08);
 }
 
+/* ---------- 设置页:左侧分区导航 + 右侧内容(替代原先一列到底) ---------- */
+.settings-layout {
+  display: flex;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+  align-items: stretch;
+}
+
+.settings-nav {
+  flex: none;
+  width: 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 8px;
+  border-right: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
+  overflow-y: auto;
+}
+
+.settings-nav-item {
+  text-align: left;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11.5px;
+  line-height: 1.35;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-nav-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  color: var(--vscode-foreground);
+}
+
+.settings-nav-item.active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(55, 148, 255, 0.16));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+  border-color: var(--vscode-focusBorder, #007fd4);
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+@media (max-width: 480px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  .settings-nav {
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
+    padding: 0 0 6px;
+  }
+}
+
+/* ---------- 账号与余额卡片 ---------- */
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.25)));
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.05));
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--vscode-input-background);
+}
+
+.account-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-editorWidget-border, transparent);
+}
+
+.account-who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 120px;
+}
+
+.account-title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.account-wallet-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-wallet {
+  flex: 1 1 92px;
+  min-width: 92px;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--vscode-input-background, transparent);
+}
+
+.account-wallet-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.account-wallet-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 设置表单:宽松排版(标签在上、控件在下) + 线性图标按钮 ---------- */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 2px;
+}
+
+.settings-field-row {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+
+/* 输入类字段:标签 + 说明在上,控件占满整行 */
+.settings-field-row.settings-field-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.settings-field-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+.settings-field-hint {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground);
+  margin-top: -2px;
+}
+
+.settings-field-hint[hidden] {
+  display: none;
+}
+
+.settings-field-error {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.settings-field-error[hidden] {
+  display: none;
+}
+
+/* 控件:更高、更宽的点击区,聚焦有明确描边 */
+.settings-input,
+.settings-textarea,
+select.settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 6px 9px;
+  min-height: 30px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35)));
+  border-radius: 6px;
+  background: var(--vscode-input-background, transparent);
+  color: var(--vscode-input-foreground, inherit);
+}
+
+.settings-textarea {
+  min-height: 74px;
+  resize: vertical;
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  line-height: 1.5;
+}
+
+.settings-input:focus,
+.settings-textarea:focus,
+select.settings-input:focus {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.settings-input.invalid,
+.settings-textarea.invalid {
+  border-color: var(--vscode-errorForeground, #f48771);
+  outline-color: var(--vscode-errorForeground, #f48771);
+}
+
+/* 密钥行:输入框 + 图标按钮同一行 */
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-input-row .settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 布尔字段:标签与开关同一行 */
+.settings-field-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--vscode-focusBorder, #007fd4);
+}
+
+/* 操作行:与字段之间用细分隔线分开 */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.22));
+}
+
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--dsh-surface-border));
+  background: var(--vscode-input-background, transparent);
+  color: var(--vscode-foreground);
+  font-size: 11.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.settings-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--dsh-surface-soft));
+}
+
+.settings-btn svg {
+  flex: none;
+  opacity: 0.9;
+}
+
+.settings-btn-primary {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.settings-btn-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  font-size: 11px;
+  flex: none;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 10px;
   border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
-  border-radius: 6px;
-  padding: 6px;
+  border-radius: 10px;
+  padding: 12px 14px 12px;
+  background: var(--vscode-editorWidget-background, transparent);
 }
 
 .settings-section-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
@@ -5890,14 +6455,27 @@ button {
 .settings-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 12px 14px;
+  margin-bottom: 4px;
 }
 
-.settings-field { display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 430px) {
+  .settings-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
 
 .settings-field > .settings-field-label {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
 }
 
 .provider-row {
@@ -6001,25 +6579,43 @@ button {
 
 /* 消息内图片 */
 
+/* ---------- 对话内图片缩略图(用户消息 / 工具结果共用) ---------- */
 .msg-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .msg-image-frame {
-  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.3));
-  border-radius: 6px;
+  position: relative;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.3)));
+  border-radius: 8px;
   padding: 3px;
   background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.06));
+  line-height: 0;
+}
+
+/* 可点击放大:放大镜光标 + 悬停描边提亮,键盘聚焦也有可见环 */
+.msg-image-frame.clickable {
+  cursor: zoom-in;
+}
+
+.msg-image-frame.clickable:hover {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.msg-image-frame.clickable:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
 }
 
 .msg-image {
   display: block;
-  max-width: 220px;
-  max-height: 180px;
-  border-radius: 4px;
+  max-width: 240px;
+  max-height: 190px;
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 .msg-image-placeholder {
@@ -6032,7 +6628,7 @@ button {
   color: var(--vscode-descriptionForeground);
 }
 
-.msg-image-error { font-size: 10.5px; color: var(--vscode-errorForeground, #f48771); }
+.msg-image-error { font-size: 10.5px; color: var(--vscode-errorForeground, #f48771); padding: 4px 6px; }
 
 /* 图片附件芯片(与文件/文件夹附件同排显示,+ 号右侧;虚线与文件附件区分) */
 

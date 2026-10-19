@@ -65,5 +65,9 @@
   "config.historyKey": "↑/↓로 이전 입력을 불러오는 시점: 커서가 끝에 있을 때만(기본), 매번, 사용 안 함",
   "config.historyKey.edge": "끝에서만: 커서가 움직일 수 있으면 이동하고, 더 못 움직이는 누름에서 기록을 불러옵니다",
   "config.historyKey.always": "매번: ↑/↓가 이전/다음 입력을 즉시 불러오고 커서는 움직이지 않습니다",
-  "config.historyKey.off": "사용 안 함: 일반 ↑/↓는 커서만 이동(Ctrl/Alt + ↑/↓로는 기록을 불러올 수 있음)"
+  "config.historyKey.off": "사용 안 함: 일반 ↑/↓는 커서만 이동(Ctrl/Alt + ↑/↓로는 기록을 불러올 수 있음)",
+  "config.stepCollapse": "작업 단계(사고·도구 호출)를 자동으로 접는 시점.",
+  "config.stepCollapse.end": "답변이 끝나면 접기",
+  "config.stepCollapse.next": "다음 메시지가 오면 접기",
+  "config.stepCollapse.never": "자동으로 접지 않기"
 }

@@ -65,5 +65,9 @@
   "config.historyKey": "Quand ↑/↓ rappellent les saisies précédentes : uniquement au bord du texte (par défaut), à chaque appui, ou jamais",
   "config.historyKey.edge": "Uniquement au bord : ↑/↓ déplacent le curseur tant qu'il peut bouger, et rappellent l'historique quand il ne peut plus",
   "config.historyKey.always": "À chaque appui : ↑/↓ rappellent immédiatement la saisie précédente/suivante, sans déplacer le curseur",
-  "config.historyKey.off": "Jamais : ↑/↓ ne déplacent que le curseur (Ctrl/Alt + ↑/↓ rappellent toujours l'historique)"
+  "config.historyKey.off": "Jamais : ↑/↓ ne déplacent que le curseur (Ctrl/Alt + ↑/↓ rappellent toujours l'historique)",
+  "config.stepCollapse": "Quand replier automatiquement les étapes de réflexion et d'appels d'outils d'un tour.",
+  "config.stepCollapse.end": "Replier à la fin de la réponse",
+  "config.stepCollapse.next": "Replier à l'arrivée du message suivant",
+  "config.stepCollapse.never": "Ne jamais replier automatiquement"
 }

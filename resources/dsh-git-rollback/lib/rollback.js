@@ -103,7 +103,7 @@ async function savepointAndRestore(gitBin, cwd, sid, targetCommit, opts) {
     finally {
         rmSavepointIndex(saveIdx);
     }
-    await gitExec(gitBin, cwd, ["update-ref", saveRef(opts.refPrefix, sid), saveCommit]);
+    await gitExec(gitBin, cwd, ["update-ref", saveRef(opts.refPrefix, sid, opts.scope), saveCommit]);
     const currentUntracked = await untrackedList(gitBin, cwd);
     // 2) 内容级恢复:read-tree 使索引=目标树(保护快照内未跟踪文件),
     //    clean -fd 自动精确删除目标之后新建的未跟踪文件;HEAD/分支历史不动。

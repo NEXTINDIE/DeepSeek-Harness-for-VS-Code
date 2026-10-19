@@ -65,5 +65,9 @@
   "config.historyKey": "Wann ↑/↓ frühere Eingaben zurückholen: nur am Textrand (Standard), bei jedem Tastendruck oder nie",
   "config.historyKey.edge": "Nur am Rand: ↑/↓ bewegen den Cursor, solange er sich bewegen kann; am Rand holt dieser Tastendruck den Verlauf",
   "config.historyKey.always": "Bei jedem Druck: ↑/↓ holen sofort die vorige/nächste Eingabe, der Cursor bleibt",
-  "config.historyKey.off": "Nie: ↑/↓ bewegen nur den Cursor (Strg/Alt + ↑/↓ holen weiterhin den Verlauf)"
+  "config.historyKey.off": "Nie: ↑/↓ bewegen nur den Cursor (Strg/Alt + ↑/↓ holen weiterhin den Verlauf)",
+  "config.stepCollapse": "Wann die Denk- und Werkzeugschritte eines Zugs automatisch eingeklappt werden.",
+  "config.stepCollapse.end": "Nach dem Ende der Antwort einklappen",
+  "config.stepCollapse.next": "Einklappen, wenn die nächste Nachricht eintrifft",
+  "config.stepCollapse.never": "Nie automatisch einklappen"
 }

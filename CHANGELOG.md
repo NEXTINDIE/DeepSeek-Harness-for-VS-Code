@@ -1,6 +1,94 @@
 # Changelog
 
 
+## 0.13.56
+- **Settings forms are no longer a dense grid.** Every schema field now renders as label + one-line description + a full-width control, with a 14px rhythm between fields, 30px-tall inputs, a focus ring taken from the theme, a divider above the action row and roomier section padding. Nested objects keep their disclosure group, and the "discover models" block got the same breathing room (2 columns that collapse to 1 below 430px).
+- **Buttons use line icons instead of emoji.** 保存 / 重置命名空间 / 发现模型 / 清除 now carry the save, refresh, search and trash glyphs from the shared icon set (drawn in the current foreground colour), so they match the rest of the UI and read the same in light and dark themes.
+- **Arrays of objects are edited as JSON instead of `[object Object]`.** The `Models`-style fields used to join each item with `String(...)`, printing `[object Object]` per row; they now show pretty-printed JSON, validate on every keystroke, mark the field invalid with an inline message when the text does not parse, and only submit a valid array.
+- Also hardened two things found while testing: `ns.secrets` is read defensively (a host payload without it used to kill the whole section), and a failing section now logs the exception to the webview console instead of silently leaving an empty pane.
+- Verified with a 12-check harness (values actually rendered, secret fields keep their placeholder, JSON round-trip, invalid JSON blocked with a visible message, and buttons carrying SVGs with emoji-free labels) plus the ten existing suites, typecheck and 684 keys; the form was rendered from the real bundle at both widths.
+- **设置表单不再是密集网格**。每个 schema 字段改成「标签 + 一行说明 + 占满整行的控件」,字段之间 14px 节奏,输入框 30px 高,聚焦用主题描边;操作行上方加了一条分隔线,分区内边距也放宽。"发现模型"区块同样放宽(两列,430px 以下自动变一列)。
+- **按钮改用线性图标,不再是 emoji**。保存 / 重置命名空间 / 发现模型 / 清除 分别使用共享图标集里的 save、refresh、search、trash(随前景色绘制),与其余界面一致,亮暗主题表现相同。
+- **对象数组按 JSON 编辑,不再显示 `[object Object]`**。`Models` 这类字段原来用 `String(...)` 逐项拼接,每一项都变成 `[object Object]`;现在直接给格式化后的 JSON,输入时即时校验,解析失败会在字段下方标错并阻止提交。
+- 顺带加固两处测试中发现的问题:防御性读取 `ns.secrets`(宿主少这个字段时原本会让整个分区渲染失败),以及分区渲染失败时把异常打到 webview 控制台,而不是静默留白。
+- 验证:12 项夹具(字段值确实渲染、密钥保留占位符、JSON 往返、非法 JSON 被拦截并提示、按钮带 SVG 且文案无 emoji)+ 既有十套夹具、typecheck 与 684 个本地化键;表单另用真实包在两种宽度下渲染核对。
+
+
+## 0.13.55
+- **Account card: avatar and money fixed.** A relative or unreachable `avatarUrl` used to render as a broken-image icon; only http(s)/data URLs are used now, images carry `referrerpolicy="no-referrer"`, and a load failure swaps in the initial. Balances came straight from the Platform's decimal string, so a value like `1.404286135000000` (float noise) was printed verbatim — amounts are now formatted with two decimals and thousands separators (`¥1.40`, `¥0.00`, `$1,234.50`), falling back to the raw string if it is not numeric.
+- **「默认权限」 no longer renders a blank page.** When the permission namespace's schema could not be resolved into a preset list, the section returned early and left the content pane empty. It now falls back to the generic namespace form with an explanation ("no presets could be parsed; showing the generic form"), and every section render is wrapped so a throw shows a readable message instead of an empty pane.
+- Two of my own regressions, caught by the new harness before release: the previous patch had removed the account section's final `body.append(section)` (which is why the card disappeared while the nav kept working), and the permission renderer's early return needed a boolean so the caller can tell "nothing to show" apart from "rendered".
+- Verified: 4 new checks for money formatting, avatar fallback, the permission fallback path and the normal three-preset path, plus all nine UI suites, typecheck and 682 localized keys.
+- **账号卡片:头像与金额修复**。相对路径或失效的 `avatarUrl` 之前会渲染成破图图标;现在只接受 http(s)/data URL,图片带 `referrerpolicy="no-referrer"`,加载失败则退回首字母。余额原本直接拼接平台返回的十进制字符串,像 `1.404286135000000`(浮点噪声)就原样显示了 —— 现在统一两位小数 + 千位分隔(`¥1.40`、`¥0.00`、`$1,234.50`),非数字时原样回退。
+- **「默认权限」不再空白**。当 permission 命名空间的 schema 解析不出预设列表时,分区提前 return,右侧内容区就空着。现在会退回通用表单并说明原因(「没有从宿主设置里解析出可选预设,下面按通用表单展示」),同时每个分区的渲染都包了 try/catch,抛错时给出可读提示而不是留白。
+- 我自己的两处回归,被新夹具在发布前抓住:上一版补丁误删了账号分区末尾的 `body.append(section)`(所以导航正常、内容却不见了),以及权限渲染函数的提前 return 需要返回布尔值,让调用方能区分「没内容可显示」与「已渲染」。
+- 验证:新增 4 项金额/头像检查 + 权限回退路径与正常三预设路径,以及全部九套界面夹具、typecheck 与 682 个本地化键。
+
+
+## 0.13.54
+- **The account card now updates itself.** The extension subscribes to the host's `account/watch` stream, so finishing a browser sign-in, signing out, or an expired authorization reaches the settings page immediately — no manual refresh. State frames are merged rather than replacing the card (a state-only frame never wipes the balance), and the moment the session turns signed-in the full profile and balance are fetched once automatically, with a 5-second back-off so a failing balance lookup cannot spin.
+- **New worktree card.** When the session's effective directory is a linked Git worktree (what the experimental Git Worktrees plugin creates), a compact card appears above the transcript: branch name, path, and 定位 / 复制路径 buttons. A new `resolveWorktree()` helper reads it with `git rev-parse` only — no writes, 5s timeout, silent when the directory is not a repository — and results are cached per directory. The card refreshes on every `working-directory/change` and stays hidden for ordinary checkouts, so it never adds noise.
+- Fixed a real bug the new harness caught: `--git-common-dir` returns a **relative** `.git` in a normal checkout while `--absolute-git-dir` is absolute, so a naive comparison reported every ordinary repository as a worktree. Both paths are now resolved against the directory before comparing.
+- Verified with a 15-check harness that builds a real repository plus `git worktree`: main checkout vs linked worktree vs non-git directory, the card's branch/path/buttons, hiding on the main checkout, and the account merge rules (state frame keeps the balance, sign-in transition auto-fetches). Typecheck, 681 keys and all nine UI suites pass; the card was rendered from the real bundle.
+- **账号卡片现在会自动更新**。扩展订阅宿主的 `account/watch` 状态流:浏览器里完成登录、退出、授权过期都会立刻反映到设置页,不用再点刷新。状态帧是**合并**而不是替换(只有状态的帧不会把余额抹掉);一旦登录态变为已登录,自动补拉一次完整资料与余额,并带 5 秒退避,避免余额拉取失败后空转。
+- **新增工作树卡片**。当会话的生效目录是 linked Git 工作树(实验性 Git Worktrees 插件创建的那种)时,对话上方会出现一张紧凑卡片:分支名、路径,以及「定位 / 复制路径」。新增的 `resolveWorktree()` 只用 `git rev-parse` 读取,不写仓库,5 秒超时,非 git 目录静默返回;结果按目录缓存。目录每次变化(`working-directory/change`)都会刷新,普通检出下整卡隐藏,不制造噪音。
+- 顺手修掉一个新夹具抓到的真实 bug:普通检出里 `--git-common-dir` 返回的是**相对**的 `.git`,而 `--absolute-git-dir` 是绝对路径,朴素比较会把每个普通仓库都判成工作树。现在两者都先解析成绝对路径再比较。
+- 验证:15 项夹具搭真实仓库 + `git worktree`(主检出 / 链接工作树 / 非 git 目录、卡片的分支/路径/按钮、主检出下隐藏、以及账号合并规则:状态帧保留余额、登录态变化自动补拉)。typecheck、681 键与全部九套界面夹具通过,卡片另用真实包渲染核对。
+
+
+## 0.13.53
+- **Settings redesigned around a left rail.** The three tabs and one long column of sections are gone: the panel now shows a vertical list of eight sections on the left (账号与余额 / 发送与输入 / 语言 / 目录兼容 / 默认权限 / 主机设置 / 模型与供应商 / Agent 预设) and renders only the selected one on the right. Same controls, far less noise; below 480px the rail flips to a wrapping row.
+- **New "账号与余额" section (DeepSeek account).** Uses the host's `account/*` controller: when signed out it offers 登录 DeepSeek 账号 (the extension opens the authorize URL in your browser), plus 用量 / 充值 links; when signed in it shows the avatar or initial, name and contact, **balance and bonus-credit wallets** with tabular figures, and 刷新 / 用量 / 充值 / 退出登录. Hosts without the controller (pre-0.2.1) get a one-line explanation instead of dead buttons.
+- **Code blocks now match the web/desktop output.** Fenced code gets a header bar with the language label (SHELL, TypeScript, JSON …; 代码块 when the fence has none) and a copy button that flashes 已复制, with the body on a monospace surface and horizontal scrolling. Assistant messages also stretch to the full transcript width (`align-self: stretch`), so paragraphs wrap at the panel edge and code blocks no longer shrink to their longest line — that is the "aligned with web" part of the request.
+- Verified: typecheck, 677 localized keys with no missing entries, all eight UI suites; the settings panel (with a signed-in account), the account wallet row and the code block were rendered from the real bundle in both palettes.
+- **设置页改成左侧分区导航**。原来的三个 tab + 一列到底的所有分区都没有了:面板左侧竖排八个分区(账号与余额 / 发送与输入 / 语言 / 目录兼容 / 默认权限 / 主机设置 / 模型与供应商 / Agent 预设),右侧只渲染当前分区。控件一个没少,噪音大幅下降;窄于 480px 时导航自动折成一行。
+- **新增「账号与余额」分区(DeepSeek 账号)**。走宿主的 `account/*` 控制器:未登录时提供「登录 DeepSeek 账号」(扩展用系统浏览器打开授权页),以及「用量 / 充值」链接;已登录时显示头像或首字母、名称与联系方式、**余额与赠送额度**两块钱包(等宽数字),以及 刷新 / 用量 / 充值 / 退出登录。宿主没有该控制器(0.2.1 之前)时只显示一行说明,不留死按钮。
+- **代码块对齐网页端输出**。围栏代码多了一条 header:语言标签(SHELL、TypeScript、JSON 等;没有语言时显示「代码块」)+ 复制按钮(点击后短暂显示「已复制」),正文是等宽字体、可横向滚动。同时让助手消息占满正文宽度(`align-self: stretch`)——段落按面板宽度换行、代码块不再缩到最长一行,这正是"对齐网页端"的关键一条。
+- 验证:typecheck、677 个本地化键无缺失、八套界面夹具全过;设置页(含已登录账号)、钱包行与代码块都用真实包在深/浅两套配色下渲染核对。
+
+
+## 0.13.52
+- **Per-session drafts.** The composer now saves its content per session — text, manually attached files/folders and pasted images — the moment you switch away, and restores it when you come back; sending clears that session's draft. Previously the text simply stayed in the box across a session switch, so it could be sent to the wrong conversation. Drafts are debounced into the webview state, so they survive a panel reload too (file/folder/session references included).
+- **New setting `dsh.stepCollapse`: when to auto-collapse a turn's thinking and tool-call groups.** `end` (default) folds them as soon as the answer finishes, `next` keeps them open until your next message, `never` leaves them alone. Auto-collapse goes through the same memory a manual click uses, so a re-render never re-opens what you collapsed. The rows live in 设置 → 发送与输入, and the setting is also in the normal VS Code settings UI.
+- **Reasoning translation button (`cotTranslation`, 0.2.1 experimental plugin).** When the host composes that plugin, thinking rows grow a small 译 pill: one click translates the reasoning into the interface language and shows it under the original with a "译文" label, with the button flipping to 原文 to hide it again. When the plugin is absent (the default, and what this deployment reports as 404) the button stays hidden — no dead controls. The extension proxies the request with the session id so results are cacheable, and truncates at the host-declared per-request limit.
+- Verified with a new 20-check jsdom suite (draft save/restore/clear across switches, persistence, all three collapse modes including turn/end and turn/start boundaries, and the translation flow from hidden capability to rendered translation) plus typecheck, i18n checks (657 keys) and all eight UI suites; the translation UI was also rendered from the real bundle in both palettes.
+- **按会话草稿**。输入区内容现在按会话保存 —— 文字、手工附件(文件/文件夹)与粘贴的图片都会在切走时存档、切回时还原;发送成功后清掉该会话的草稿。此前切换会话时文字会原样留在框里,有发错会话的风险。草稿去抖写入 webview state,面板重载后同样能恢复(文件/目录/会话引用一并保留)。
+- **新设置 `dsh.stepCollapse`:工作步骤(思考与工具调用段)的自动收起时机**。`end`(默认)回答结束即收起,`next` 保持展开直到你发下一条消息,`never` 不自动收起。自动收起与手动点击共用同一份记忆,重绘不会把收起的段重新展开。设置行在「设置 → 发送与输入」,同时也出现在 VS Code 原生设置里。
+- **思考翻译按钮(`cotTranslation`,0.2.1 实验性插件)**。宿主组合了该插件时,思考行末会出现一枚「译」胶囊:点一下把这段思考译成界面语言,以「译文」标签显示在原文下方,按钮变成「原文」可再次收起。插件未组合时(默认情况,本部署实测 404)按钮保持隐藏,不留死控件。扩展侧代理请求并带上会话 id(结果可缓存),并按宿主声明的单次上限截断。
+- 验证:新增 20 项 jsdom 夹具(跨会话存稿/还原/清空、持久化、三种收起模式含 turn/end 与 turn/start 边界、翻译从能力隐藏到译文渲染的完整链路)+ typecheck、i18n 校验(657 键)与全部八套界面夹具;翻译界面另用真实包在深/浅两套配色下渲染核对。
+
+
+## 0.13.51
+- **Turn checkpoints now follow the session's effective working directory, so they stay correct when the experimental Git Worktrees plugin moves the session into a new checkout.** Root cause: the rollback plugin (and the extension's checkpoint reader) keyed everything on `session.header.cwd`, which is the immutable project directory. After `create_worktree` switched the session elsewhere, checkpoints kept snapshotting the old checkout, so the edits made in the worktree were captured by nothing and "restore checkpoint" silently became a no-op — the worst possible failure mode.
+- Plugin 0.1.12 resolves the directory through the host's `workingDirectory` service (optional `ctx.get`, so older hosts fall back to the header), and **scopes the checkpoint and save refs per directory**: a session that hops between checkouts gets one chain per directory instead of two trees overwriting `refs/dsh/checkpoints/<sid>`. The legacy ref name is kept whenever the directory equals the project root, so existing histories keep working. Records already lived at `<cwd>/.dsh/rollback`, which now naturally means one record per checkout.
+- The extension reads and previews checkpoints from the same effective directory (`sessionCwd()` helper shared by the divider state, the diff preview, fork-restore, undo and rollback), and re-reads them when `workingDirectory` changes — including worktrees created outside the VS Code workspace, which the file watcher never sees.
+- Verified: a new plugin test builds a real repository plus `git worktree`, snapshots the same session/turn in both directories, and asserts separate records, separate refs, stable per-directory tokens, and that the worktree snapshot really contains the worktree-only file (14/14 plugin tests pass). Typecheck and the UI suites still pass.
+- **回合检查点改为跟随会话的「生效工作目录」,因此在实验性 Git Worktrees 插件把会话切进新检出后依然正确**。根因:回退插件与扩展侧的检查点读取都以 `session.header.cwd` 为准,而它是**不可变的项目原始目录**。`create_worktree` 把会话切走之后,检查点仍在给旧检出拍快照 —— 工作树里的改动没有任何检查点覆盖,「还原检查点」静默变成空操作,这是最糟的失败形态。
+- 插件 0.1.12 通过宿主的 `workingDirectory` 服务解析目录(用可选的 `ctx.get`,老宿主自动回退到会话头),并**按目录给检查点与保存点引用分链**:同一会话在不同检出之间切换时,每个目录各有一条链,不再让两棵树互相覆盖 `refs/dsh/checkpoints/<sid>`。目录等于项目根时沿用旧引用名,老历史继续可用。记录本来就写在 `<cwd>/.dsh/rollback`,现在自然变成"每个检出各一份记录"。
+- 扩展侧同样按生效目录读写与预览检查点(新增 `sessionCwd()` 统一供分隔线状态、差异预览、分叉还原、撤销与回退使用),并在 `workingDirectory` 变化时重读一次 —— 包括创建在 VS Code 工作区之外、文件监听看不到的工作树。
+- 验证:新增一项插件测试,搭真实仓库 + `git worktree`,对同一会话同一回合在两个目录各拍一次快照,断言记录分离、引用分离、目录令牌稳定,且工作树快照确实包含只存在于工作树的文件(插件 14/14 通过)。typecheck 与界面夹具同样通过。
+
+
+## 0.13.50
+- **Images inside the conversation are now clickable.** Thumbnails in user messages and in tool results (read_image and friends) open the same full-size preview the composer's image chips use — Esc or a backdrop click closes it, and "open with the default app" still saves a temp file first. Keyboard users get the same thing: the frame is a focusable role=button, so Enter or Space opens it.
+- Thumbnail presentation tidied up: an 8px rhythm between images, a slightly larger frame with a widget border and 8px radius, a true zoom-in cursor, a focus border in the theme accent on hover/focus, a constant 240×190 contain box so portrait and landscape screenshots don't jump, and a padded error line instead of a bare 10.5px warning.
+- The preview header now says what the image is (图片 · PNG) instead of a made-up filename; the machine-readable name is still used for the temp file handed to the default app.
+- Verified with a 12-check jsdom suite (placeholder → data swap, click/Enter/Space opening, Esc and 关闭 closing, external-open action, and the same path for tool-result images) plus rendered screenshots in both palettes.
+- **对话里的图片现在可以点击放大**。用户消息与工具结果(read_image 之类)里的缩略图,点一下就走输入区图片芯片用的同一个放大弹层 —— Esc 或点遮罩关闭,「用默认应用打开」依旧先落临时文件再交给系统。键盘也能用:缩略图是可聚焦的 role=button,Enter / 空格即可打开。
+- 缩略图样式整理:图片间距 8px;外框略大、用控件描边 + 8px 圆角;真正的放大镜光标;悬停/聚焦时边框转为主题强调色;固定 240×190 的 contain 区域,竖图横图切换不再跳动;加载失败改为带内边距的整行提示,而不是裸的一行小字。
+- 放大弹层的标题改成说明图片类型(如「图片 · PNG」),不再编一个假文件名;机器可读的文件名仍用于「用默认应用打开」落盘。
+- 验证:12 项 jsdom 夹具(占位→数据替换、点击/Enter/空格打开、Esc 与「关闭」按钮关闭、交给系统默认应用、工具结果图片同路径)+ 深色/浅色两套渲染截图。
+
+
+## 0.13.49
+- **The working-directory chip on the composer hint line now matches the send-shortcut pill.** Its stylesheet block had been lost during the 0.13.42 stylesheet repair (that restore took the file from the last commit, and the chip's rules were not committed yet), so the element fell back to the host's default button appearance: a filled grey pill, default 13px type and default padding — visibly heavier than the muted hint text next to it. The block is back, deliberately sharing the send pill's metrics (10px, line-height 1.4, 1px/6px padding, 1px border, transparent background, description foreground), so the two controls are the same height and the same visual weight.
+- The label is now just the folder name (the folder icon and the tooltip carry the meaning); the full path stays in the tooltip and in the aria-label, and long names ellipsize at 45% width instead of pushing the hint text.
+- Verified in both palettes with the real bundle and real CSS; typecheck, the i18n checks and the UI suites still pass.
+- **输入框提示行的「工作目录」芯片改到与发送键胶囊同尺寸同观感**。它的样式块在 0.13.42 修样式表时丢了(那次 restore 取的是最后一次提交,而芯片样式当时还没提交),于是这个元素退回宿主默认按钮外观:实心灰底、默认 13px 字号、默认内边距 —— 比旁边的浅色提示文字重一大截。现在样式补回,并且刻意与发送键胶囊共用同一套尺寸(10px、行高 1.4、1px/6px 内边距、1px 边框、透明底、次要前景色),两者等高、视觉权重一致。
+- 文案只显示目录名(语义交给文件夹图标与悬停说明);完整路径保留在 tooltip 与 aria-label 里,过长的名字在 45% 宽度处省略,不再把提示文字挤走。
+- 深色/浅色两套配色都用真实包 + 真实 CSS 渲染验证过;typecheck、i18n 校验与界面夹具均通过。
+
+
 ## 0.13.48
 - **Header refreshed.** The session row now uses one consistent 8px rhythm, a 6/10px dropdown trigger on the theme's input background with the widget border, and a real bottom divider (only when the theme defines one). The `+` icon button became **「新建对话」** — plus icon plus label — so the primary action of that row is readable instead of a bare glyph.
 - **Every emoji left the session list and its ⋯ menu.** Rows carried ⏳ / 🛡️ / 📋 / ❓ / 🆕 / 💬 depending on state; they now use small theme-coloured dots with a text label (green pulsing dot + 运行中, blue dot + 等待回答, purple + 计划待审, amber + 等待审批, grey for an idle subagent), so light and dark themes agree and nothing depends on how a font renders an emoji. Untitled sessions fall back to "新会话 · <id>" instead of an emoji prefix.

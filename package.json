@@ -2,7 +2,7 @@
   "name": "dsh-vscode",
   "displayName": "DeepSeek Harness for VS Code",
   "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant with @ file/session/agent mentions, multimodal image attachments, model/preset/permission/thinking controls, subagents, Cordis plugin approvals, and turn-level Git rollback (undo one turn, restore checkpoints).",
-  "version": "0.13.48",
+  "version": "0.13.56",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -342,6 +342,21 @@
             "%config.historyKey.off%"
           ],
           "description": "%config.historyKey%"
+        },
+        "dsh.stepCollapse": {
+          "type": "string",
+          "enum": [
+            "end",
+            "next",
+            "never"
+          ],
+          "default": "end",
+          "enumDescriptions": [
+            "%config.stepCollapse.end%",
+            "%config.stepCollapse.next%",
+            "%config.stepCollapse.never%"
+          ],
+          "description": "%config.stepCollapse%"
         },
         "dsh.uiFontFamily": {
           "type": "string",

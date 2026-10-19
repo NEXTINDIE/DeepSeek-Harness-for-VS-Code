@@ -1,3 +1,4 @@
+import { resolveCwd } from "./cwd.js";
 import { gitExec, readRecord } from "./git.js";
 /** SessionId 是 branded 类型;HTTP body 里的是普通字符串。 */
 function asSessionId(s) {
@@ -74,8 +75,8 @@ export function registerWebRoutes(ctx, opts) {
             try {
                 const sessions = ctx.get("sessions");
                 const session = sessions?.get(asSessionId(sid));
-                const header = session && session.header;
-                const cwd = header?.cwd;
+                // 生效目录(而不是不可变的会话头 cwd):Agent 切进 Git 工作树后,记录写在那边
+                const { cwd } = resolveCwd(ctx, session);
                 if (!cwd) {
                     sendJson(res, 404, { error: "会话没有工作目录" });
                     return;

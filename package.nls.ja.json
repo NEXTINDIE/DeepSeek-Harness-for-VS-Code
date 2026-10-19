@@ -65,5 +65,9 @@
   "config.historyKey": "↑/↓ で以前の入力を呼び出すタイミング:カーソルが端にあるときのみ(既定)/ 毎回 / 無効",
   "config.historyKey.edge": "端でのみ: カーソルが動ける間は移動し、動けなくなった押下で履歴を呼び出す",
   "config.historyKey.always": "毎回: ↑/↓ は前 / 次の入力を即座に呼び出し、カーソルは移動しません",
-  "config.historyKey.off": "無効: 通常の ↑/↓ はカーソル移動のみ(Ctrl/Alt + ↑/↓ では履歴を呼び出せます)"
+  "config.historyKey.off": "無効: 通常の ↑/↓ はカーソル移動のみ(Ctrl/Alt + ↑/↓ では履歴を呼び出せます)",
+  "config.stepCollapse": "作業ステップ(思考・ツール呼び出し)を自動で折りたたむタイミング。",
+  "config.stepCollapse.end": "回答の終了後に折りたたむ",
+  "config.stepCollapse.next": "次のメッセージが届いたら折りたたむ",
+  "config.stepCollapse.never": "自動では折りたたまない"
 }

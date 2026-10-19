@@ -43,6 +43,14 @@ export interface HubDeps {
   onLog?: (message: string) => void;
   /** 翻译函数(vscode.l10n.t);hub 保持对 vscode 无依赖。 */
   t?: (key: string, args?: Record<string, string | number>) => string;
+  /** 思考翻译函数探测完成 / 账号状态变化时通知宿主转发给界面。 */
+  onCotTranslationChanged?: () => void;
+  /** DeepSeek 账号状态变化(登录完成、退出、授权过期):由宿主转成 accountState 消息。 */
+  onAccountChanged?: (view: {
+    status: "signed-out" | "credential-stored";
+    links: { usageUrl: string; topUpUrl: string };
+    attempt: null | { id: string; phase: string; authorizeUrl?: string; expiresAt?: number; errorCode?: string };
+  }) => void;
 }
 
 const HISTORY_PAGE_MESSAGES = 60;
@@ -52,6 +60,24 @@ export class DshHub {
   readonly store = new SessionStore();
   readonly client: DshApiClient;
   readonly server: ServerManager;
+
+  /**
+   * 思考翻译能力(0.2.1 实验性插件 cotTranslation):默认未组合时端点 404 →
+   * available=false,界面上不出现「译」按钮。
+   */
+  cotTranslation: { available: boolean; targetLanguage: string; maxTextChars: number } = {
+    available: false,
+    targetLanguage: "auto",
+    maxTextChars: 4000,
+  };
+
+  /** DeepSeek 账号状态(0.2.1 account/watch 的最新快照);undefined = 尚未收到或控制器不存在。 */
+  accountView?: {
+    status: "signed-out" | "credential-stored";
+    links: { usageUrl: string; topUpUrl: string };
+    attempt: null | { id: string; phase: string; authorizeUrl?: string; expiresAt?: number; errorCode?: string };
+  };
+  private accountWatch?: { cancel(): void };
 
   private statusState: HubStatus = {
     serverUp: false,
@@ -131,6 +157,34 @@ export class DshHub {
           .catch(() => {
             /* 老宿主没有该流:按 owner 处理(不需要降级) */
           });
+        // 0.2.1 实验性思考翻译(默认未组合 → 404):探测一次,决定是否显示「译」按钮
+        void this.client
+          .cotTranslationLimits()          .then((limits) => {
+            this.cotTranslation = {
+              available: true,
+              targetLanguage: limits?.preferences?.targetLanguage || "auto",
+              maxTextChars: typeof limits?.maxTextChars === "number" ? limits.maxTextChars : 4000,
+            };
+            this.deps.onCotTranslationChanged?.();
+          })
+          .catch(() => {
+            this.cotTranslation = { available: false, targetLanguage: "auto", maxTextChars: 4000 };
+            this.deps.onCotTranslationChanged?.();
+          });
+        // DeepSeek 账号状态流:登录完成 / 退出 / 授权过期都从这里回到界面(设置页账号卡片自动刷新)。
+        // 老宿主没有该控制器 → onError → 静默(卡片按「未启用」呈现)。
+        try {
+          this.accountWatch?.cancel();
+          this.accountWatch = this.client.openAccountWatch(
+            (view) => {
+              this.accountView = view;
+              this.deps.onAccountChanged?.(view);
+            },
+            { onError: () => { /* 控制器不存在:保持账号卡片为不可用 */ } },
+          );
+        } catch {
+          /* 流打不开时不影响其它功能 */
+        }
       },
       onEmit: (event, args) => {
         if (event.startsWith("api-session/")) {

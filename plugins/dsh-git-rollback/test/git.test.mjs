@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkpointTurn, checkpointTurnEnd } from "../lib/checkpoint.js";
 import { performRollback, performRedo, performUndo, listCheckpoints, parseTurnArg } from "../lib/rollback.js";
-import { readRecord, writeRecord } from "../lib/git.js";
+import { readRecord, writeRecord, cwdScope } from "../lib/git.js";
 
 const GIT = "git";
 
@@ -451,6 +451,58 @@ test("中文文件名:/undo 不因 quotepath 转义/CRLF 而失败(回归)", asy
     // HEAD 零污染
     assert.ok(!run(["log", "--oneline", "HEAD"]).includes("dsh-checkpoint"));
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- 工作树:生效目录切换后,检查点必须按目录分链(0.2.1 working-directory / Git Worktrees 插件) ----
+test("工作树隔离:不同目录的快照各走各的记录与引用,互不覆盖", async () => {
+  const { dir, run } = makeRepo();
+  const wtParent = mkdtempSync(join(tmpdir(), "dsh-wt-"));
+  const wt = join(wtParent, "wt");
+  try {
+    writeFileSync(join(dir, "a.txt"), "base");
+    run(["add", "a.txt"]);
+    run(["commit", "-qm", "init"]);
+    run(["worktree", "add", "-q", wt, "-b", "feat"]);
+
+    const scopeMain = cwdScope(dir, dir);
+    const scopeWt = cwdScope(wt, dir);
+    assert.equal(scopeMain, undefined, "主检出(与会话头一致)应沿用旧引用名");
+    assert.match(scopeWt, /^[0-9a-f]{8}$/, "工作树应得到稳定令牌");
+    assert.equal(cwdScope(wt, dir), scopeWt, "同一目录的令牌必须稳定");
+    assert.notEqual(scopeWt, cwdScope(join(wtParent, "other"), dir), "不同目录令牌不同");
+
+    // 主检出:回合 1 快照
+    writeFileSync(join(dir, "a.txt"), "main-turn1");
+    await checkpointTurn(GIT, dir, SID, 1, 1000, OPTS);
+    // 工作树:同会话、同回合号,但目录不同 → 必须写到自己的记录/引用
+    writeFileSync(join(wt, "a.txt"), "worktree-turn1");
+    writeFileSync(join(wt, "new.txt"), "worktree-new");
+    await checkpointTurn(GIT, wt, SID, 1, 2000, { ...OPTS, scope: scopeWt });
+
+    const recMain = readRecord(dir, SID);
+    const recWt = readRecord(wt, SID);
+    assert.ok(recMain && recWt, "两边都应有记录文件");
+    assert.equal(recMain.checkpoints.length, 1);
+    assert.equal(recWt.checkpoints.length, 1);
+    assert.notEqual(recMain.checkpoints[0].commit, recWt.checkpoints[0].commit, "快照提交必须不同");
+
+    // 引用按目录分链:两条 ref 各自存在且指向各自的快照
+    const refMain = run(["rev-parse", "--verify", `refs/dsh/checkpoints/${SID}`]);
+    const refWt = run(["rev-parse", "--verify", `refs/dsh/checkpoints/${SID}-${scopeWt}`]);
+    assert.equal(refMain, recMain.checkpoints[0].commit);
+    assert.equal(refWt, recWt.checkpoints[0].commit);
+    assert.notEqual(refMain, refWt);
+
+    // 工作树快照确实包含工作树里的新文件(同一 .git,但树按工作树内容拍)
+    const wtTree = run(["ls-tree", "-r", "--name-only", refWt]);
+    assert.match(wtTree, /new\.txt/);
+
+    // 主检出的记录不受影响
+    assert.equal(recMain.cwd.replace(/\\/g, "/").toLowerCase().endsWith("/main") || recMain.cwd === dir, true);
+  } finally {
+    rmSync(wtParent, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -17,8 +17,21 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     private readonly log?: (line: string) => void,
   ) {}
 
+  /** 最近一次解析出来的通道(能力探测完成后用它把变化推给界面)。 */
+  private channel: ChatChannel | undefined;
+
+  /** 思考翻译能力变化:转发给 webview(不可用时隐藏「译」按钮)。 */
+  postCotTranslation(): void {
+    this.channel?.postCotTranslation();
+  }
+
+  /** DeepSeek 账号状态变化:转发给 webview(设置页账号卡片自动刷新余额)。 */
+  postAccountState(view?: Parameters<ChatChannel["postAccountState"]>[0]): void {
+    this.channel?.postAccountState(view);
+  }
+
   resolveWebviewView(webviewView: vscode.WebviewView): void {
-    new ChatChannel(this.hub, this.ctx, {
+    const channel = new ChatChannel(this.hub, this.ctx, {
       webview: webviewView.webview,
       onDidDispose: webviewView.onDidDispose,
       dispose: () => {
@@ -36,5 +49,6 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
           });
       },
     });
+    this.channel = channel;
   }
 }

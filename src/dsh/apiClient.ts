@@ -978,6 +978,94 @@ export class DshApiClient {
 
   // ---------- 设置 / 凭据 / LLM 目录 ----------
 
+  /**
+   * 思考过程翻译(0.2.1 实验性插件,默认不组合 → 404):
+   * limits 不带正文,只读偏好与单次上限;调用方据此决定是否显示「译」按钮。
+   */
+  cotTranslationLimits() {
+    return this.request<{
+      maxTextChars: number;
+      preferences: { provider: string; targetLanguage: string };
+      availableProviders: string[];
+    }>("cotTranslation/limits", {}, 15_000);
+  }
+  /** 翻译一段展示文本;成功时返回纯文本译文(Session 存在时结果会被持久化缓存)。 */
+  cotTranslationTranslate(request: {
+    text: string;
+    targetLanguage: string;
+    sourceLanguage?: string;
+    provider?: string;
+    sessionId?: string;
+  }) {
+    return this.request<string>("cotTranslation/translate", { request }, 60_000);
+  }
+
+  // ---------- DeepSeek 账号(0.2.1 accountController) ----------
+  /**
+   * 账号状态流(account/watch):初始快照 + 后续变化(登录完成 / 退出 / 授权过期)。
+   * 只推状态,不含资料与余额 —— 那两项仍由 account/getProfile|getBalance 拉取。
+   */
+  openAccountWatch(
+    onItem: (view: {
+      status: "signed-out" | "credential-stored";
+      links: { usageUrl: string; topUpUrl: string };
+      attempt: null | { id: string; phase: string; authorizeUrl?: string; expiresAt?: number; errorCode?: string };
+    }) => void,
+    handlers: { onError?: (error: { code: string; message: string }) => void } = {},
+  ) {
+    return this.openStream("account/watch", {}, {
+      onItem: (value) => {
+        const view = value as { status?: unknown; links?: unknown; attempt?: unknown } | undefined;
+        if (!view || typeof view !== "object") return;
+        if (view.status !== "signed-out" && view.status !== "credential-stored") return;
+        onItem(view as never);
+      },
+      onError: (error) => handlers.onError?.(error),
+    });
+  }
+
+  /**
+   * 账号状态:是否已登录、注册/充值链接、以及正在进行的登录尝试(含 authorizeUrl)。
+   * 老宿主没有该控制器 → 404 → 调用方按「账号功能不可用」处理。
+   */
+  accountState() {
+    return this.request<{
+      status: "signed-out" | "credential-stored";
+      links: { usageUrl: string; topUpUrl: string };
+      attempt:
+        | null
+        | {
+            id: string;
+            phase: "initializing" | "waiting-browser" | "exchanging" | "committing" | "succeeded" | "cancelled" | "expired" | "failed";
+            authorizeUrl?: string;
+            expiresAt?: number;
+            errorCode?: "expired" | "no-response" | "network" | "protocol" | "storage";
+          };
+    }>("account/getState", {}, 20_000);
+  }
+  accountProfile(meta: { version: string; locale: string; timezoneOffsetSeconds: number }) {
+    return this.request<{ status: "ready"; value: { id: string | null; name: string | null; contact: string | null; avatarUrl?: string | null } } | { status: "failed" }>(
+      "account/getProfile",
+      { client: meta },
+      20_000,
+    );
+  }
+  accountBalance(meta: { version: string; locale: string; timezoneOffsetSeconds: number }) {
+    return this.request<
+      | { status: "ready"; value: { currency: "CNY" | "USD"; balance: string }[]; bonusWallets: { currency: "CNY" | "USD"; balance: string }[] }
+      | { status: "failed" }
+    >("account/getBalance", { client: meta }, 20_000);
+  }
+  accountStartSignIn() {
+    return this.request<{ attemptId?: string; authorizeUrl?: string }>("account/startSignIn", {}, 30_000);
+  }
+  accountCancelSignIn() {
+    return this.request<unknown>("account/cancelSignIn", {}, 20_000);
+  }
+  accountSignOut() {
+    return this.request<unknown>("account/signOut", {}, 20_000);
+  }
+
   settingsDescribe() {
     return this.request<SettingsDescribeValue>("settings/describe", {}, 60_000);
   }

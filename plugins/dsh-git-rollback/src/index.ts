@@ -11,6 +11,7 @@ import type { Context } from "@deepseek-ai/cordis";
 import type { Session, SessionEvent } from "@deepseek-ai/dsh-session";
 import { checkpointTurn, checkpointTurnEnd } from "./checkpoint.js";
 import { registerCommands } from "./command.js";
+import { resolveCwd } from "./cwd.js";
 import { registerWebRoutes } from "./webService.js";
 import { DEFAULT_COMMIT_PREFIX, DEFAULT_REF_PREFIX } from "./types.js";
 
@@ -49,14 +50,17 @@ export function apply(ctx: Context, config: RollbackConfig = {}) {
     if (!turn) return;
     const header = session.header;
     const sid = typeof session.id === "string" ? session.id : undefined;
-    const cwd = typeof header.cwd === "string" && header.cwd ? header.cwd : undefined;
     const isTop = (header.delegationDepth ?? 0) === 0;
+    // 目录:用**生效**工作目录(0.2.1 workingDirectory 服务),而不是不可变的会话头 cwd ——
+    // 否则 Agent 用 working_directory / create_worktree 切走后,快照拍的是旧目录。
+    const { cwd, scope } = resolveCwd(ctx as unknown as { get?: (name: string) => unknown }, session as unknown as { header?: { cwd?: string; delegationDepth?: number } });
     if (!sid || !cwd || !isTop) return;
+    const eventOpts = scope ? { ...opts, scope } : opts;
     if (event.type === "turn/start") {
-      enqueue(cwd, () => checkpointTurn(gitBin, cwd, sid, turn, event.time, opts));
+      enqueue(cwd, () => checkpointTurn(gitBin, cwd, sid, turn, event.time, eventOpts));
     } else if (event.type === "turn/end") {
       // 回合结束快照:记录该回合自身改动,供 /undo 精确撤销(只撤销会话改动,不动用户提交内容)
-      enqueue(cwd, () => checkpointTurnEnd(gitBin, cwd, sid, turn, event.time, opts));
+      enqueue(cwd, () => checkpointTurnEnd(gitBin, cwd, sid, turn, event.time, eventOpts));
     }
   });
 

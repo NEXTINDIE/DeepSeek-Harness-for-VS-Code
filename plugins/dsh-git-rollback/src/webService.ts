@@ -16,6 +16,7 @@ import type { Context } from "@deepseek-ai/cordis";
 import type { WebRoute } from "@deepseek-ai/dsh-host-webserver";
 import type { SessionId } from "@deepseek-ai/dsh-session";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { resolveCwd } from "./cwd.js";
 import { gitExec, readRecord } from "./git.js";
 
 /** SessionId 是 branded 类型;HTTP body 里的是普通字符串。 */
@@ -104,8 +105,8 @@ export function registerWebRoutes(ctx: Context, opts: WebRollbackOptions): () =>
       try {
         const sessions = ctx.get("sessions");
         const session = sessions?.get(asSessionId(sid));
-        const header = session && (session as { header?: { cwd?: string } }).header;
-        const cwd = header?.cwd;
+        // 生效目录(而不是不可变的会话头 cwd):Agent 切进 Git 工作树后,记录写在那边
+        const { cwd } = resolveCwd(ctx as unknown as { get?: (name: string) => unknown }, session as unknown as { header?: { cwd?: string } });
         if (!cwd) {
           sendJson(res, 404, { error: "会话没有工作目录" });
           return;

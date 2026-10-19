@@ -65,5 +65,9 @@
   "config.historyKey": "Quando ↑/↓ recuperam entradas anteriores: apenas na borda do texto (padrão), a cada tecla ou nunca",
   "config.historyKey.edge": "Apenas na borda: ↑/↓ movem o cursor enquanto ele puder se mover; na borda essa tecla recupera o histórico",
   "config.historyKey.always": "A cada tecla: ↑/↓ recuperam imediatamente a entrada anterior/seguinte e não movem o cursor",
-  "config.historyKey.off": "Nunca: ↑/↓ apenas movem o cursor (Ctrl/Alt + ↑/↓ ainda recuperam o histórico)"
+  "config.historyKey.off": "Nunca: ↑/↓ apenas movem o cursor (Ctrl/Alt + ↑/↓ ainda recuperam o histórico)",
+  "config.stepCollapse": "Quando recolher automaticamente as etapas de raciocínio e chamadas de ferramentas de um turno.",
+  "config.stepCollapse.end": "Recolher quando a resposta terminar",
+  "config.stepCollapse.next": "Recolher quando a próxima mensagem chegar",
+  "config.stepCollapse.never": "Nunca recolher automaticamente"
 }

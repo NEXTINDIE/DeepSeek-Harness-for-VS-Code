@@ -106,7 +106,7 @@ export interface PanelsContext {
   /** 宿主是否仍提供预设作者端点(0.1.7-rc.2 起移除;undefined = 尚未探测)。 */
   presetAuthoring?: boolean;
   /** 输入区偏好(发送快捷键 / 字体 / 产物折叠);由宿主 init 与设置回执下发。 */
-  composerPrefs?: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string };
+  composerPrefs?: { sendKey?: string; fontFamily?: string; autoCollapseProducedFiles?: boolean; historyKey?: string; stepCollapse?: string };
   post: (msg: Record<string, unknown>) => void;
   el: (tag: string, cls?: string, text?: string) => HTMLElement;
   t: (zh: string, params?: Record<string, string | number>) => string;
@@ -1017,23 +1017,26 @@ export function createPanels(ctx: PanelsContext) {
   /** 各命名空间本地已配置的凭据集合(ref → true) */
   const credentialCache = new Map<string, boolean>();
 
+  /** 设置页分区(左侧导航);默认落在账号与余额。 */
+  let settingsSection: "account" | "input" | "language" | "dirs" | "permission" | "host" | "models" | "presets" = "account";
+  /** DeepSeek 账号状态(0.2.1 accountController);available=false 表示宿主未启用该控制器。 */
+  interface AccountView {
+    available: boolean;
+    signedIn: boolean;
+    profile?: { name?: string | null; contact?: string | null; avatarUrl?: string | null };
+    wallets?: { currency: string; balance: string }[];
+    bonusWallets?: { currency: string; balance: string }[];
+    links?: { usageUrl: string; topUpUrl: string };
+    attempt?: { phase: string; authorizeUrl?: string } | null;
+  }
+  let account: AccountView | undefined;
+  /** 上次完整拉取(资料 + 余额)的时间戳;用于失败后退避。 */
+  let accountFetchedAt = 0;
+
   function openSettings() {
     if (!settingsPanel) {
       settingsPanel = makePanel(ctx, t("⚙️ 设置"), true);
-      const tabs = ctx.el("div", "settings-tabs");
-      const mkTab = (id: "general" | "models" | "presets", label: string) => {
-        const b = ctx.el("button", "settings-tab", label) as HTMLButtonElement;
-        b.addEventListener("click", () => {
-          settingsTab = id;
-          renderSettingsBody();
-        });
-        tabs.append(b);
-        return b;
-      };
-      mkTab("general", t("常规"));
-      mkTab("models", t("模型与供应商"));
-      mkTab("presets", t("Agent 预设"));
-      settingsPanel.headControls.append(tabs);
+      // 分区导航放到正文里(左侧竖排),顶部不再堆叠 tab
       renderSettingsBody();
     }
     settingsPanel.overlay.hidden = false;
@@ -1048,15 +1051,202 @@ export function createPanels(ctx: PanelsContext) {
     if (settingsPanel && !settingsPanel.overlay.hidden) renderSettingsBody();
   }
 
+  /**
+   * 设置正文:左侧分区导航 + 右侧内容(只渲染当前分区)。
+   * 之前所有分区首尾相接堆成一列,面板一打开就是几百像素的控件流 —— 分区后同一屏只看一件事。
+   */
   function renderSettingsBody() {
     if (!settingsPanel) return;
     const body = settingsPanel.body;
     body.innerHTML = "";
-    const tabBtns = settingsPanel.head.querySelectorAll(".settings-tab");
-    tabBtns.forEach((b, i) => b.classList.toggle("active", (["general", "models", "presets"] as const)[i] === settingsTab));
-    if (settingsTab === "general") renderGeneralTab(body);
-    else if (settingsTab === "models") renderModelsTab(body);
-    else renderPresetsTab(body);
+    const entries: { id: typeof settingsSection; title: string; render: (host: HTMLElement) => void }[] = [
+      { id: "account", title: "账号与余额", render: renderAccountSection },
+      { id: "input", title: "发送与输入", render: renderComposerSection },
+      { id: "language", title: "语言", render: renderLanguageSection },
+      { id: "dirs", title: "目录兼容", render: renderDirsSection },
+      { id: "permission", title: "默认权限", render: renderPermissionSection },
+      { id: "host", title: "主机设置", render: renderHostSection },
+      { id: "models", title: "模型与供应商", render: renderModelsTab },
+      { id: "presets", title: "Agent 预设", render: renderPresetsTab },
+    ];
+    const layout = ctx.el("div", "settings-layout");
+    const nav = ctx.el("div", "settings-nav");
+    const content = ctx.el("div", "settings-content");
+    for (const entry of entries) {
+      const b = ctx.el("button", "settings-nav-item" + (settingsSection === entry.id ? " active" : ""), t(entry.title)) as HTMLButtonElement;
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (settingsSection === entry.id) return;
+        settingsSection = entry.id;
+        renderSettingsBody();
+      });
+      nav.append(b);
+    }
+    layout.append(nav, content);
+    body.append(layout);
+    const active = entries.find((e) => e.id === settingsSection) ?? entries[0];
+    try {
+      active.render(content);
+    } catch (error) {
+      // 分区渲染失败时留一条可读提示,同时把异常打到 webview 控制台便于定位
+      console.error(`[settings] section "${active.id}" failed to render`, error);
+      content.innerHTML = "";
+      content.append(ctx.el("div", "ws-note", t("这个分区渲染失败:{error}", { error: String(error) })));
+    }
+  }
+
+  /**
+   * 钱包金额格式化:平台回的是十进制字符串,可能带浮点噪声(1.404286135000000)。
+   * 金额按两位小数显示并加千位分隔;解析失败时原样返回,不吞掉信息。
+   */
+  function formatMoney(raw: string, currency: string): string {
+    const symbol = currency === "USD" ? "$" : "¥";
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return `${symbol}${raw}`;
+    const fixed = value.toFixed(2);
+    const [intPart, frac] = fixed.split(".");
+    const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${symbol}${grouped}.${frac}`;
+  }
+
+  /** 账号与余额(设置首页):未登录给登录入口,已登录给资料 + 余额 + 用量/充值。 */
+  function renderAccountSection(body: HTMLElement) {
+    const section = ctx.el("div", "settings-section");
+    section.append(ctx.el("div", "settings-section-title", t("DeepSeek 账号")));
+    const stale = Date.now() - accountFetchedAt > 5000;
+    // 没有状态,或已登录但余额还没拿到(账号状态流先到),才补拉;5s 内不重复拉,避免失败后空转
+    if (!account || (account.signedIn && account.wallets === undefined && stale)) {
+      section.append(ctx.el("div", "ws-note", t("读取账号状态中…")));
+      if (!account || stale) {
+        accountFetchedAt = Date.now();
+        post({ kind: "accountGet" });
+      }
+      body.append(section);
+      return;
+    }
+    if (!account.available) {
+      section.append(ctx.el("div", "ws-note", t("当前宿主的 dsh web 未启用 DeepSeek 账号功能(需要 0.2.1 及以上并升级 profile)。")));
+      body.append(section);
+      return;
+    }
+    const card = ctx.el("div", "account-card");
+    if (!account.signedIn) {
+      card.append(ctx.el("div", "account-title", t("未登录")));
+      card.append(ctx.el("div", "ws-note", t("登录后可使用账号模型,并在这里查看余额与用量。")));
+      const row = ctx.el("div", "settings-language-row");
+      const login = ctx.el("button", "settings-tab active", t("登录 DeepSeek 账号")) as HTMLButtonElement;
+      login.addEventListener("click", () => post({ kind: "accountSignIn" }));
+      row.append(login);
+      if (account.links?.usageUrl) {
+        const usage = ctx.el("button", "settings-tab", t("用量")) as HTMLButtonElement;
+        usage.title = account.links.usageUrl;
+        usage.addEventListener("click", () => post({ kind: "openExternal", url: account?.links?.usageUrl }));
+        row.append(usage);
+      }
+      if (account.links?.topUpUrl) {
+        const topup = ctx.el("button", "settings-tab", t("充值")) as HTMLButtonElement;
+        topup.title = account.links.topUpUrl;
+        topup.addEventListener("click", () => post({ kind: "openExternal", url: account?.links?.topUpUrl }));
+        row.append(topup);
+      }
+      card.append(row);
+      if (account.attempt) {
+        card.append(ctx.el("div", "ws-note", t("正在等待浏览器完成登录(阶段:{phase})", { phase: account.attempt.phase })));
+      }
+    } else {
+      const head = ctx.el("div", "account-head");
+      // 头像:远程 URL 可能被 CSP 拦掉或已失效,失败时退回首字母,不留破图图标
+      const initial = (account.profile?.name ?? "D").slice(0, 1).toUpperCase();
+      const fallback = ctx.el("span", "account-avatar account-avatar-fallback", initial);
+      const avatarUrl = account.profile?.avatarUrl ?? "";
+      if (/^(https?:|data:)/i.test(avatarUrl)) {
+        const img = ctx.el("img", "account-avatar") as HTMLImageElement;
+        img.src = avatarUrl;
+        img.alt = "";
+        img.referrerPolicy = "no-referrer";
+        img.addEventListener("error", () => img.replaceWith(fallback), { once: true });
+        head.append(img);
+      } else {
+        head.append(fallback);
+      }
+      const who = ctx.el("div", "account-who");
+      who.append(ctx.el("div", "account-title", account.profile?.name ?? t("已登录")));
+      if (account.profile?.contact) who.append(ctx.el("div", "ws-note", account.profile.contact));
+      head.append(who);
+      const row = ctx.el("div", "settings-language-row");
+      const refresh = ctx.el("button", "settings-tab", t("刷新")) as HTMLButtonElement;
+      refresh.addEventListener("click", () => post({ kind: "accountGet" }));
+      row.append(refresh);
+      if (account.links?.usageUrl) {
+        const usage = ctx.el("button", "settings-tab", t("用量")) as HTMLButtonElement;
+        usage.title = account.links.usageUrl;
+        usage.addEventListener("click", () => post({ kind: "openExternal", url: account?.links?.usageUrl }));
+        row.append(usage);
+      }
+      if (account.links?.topUpUrl) {
+        const topup = ctx.el("button", "settings-tab", t("充值")) as HTMLButtonElement;
+        topup.title = account.links.topUpUrl;
+        topup.addEventListener("click", () => post({ kind: "openExternal", url: account?.links?.topUpUrl }));
+        row.append(topup);
+      }
+      const out = ctx.el("button", "settings-tab", t("退出登录")) as HTMLButtonElement;
+      out.addEventListener("click", () => post({ kind: "accountSignOut" }));
+      row.append(out);
+      head.append(row);
+      card.append(head);
+      const wallets = account.wallets ?? [];
+      const bonus = account.bonusWallets ?? [];
+      const walletRow = ctx.el("div", "account-wallet-row");
+      for (const w of wallets) {
+        const box = ctx.el("div", "account-wallet");
+        box.append(ctx.el("div", "account-wallet-label", t("余额")));
+        box.append(ctx.el("div", "account-wallet-value", formatMoney(w.balance, w.currency)));
+        walletRow.append(box);
+      }
+      for (const w of bonus) {
+        const box = ctx.el("div", "account-wallet");
+        box.append(ctx.el("div", "account-wallet-label", t("赠送额度")));
+        box.append(ctx.el("div", "account-wallet-value", formatMoney(w.balance, w.currency)));
+        walletRow.append(box);
+      }
+      if (walletRow.childElementCount > 0) card.append(walletRow);
+      else card.append(ctx.el("div", "ws-note", t("余额读取失败或暂不可用。")));
+    }
+    section.append(card);
+    body.append(section);
+  }
+
+  /** 默认权限分区(宿主 permission 命名空间)。 */
+  function renderPermissionSection(body: HTMLElement) {
+    const desc = state.settingsDescribe;
+    if (!desc) {
+      body.append(ctx.el("div", "ws-note", t("加载设置中…")));
+      return;
+    }
+    const ns = desc.namespaces.find((n) => n.ns === "permission");
+    if (!ns) {
+      body.append(ctx.el("div", "ws-note", t("宿主没有提供默认权限设置。")));
+      return;
+    }
+    const rendered = renderPermissionDefaultSection(body, ns);
+    // schema 里解析不出预设列表时不要留白:退回通用表单,并说明为什么
+    if (rendered === false) {
+      body.append(ctx.el("div", "ws-note", t("没有从宿主设置里解析出可选预设,下面按通用表单展示。")));
+      body.append(renderNamespaceSection(ns));
+    }
+  }
+
+  /** 主机设置分区(常规命名空间)。 */
+  function renderHostSection(body: HTMLElement) {
+    const desc = state.settingsDescribe;
+    if (!desc) {
+      body.append(ctx.el("div", "ws-note", t("加载设置中…")));
+      return;
+    }
+    if (!desc.writable) body.append(ctx.el("div", "ws-note", t("⚠️ 设置存储为只读,表单仅可查看。")));
+    const general = desc.namespaces.filter((n) => nsGroup(n.ns) === "general" && n.ns !== "permission");
+    for (const ns of general) body.append(renderNamespaceSection(ns));
+    if (general.length === 0) body.append(ctx.el("div", "ws-note", t("没有可配置的常规设置项。")));
   }
 
   function nsGroup(ns: string): "llm" | "general" {
@@ -1127,10 +1317,8 @@ export function createPanels(ctx: PanelsContext) {
     return prettified === name ? name : prettified;
   }
 
-  function renderGeneralTab(body: HTMLElement) {
-    // 发送快捷键与输入偏好:扩展自身设置(不随宿主命名空间),放在最前面便于随时调整
-    renderComposerSection(body);
-    // 语言切换(便于快速验证多语言;写入 dsh.language 设置)
+  /** 语言分区:界面语言(写入 dsh.language)。 */
+  function renderLanguageSection(body: HTMLElement) {
     const langSection = ctx.el("div", "settings-section");
     langSection.append(ctx.el("div", "settings-section-title", t("🌐 语言 / Language")));
     const langRow = ctx.el("div", "settings-language-row");
@@ -1163,8 +1351,10 @@ export function createPanels(ctx: PanelsContext) {
     langSection.append(langRow);
     langSection.append(ctx.el("div", "ws-note", t("切换后界面就地重渲染;默认跟随 VS Code 显示语言。")));
     body.append(langSection);
+  }
 
-    // 模型配置兼容扫描开关(与 VS Code 设置 dsh.agentConfigDirs 同步)
+  /** 目录兼容分区:各工具配置目录的扫描开关。 */
+  function renderDirsSection(body: HTMLElement) {
     const dirsSection = ctx.el("div", "settings-section");
     dirsSection.append(ctx.el("div", "settings-section-title", t("模型配置兼容")));
     const dirsRow = ctx.el("div", "settings-perm-row");
@@ -1200,23 +1390,7 @@ export function createPanels(ctx: PanelsContext) {
     dirsSection.append(dirsRow);
     dirsSection.append(ctx.el("div", "ws-note", t("启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。")));
     body.append(dirsSection);
-
-    const desc = state.settingsDescribe;
-    if (!desc) {
-      body.append(ctx.el("div", "ws-note", t("加载设置中…")));
-      return;
-    }
-    if (!desc.writable) {
-      body.append(ctx.el("div", "ws-note", t("⚠️ 设置存储为只读,表单仅可查看。")));
-    }
-    // 默认权限预设(网页端同款:危险选项需显式风险确认)
-    const permissionNs = desc.namespaces.find((n) => n.ns === "permission");
-    if (permissionNs) renderPermissionDefaultSection(body, permissionNs);
-    const general = desc.namespaces.filter((n) => nsGroup(n.ns) === "general" && n.ns !== "permission");
-    for (const ns of general) body.append(renderNamespaceSection(ns));
-    if (general.length === 0) body.append(ctx.el("div", "ws-note", t("没有可配置的常规设置项。")));
   }
-
   /**
    * 发送快捷键与输入偏好(扩展自身设置,不随宿主命名空间):
    * dsh.sendKey / dsh.uiFontFamily / dsh.autoCollapseProducedFiles。
@@ -1283,6 +1457,35 @@ export function createPanels(ctx: PanelsContext) {
       ctx.el("div", "ws-note", t("Ctrl/Alt + ↑/↓ 在任何模式下都能立即调回历史;模式保存在 dsh.historyKey。")),
     );
 
+    // 工作步骤收起时机(0.2.1-rc.1:dsh.stepCollapse)
+    const STEP_COLLAPSE_MODES: { id: "end" | "next" | "never"; label: string; description: string }[] = [
+      {
+        id: "end",
+        label: "回答结束后收起",
+        description: "每回合回答结束时,把这一回合的思考与工具调用段收成一行摘要(点摘要行可随时展开)",
+      },
+      {
+        id: "next",
+        label: "下一条消息到来时收起",
+        description: "回答结束后先保持展开,等你发出下一条消息时再收起上一回合的过程段",
+      },
+      { id: "never", label: "从不自动收起", description: "过程段始终展开,只有你自己点摘要行时才收起" },
+    ];
+    section.append(ctx.el("div", "ws-note", t("工作步骤:思考与工具调用段的自动收起时机")));
+    const stepsRow = ctx.el("div", "settings-language-row");
+    for (const mode of STEP_COLLAPSE_MODES) {
+      const active = (ctx.composerPrefs?.stepCollapse ?? "end") === mode.id;
+      const btn = ctx.el("button", "settings-tab" + (active ? " active" : ""), `${active ? "✓" : " "} ${t(mode.label)}`) as HTMLButtonElement;
+      btn.title = t(mode.description);
+      btn.addEventListener("click", () => {
+        if (active) return;
+        post({ kind: "setStepCollapse", stepCollapse: mode.id });
+      });
+      stepsRow.append(btn);
+    }
+    section.append(stepsRow);
+    section.append(ctx.el("div", "ws-note", t("设置在 dsh.stepCollapse;手动展开过的段不会因为重绘又被收起。")));
+
     // 输入字体与产物折叠:与 dsh.uiFontFamily / dsh.autoCollapseProducedFiles 同步
     const font = ctx.el("input", "sched-search") as HTMLInputElement;
     font.type = "text";
@@ -1306,7 +1509,7 @@ export function createPanels(ctx: PanelsContext) {
     const refId = root.dict?.["defaultPreset"];
     const node = refId !== undefined ? refs[String(refId)] : undefined;
     const values = node?.list ? node.list.map((id) => refs[String(id)]?.value).filter((v) => typeof v === "string") : [];
-    if (values.length === 0) return;
+    if (values.length === 0) return false;
     const current = (ns.value as { defaultPreset?: string } | undefined)?.defaultPreset;
     const icons: Record<string, string> = { "read-only": "🔒", "workspace-write": "🖊️", "danger-full-access": "⚠️" };
     const labelOf = (v: string): string =>
@@ -1341,8 +1544,8 @@ export function createPanels(ctx: PanelsContext) {
       row.append(b);
     }
     section.append(row);
-    section.append(ctx.el("div", "ws-note", t("该设置对新会话生效;当前会话的权限用输入框旁的权限下拉切换。")));
     body.append(section);
+    return true;
   }
 
   function renderModelsTab(body: HTMLElement) {
@@ -1401,7 +1604,7 @@ export function createPanels(ctx: PanelsContext) {
       apiKey: makeFieldInput("apiKey", t("API Key(临时,不保存)"), "", "password"),
     };
     for (const f of Object.values(fields)) form.append(f);
-    const runBtn = textBtn(ctx, t("🔍 发现模型"), t("询问端点可用的模型,不写入任何设置"), () => {
+    const runBtn = textBtn(ctx, t("发现模型"), t("询问端点可用的模型,不写入任何设置"), () => {
       const payload: Record<string, unknown> = { settingsNs: (fields.ns.querySelector("input") as HTMLInputElement).value.trim() };
       const provider = (fields.provider.querySelector("input") as HTMLInputElement).value.trim();
       const baseURL = (fields.baseURL.querySelector("input") as HTMLInputElement).value.trim();
@@ -1417,6 +1620,8 @@ export function createPanels(ctx: PanelsContext) {
       renderSettingsBody();
       post({ kind: "discoverModels", requestId: nextRequestId(), ...payload });
     }, "mini-btn accent");
+    runBtn.prepend(ctx.lineIcon(ctx.ICONS.search, 13));
+    runBtn.classList.add("settings-btn", "settings-btn-primary");
     discover.append(form, runBtn);
     if (discoverBusy) discover.append(ctx.el("div", "ws-note", t("探测中…")));
     if (discoverError) discover.append(ctx.el("div", "ws-note", `⚠️ ${discoverError}`));
@@ -1506,8 +1711,9 @@ export function createPanels(ctx: PanelsContext) {
       }
       return v !== undefined;
     };
+    // 老宿主可能不带 secrets 字段:防御性取值,避免整个分区渲染失败
     const secretSlot = (path: string[]): { path: string[]; set: boolean } | undefined =>
-      ns.secrets.find((s) => s.path.join("\u0000") === path.join("\u0000"));
+      (ns.secrets ?? []).find((s) => s.path.join("\u0000") === path.join("\u0000"));
 
     const renderField = (container: HTMLElement, path: string[], fieldName: string, refId: number, depth: number) => {
       const node = refs[String(refId)];
@@ -1517,11 +1723,14 @@ export function createPanels(ctx: PanelsContext) {
       }
       const meta = node.meta ?? {};
       const overridden = isUserOverridden(path);
-      const wrap = ctx.el("div", "settings-field-row");
+      const wrap = ctx.el("div", "settings-field-row settings-field-col");
       // 字段名本地化:已知字段走词典,未知字段驼峰拆词
       const label = ctx.el("span", "settings-field-label", fieldLabel(fieldName));
       label.title = path.join(".");
       if (meta.description) label.title = `${path.join(".")} — ${String(meta.description)}`;
+      // 字段说明单独一行小字:表单更可读,不必靠悬停猜(没有说明时整行隐藏)
+      const hint = ctx.el("div", "settings-field-hint", meta.description ? String(meta.description) : "");
+      hint.hidden = !meta.description;
       wrap.style.paddingLeft = `${Math.min(depth, 4) * 14}px`;
 
       const nodeType = node.type ?? "";
@@ -1532,7 +1741,7 @@ export function createPanels(ctx: PanelsContext) {
       // 构造控件
       if (nodeType === "const") {
         const span = ctx.el("span", "settings-const", JSON.stringify(node.value));
-        wrap.append(label, span);
+        wrap.append(label, hint, span);
         container.append(wrap);
         return;
       }
@@ -1543,7 +1752,7 @@ export function createPanels(ctx: PanelsContext) {
         const key = fieldKey(path);
         drafts.set(key, { path, value: input.checked });
         input.addEventListener("change", () => drafts.set(key, { path, value: input.checked }));
-        wrap.append(label, input);
+        wrap.append(label, hint, input);
         container.append(wrap);
         return;
       }
@@ -1561,7 +1770,7 @@ export function createPanels(ctx: PanelsContext) {
           const num = input.value === "" ? null : Number(input.value);
           drafts.set(key, { path, value: num });
         });
-        wrap.append(label, input);
+        wrap.append(label, hint, input);
         container.append(wrap);
         return;
       }
@@ -1577,7 +1786,7 @@ export function createPanels(ctx: PanelsContext) {
         const key = fieldKey(path);
         drafts.set(key, { path, value: cur === undefined ? (meta.default ?? variants[0]?.value ?? "") : cur });
         select.addEventListener("change", () => drafts.set(key, { path, value: select.value }));
-        wrap.append(label, select);
+        wrap.append(label, hint, select);
         container.append(wrap);
         return;
       }
@@ -1599,7 +1808,12 @@ export function createPanels(ctx: PanelsContext) {
               input.placeholder = "未配置(保存后生效)";
             }
           }, "mini-btn");
-          wrap.append(label, input, btn);
+          // 密钥:输入框 + 线性图标按钮同一行(列布局下按钮不会单独占一行)
+          btn.prepend(ctx.lineIcon(ctx.ICONS.trash, 12));
+          btn.classList.add("settings-btn-small");
+          const inputRow = ctx.el("div", "settings-input-row");
+          inputRow.append(input, btn);
+          wrap.append(label, hint, inputRow);
           container.append(wrap);
           return;
         }
@@ -1610,7 +1824,7 @@ export function createPanels(ctx: PanelsContext) {
           const key = fieldKey(path);
           drafts.set(key, { path, value: cur === undefined ? (meta.default ?? "") : cur });
           input.addEventListener("input", () => drafts.set(key, { path, value: input.value }));
-          wrap.append(label, input);
+          wrap.append(label, hint, input);
           container.append(wrap);
           return;
         }
@@ -1620,7 +1834,7 @@ export function createPanels(ctx: PanelsContext) {
         const key = fieldKey(path);
         drafts.set(key, { path, value: cur === undefined ? (meta.default ?? "") : cur });
         input.addEventListener("input", () => drafts.set(key, { path, value: input.value }));
-        wrap.append(label, input);
+        wrap.append(label, hint, input);
         container.append(wrap);
         return;
       }
@@ -1628,13 +1842,40 @@ export function createPanels(ctx: PanelsContext) {
         const textarea = ctx.el("textarea", "settings-textarea") as HTMLTextAreaElement;
         const cur = readValue(path);
         const arr = Array.isArray(cur) ? cur : Array.isArray(meta.default) ? meta.default : [];
-        textarea.value = arr.map((x) => String(x)).join("\n");
         const key = fieldKey(path);
+        // 元素是对象/数组时,一行一项的文本会显示成 [object Object]:改成整段 JSON 编辑并即时校验
+        const itemKinds = (node.list ?? []).map((id) => refs[String(id)]?.type ?? "");
+        const complex = arr.some((x) => x !== null && typeof x === "object") || itemKinds.some((k) => k === "object" || k === "array" || k === "union");
+        if (complex) {
+          textarea.value = JSON.stringify(arr, null, 2);
+          textarea.rows = Math.min(14, Math.max(4, textarea.value.split("\n").length));
+          textarea.spellcheck = false;
+          const error = ctx.el("div", "settings-field-error");
+          error.hidden = true;
+          drafts.set(key, { path, value: arr });
+          textarea.addEventListener("input", () => {
+            try {
+              const parsed = JSON.parse(textarea.value);
+              if (!Array.isArray(parsed)) throw new Error("not-an-array");
+              drafts.set(key, { path, value: parsed });
+              textarea.classList.remove("invalid");
+              error.hidden = true;
+            } catch {
+              textarea.classList.add("invalid");
+              error.hidden = false;
+              error.textContent = t("JSON 格式有误,修正后才会保存。");
+            }
+          });
+          wrap.append(label, hint, textarea, error);
+          container.append(wrap);
+          return;
+        }
+        textarea.value = arr.map((x) => (x === null || x === undefined ? "" : String(x))).join("\n");
         drafts.set(key, { path, value: arr });
         textarea.addEventListener("input", () => {
           drafts.set(key, { path, value: textarea.value.split("\n").filter((l) => l !== "") });
         });
-        wrap.append(label, textarea);
+        wrap.append(label, hint, textarea);
         container.append(wrap);
         return;
       }
@@ -1646,7 +1887,7 @@ export function createPanels(ctx: PanelsContext) {
         for (const [childName, childRef] of Object.entries(node.dict)) {
           renderField(group, [...path, childName], childName, childRef, depth + 1);
         }
-        wrap.append(label, group);
+        wrap.append(label, hint, group);
         container.append(wrap);
         return;
       }
@@ -1712,7 +1953,7 @@ export function createPanels(ctx: PanelsContext) {
             // 等待合法 JSON
           }
         });
-        wrap.append(label, textarea);
+        wrap.append(label, hint, textarea);
         container.append(wrap);
         return;
       }
@@ -1762,7 +2003,7 @@ export function createPanels(ctx: PanelsContext) {
 
     // 操作行
     const actions = ctx.el("div", "settings-actions");
-    const saveBtn = textBtn(ctx, t("💾 保存"), t("仅提交修改过的字段"), () => {
+    const saveBtn = textBtn(ctx, t("保存"), t("仅提交修改过的字段"), () => {
       const patch: Record<string, unknown> = {};
       const unsetPaths: string[][] = [];
       const secretOps: { ref: string; value?: string; unset?: boolean }[] = [];
@@ -1812,12 +2053,17 @@ export function createPanels(ctx: PanelsContext) {
       };
       void submit();
     }, "mini-btn accent");
-    const resetBtn = textBtn(ctx, t("↺ 重置命名空间"), t("清空该命名空间的用户层设置,恢复默认"), () => {
+    const resetBtn = textBtn(ctx, t("重置命名空间"), t("清空该命名空间的用户层设置,恢复默认"), () => {
       void ctx.showDialog({ title: t("重置命名空间"), text: `${t("确定清除")} ${ns.ns} ${t("的全部自定义设置并恢复默认值?")}` }).then((v) => {
         if (v) post({ kind: "settingsReset", ns: ns.ns, expectedRevision: ns.revision, requestId: nextRequestId() });
       });
     }, "mini-btn");
     actions.append(saveBtn, resetBtn);
+    // 线性图标替代原来的 💾 / ↺ emoji(随主题前景色,亮暗都一致)
+    saveBtn.prepend(ctx.lineIcon(ctx.ICONS.save, 13));
+    saveBtn.classList.add("settings-btn", "settings-btn-primary");
+    resetBtn.prepend(ctx.lineIcon(ctx.ICONS.refresh, 13));
+    resetBtn.classList.add("settings-btn");
     section.append(actions);
     void secretRefs;
     return section;
@@ -1918,6 +2164,38 @@ export function createPanels(ctx: PanelsContext) {
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) overlay.remove();
     });
+  }
+
+  /** 账号状态回执:写入本地视图,并只在设置页打开时重绘当前分区。 */
+  function setAccount(msg: {
+    available?: boolean;
+    signedIn?: boolean;
+    profile?: { name?: string | null; contact?: string | null; avatarUrl?: string | null };
+    wallets?: { currency: string; balance: string }[];
+    bonusWallets?: { currency: string; balance: string }[];
+    links?: { usageUrl: string; topUpUrl: string };
+    attempt?: { phase: string; authorizeUrl?: string } | null;
+    cancelled?: boolean;
+  }) {
+    // 合并:account/watch 只推状态(登录态 / 链接 / 授权尝试),不能把资料与余额抹成空
+    const prev = account;
+    const signedIn = msg.signedIn === true;
+    account = {
+      available: msg.available !== false,
+      signedIn,
+      profile: msg.profile ?? prev?.profile,
+      wallets: msg.wallets ?? prev?.wallets,
+      bonusWallets: msg.bonusWallets ?? prev?.bonusWallets,
+      links: msg.links ?? prev?.links,
+      attempt: msg.attempt ?? null,
+    };
+    // 登录态刚变成已登录:资料与余额还没拿到,补拉一次(不用用户点刷新)
+    const turnedSignedIn = signedIn && prev?.signedIn !== true;
+    if (turnedSignedIn) {
+      accountFetchedAt = Date.now();
+      post({ kind: "accountGet" });
+    }
+    if (settingsPanel && !settingsPanel.overlay.hidden && settingsSection === "account") renderSettingsBody();
   }
 
   function updateSettingsDescribe(msg: { value: { writable: boolean; hasDocument: boolean; namespaces: PanelNamespace[] } | null; error?: string }) {
@@ -2171,6 +2449,7 @@ export function createPanels(ctx: PanelsContext) {
     openSettings,
     refreshSettings,
     updateSettingsDescribe,
+    setAccount,
     settingsSaved,
     credentialChanged,
     llmInfoResult,

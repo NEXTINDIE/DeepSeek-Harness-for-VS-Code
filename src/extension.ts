@@ -33,6 +33,8 @@ export function activate(ctx: vscode.ExtensionContext) {
   );
   output.appendLine(`[activate] 配置: url=${dshUrl()} autoStart=${cfg().get<boolean>("autoStart", true)} command=${cfg().get<string>("command", "dsh")} timeoutSec=${cfg().get<number>("autoStartTimeoutSec", 60)}`);
   let lastStatusKey = "";
+  /** 聊天视图 provider(能力探测完成后据此推送能力变化)。 */
+  let panelProvider: ChatPanelProvider | undefined;
 
   const hub = new DshHub({
     url: dshUrl(),
@@ -56,6 +58,14 @@ export function activate(ctx: vscode.ExtensionContext) {
       }
     },
     onLog: (message) => output.appendLine(message),
+    // 思考翻译能力探测完成后,通知聊天面板把「译」按钮显示/隐藏
+    onCotTranslationChanged: () => {
+      panelProvider?.postCotTranslation();
+    },
+    // DeepSeek 账号状态变化(登录完成 / 退出 / 授权过期):设置页账号卡片即时刷新
+    onAccountChanged: (view) => {
+      panelProvider?.postAccountState(view);
+    },
   });
   output.appendLine(`[activate] 服务器地址 ${dshUrl()}`);
 
@@ -107,6 +117,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   // 否则 VS Code 会按默认 tree 视图处理,去找不存在的树数据提供者并显示占位文案。
   const registerViewProviders = () => {
     const provider = new ChatPanelProvider(hub, ctx, (line) => output.appendLine("[webview] " + line));
+    panelProvider = provider;
     ctx.subscriptions.push(
       vscode.window.registerWebviewViewProvider(ChatPanelProvider.viewType, provider, {
         webviewOptions: { retainContextWhenHidden: true },

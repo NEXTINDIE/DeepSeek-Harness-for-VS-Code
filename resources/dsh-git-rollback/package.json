@@ -1,7 +1,7 @@
 {
   "name": "dsh-git-rollback",
-  "version": "0.1.11",
-  "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints /undo commands, per-turn checkpoints in hidden refs, non-destructive workspace restore, scoped turn undo, checkpoint-SHA restore; web client half adds turn-level Restore-checkpoint dividers to the DSH Web GUI.",
+  "version": "0.1.12",
+  "description": "DSH turn-level Git rollback plugin: /rollback /redo /checkpoints /undo commands, per-turn checkpoints in hidden refs, non-destructive workspace restore, scoped turn undo, checkpoint-SHA restore, per-working-directory checkpoint chains (safe across Git worktrees); web client half adds turn-level Restore-checkpoint dividers to the DSH Web GUI.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

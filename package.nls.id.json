@@ -65,5 +65,9 @@
   "config.historyKey": "Kapan ↑/↓ memanggil input sebelumnya: hanya di tepi teks (default), setiap penekanan, atau tidak pernah",
   "config.historyKey.edge": "Hanya di tepi: ↑/↓ memindahkan kursor selama masih bisa; di tepi, penekanan itu memanggil riwayat",
   "config.historyKey.always": "Setiap penekanan: ↑/↓ langsung memanggil input sebelumnya/berikutnya dan tidak memindahkan kursor",
-  "config.historyKey.off": "Tidak pernah: ↑/↓ hanya memindahkan kursor (Ctrl/Alt + ↑/↓ tetap memanggil riwayat)"
+  "config.historyKey.off": "Tidak pernah: ↑/↓ hanya memindahkan kursor (Ctrl/Alt + ↑/↓ tetap memanggil riwayat)",
+  "config.stepCollapse": "Kapan menciutkan langkah penalaran dan pemanggilan alat dalam satu giliran secara otomatis.",
+  "config.stepCollapse.end": "Ciutkan setelah jawaban selesai",
+  "config.stepCollapse.next": "Ciutkan saat pesan berikutnya datang",
+  "config.stepCollapse.never": "Jangan pernah menciutkan otomatis"
 }

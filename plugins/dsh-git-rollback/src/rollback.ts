@@ -20,6 +20,8 @@ export interface RollbackOptions {
   gitBin: string;
   refPrefix: string;
   commitPrefix: string;
+  /** 生效目录作用域(会话切到工作树等其它目录时非空),决定检查点/保存点引用的后缀。 */
+  scope?: string;
 }
 
 export type CommandText = { kind: "success"; text: string } | { kind: "error"; text: string };
@@ -113,7 +115,7 @@ async function savepointAndRestore(gitBin: string, cwd: string, sid: string, tar
     finally {
         rmSavepointIndex(saveIdx);
     }
-    await gitExec(gitBin, cwd, ["update-ref", saveRef(opts.refPrefix, sid), saveCommit]);
+    await gitExec(gitBin, cwd, ["update-ref", saveRef(opts.refPrefix, sid, opts.scope), saveCommit]);
     const currentUntracked = await untrackedList(gitBin, cwd);
     // 2) 内容级恢复:read-tree 使索引=目标树(保护快照内未跟踪文件),
     //    clean -fd 自动精确删除目标之后新建的未跟踪文件;HEAD/分支历史不动。
