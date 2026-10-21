@@ -636,6 +636,21 @@ const ICONS = {
   x: "M18 6 6 18|M6 6l12 12",
   edit: "M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z",
   eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  // 计划(铅笔与行)
+  plan: "M4 4h9|M4 9h6|M14 20l6-6-3-3-6 6z|M14 20h6",
+  // 目标(同心圆)
+  target: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z|M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  // 反馈(对话气泡)
+  comment: "M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  // 压缩(向内箭头)
+  compress: "M4 14h6v6|M20 10h-6V4|M14 10l7-7|M3 21l7-7",
+  // 运行(播放)
+  play: "M6 3l14 9-14 9z",
+  // 暂停 / 停止
+  pause: "M8 4v16|M16 4v16",
+  // 锁(只读 / 完全访问)
+  lock: "M5 11h14v10H5z|M8 11V7a4 4 0 0 1 8 0v4",
+  unlock: "M5 11h14v10H5z|M8 11V7a4 4 0 0 1 7-2",
   // 保存(软盘)
   save: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z|M17 21v-8H7v8|M7 3v5h8",
   // 刷新(环形箭头)
@@ -725,16 +740,17 @@ const PERMISSION_LABELS: Record<string, string> = {
   custom: "自定义",
 };
 
-/** 权限预设图标:只读 🔒 / 工作区可写 🖊️ / 完全访问 ⚠️(红色三角形警告)。 */
+/** 权限预设图标(ICONS 键):只读=锁 / 工作区可写=铅笔 / 完全访问=警告 / 自定义=开锁。 */
 const PERMISSION_ICONS: Record<string, { icon: string; danger?: boolean }> = {
-  "read-only": { icon: "🔒" },
-  "workspace-write": { icon: "🖊️" },
-  "danger-full-access": { icon: "⚠️", danger: true },
-  custom: { icon: "🔓" },
+  "read-only": { icon: "lock" },
+  "workspace-write": { icon: "edit" },
+  "danger-full-access": { icon: "alert", danger: true },
+  custom: { icon: "unlock" },
 };
 
+/** 权限预设的线描图标键(渲染处用 lineIcon 画)。 */
 function permissionIcon(value: string): string {
-  return PERMISSION_ICONS[value]?.icon ?? "🔒";
+  return PERMISSION_ICONS[value]?.icon ?? "lock";
 }
 
 function permissionLabel(value: string, fallback?: string): string {
@@ -1394,6 +1410,14 @@ const EN_TEXT: Record<string, string> = {
   "点击查看图片": "Click to view the image",
   // ---- 对话内图片:点击放大 ----
   "点击查看大图": "Click to enlarge",
+  // ---- 权限预设说明(此前缺失 → 界面显示 perm.desc.* 原始键) ----
+  "perm.desc.readOnly": "The agent can read files and the workspace but cannot change anything.",
+  "perm.desc.workspaceWrite": "The agent may create and edit files inside the workspace; anything outside it needs approval.",
+  "perm.desc.dangerFullAccess": "No sandbox and no approvals: the agent can read and modify any file on this machine.",
+  "perm.desc.custom": "Custom sandbox and approval policy configured by the host.",
+  "添加文件": "Add file",
+  "添加文件夹": "Add folder",
+  "添加图片": "Add image",
   "发现模型": "Discover models",
   "JSON 格式有误,修正后才会保存。": "Invalid JSON — the value will not be saved until it is fixed.",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "No presets could be parsed from the host settings; showing the generic form below.",
@@ -3001,17 +3025,18 @@ btnSendStop.addEventListener("click", () => {
 btnAddAttach.addEventListener("click", (e) => {
   e.stopPropagation();
   attachMenu.innerHTML = "";
-  const item = (label: string, mode: "file" | "folder" | "image") => {
-    const b = el("button", "plus-menu-item", label);
+  const item = (iconPaths: string, label: string, mode: "file" | "folder" | "image") => {
+    const b = el("button", "plus-menu-item");
+    b.append(lineIcon(iconPaths, 14), el("span", "menu-item-label", label));
     b.addEventListener("click", () => {
       attachMenu.hidden = true;
       vscode.postMessage({ kind: mode === "image" ? "pickImages" : "pickAttachments", mode });
     });
     attachMenu.append(b);
   };
-  item(t("📄 添加文件"), "file");
-  item(t("📁 添加文件夹"), "folder");
-  item(t("🖼️ 添加图片"), "image");
+  item(ICONS.file, t("添加文件"), "file");
+  item(ICONS.folder, t("添加文件夹"), "folder");
+  item(ICONS.image, t("添加图片"), "image");
   attachMenu.hidden = !attachMenu.hidden;
 });
 document.addEventListener("click", (e) => {
@@ -3164,8 +3189,13 @@ function renderPlusMenu() {
     autoResize();
     updateSendButton();
   };
+  // 第一个参数是 ICONS 的键时画线描图标;否则按文字(插件命令可传自定义字形)
   const item = (icon: string, label: string, action: () => void, hintText?: string, cls?: string) => {
-    const b = el("button", "plus-menu-item" + (cls ? ` ${cls}` : ""), `${icon} ${label}`);
+    const b = el("button", "plus-menu-item" + (cls ? ` ${cls}` : " "));
+    const iconPaths = (ICONS as Record<string, string>)[icon];
+    if (iconPaths) b.append(el("span", "plus-menu-icon").appendChild(lineIcon(iconPaths, 14)).parentElement!);
+    else if (icon) b.append(el("span", "plus-menu-icon", icon));
+    b.append(el("span", "menu-item-label", label));
     if (hintText) b.title = hintText;
     b.addEventListener("click", action);
     plusMenu.append(b);
@@ -3173,27 +3203,27 @@ function renderPlusMenu() {
   };
   // 计划模式:进入与退出是两条不同命令(/plan 进入,/plan off 退出 —— 与宿主命令语义一致)
   if (state.planMode) {
-    item("📝", t("退出计划模式"), () => insert("/plan off"), t("插入 /plan off 到输入框,回车后退出计划模式"));
+    item("plan", t("退出计划模式"), () => insert("/plan off"), t("插入 /plan off 到输入框,回车后退出计划模式"));
   } else {
-    item("📝", t("计划模式"), () => insert("/plan"), t("插入 /plan 到输入框,回车后进入计划模式"));
+    item("plan", t("计划模式"), () => insert("/plan"), t("插入 /plan 到输入框,回车后进入计划模式"));
   }
   item(
-    "🗜️",
+    "compress",
     t("压缩上下文"),
     () => vscode.postMessage({ kind: "command", line: "/compact" }),
     t("立即执行 /compact;压缩进度显示在对话中"),
   );
-  item("🎯", t("设置目标"), () => insert("/goal "), t("插入 /goal 命令,补全目标描述后回车"));
-  item("💬", t("记录反馈"), () => insert("/feedback "), t("插入 /feedback 命令记录会话反馈"));
+  item("target", t("设置目标"), () => insert("/goal "), t("插入 /goal 命令,补全目标描述后回车"));
+  item("comment", t("记录反馈"), () => insert("/feedback "), t("插入 /feedback 命令记录会话反馈"));
   // 插件(Cordis)管理:由 agent 的 cordis 工具执行,插入指令让 agent 操作
   {
     const group = el("div", "plus-menu-label", t("插件(Cordis)"));
     plusMenu.append(group);
-    item("📦", t("列出插件状态"), () => insert(t("请列出当前所有动态 Cordis 插件及其运行状态(cordis_inspect)")), t("让 agent 用 cordis_inspect 汇报插件清单"));
-    item("▶️", t("运行插件 <id>"), () => insert(t("请运行插件 rbak-1(cordis_run)")), t("把 rbak-1 换成目标插件 ID"));
-    item("🔄", t("更新插件 <id>"), () => insert(t("请更新插件 rbak-1 并运行(cordis_define + cordis_run update)")), t("把 rbak-1 换成目标插件 ID"));
-    item("⏹️", t("停止插件 <id>"), () => insert(t("请停止插件 rbak-1(cordis_stop)")), t("把 rbak-1 换成目标插件 ID"));
-    item("🗑️", t("删除插件 <id>"), () => insert(t("请删除插件 rbak-1(cordis_undefine)")), t("把 rbak-1 换成目标插件 ID"));
+    item("box", t("列出插件状态"), () => insert(t("请列出当前所有动态 Cordis 插件及其运行状态(cordis_inspect)")), t("让 agent 用 cordis_inspect 汇报插件清单"));
+    item("play", t("运行插件 <id>"), () => insert(t("请运行插件 rbak-1(cordis_run)")), t("把 rbak-1 换成目标插件 ID"));
+    item("refresh", t("更新插件 <id>"), () => insert(t("请更新插件 rbak-1 并运行(cordis_define + cordis_run update)")), t("把 rbak-1 换成目标插件 ID"));
+    item("stop", t("停止插件 <id>"), () => insert(t("请停止插件 rbak-1(cordis_stop)")), t("把 rbak-1 换成目标插件 ID"));
+    item("trash", t("删除插件 <id>"), () => insert(t("请删除插件 rbak-1(cordis_undefine)")), t("把 rbak-1 换成目标插件 ID"));
   }
   const perms = state.permissions?.options ?? [];
   if (perms.length > 0) {
@@ -3203,7 +3233,7 @@ function renderPlusMenu() {
       const active = state.permissions?.currentValue === option.value;
       const danger = PERMISSION_ICONS[option.value]?.danger === true;
       item(
-        active ? "✅" : permissionIcon(option.value),
+        active ? "check" : permissionIcon(option.value),
         permissionLabel(option.value, option.name),
         () => {
           state.permissions = { ...(state.permissions ?? { options: [], currentValue: "" }), currentValue: option.value };
@@ -3231,7 +3261,8 @@ function renderPlusMenu() {
       list.innerHTML = "";
       const shown = all ? skills : skills.slice(0, MAX_VISIBLE);
       for (const skill of shown) {
-        const b = el("button", "plus-menu-item", `🧩 /${skill.name}`);
+        const b = el("button", "plus-menu-item");
+        b.append(lineIcon(ICONS.box, 14), el("span", "menu-item-label", `/${skill.name}`));
         b.title = skill.description || skill.whenToUse || skill.name;
         // 来源标注:用户全局技能显示「全局」标签,便于区分(默认展示,可在设置关闭)
         if (skill.source === "user-dsh" || skill.source === "user-agents") {
@@ -3266,14 +3297,14 @@ function renderPlusMenu() {
     // .dsh/agent:项目级智能体定义,点击在 VS Code 中打开文件(不把全文塞进输入框)
     for (const agent of claude!.dshAgents) {
       const path = (agent as { path?: string }).path;
-      item("🤖", t("智能体 {name}", { name: agent.name }), () => {
+      item("robot", t("智能体 {name}", { name: agent.name }), () => {
         if (path) vscode.postMessage({ kind: "openFile", path });
       }, t("在 VS Code 中打开智能体定义文件"));
     }
     // .dsh/memory:记忆文件,点击在 VS Code 中打开
     for (const memory of claude!.dshMemory) {
       const path = (memory as { path?: string }).path;
-      item("🧠", t("记忆 {name}", { name: memory.name }), () => {
+      item("database", t("记忆 {name}", { name: memory.name }), () => {
         if (path) vscode.postMessage({ kind: "openFile", path });
       }, t("在 VS Code 中打开记忆文件"));
     }
@@ -3318,7 +3349,7 @@ function renderPlusMenu() {
       item("📄", t("指令 {name}", { name: file.name }), () => insert(file.content), t("插入 Copilot 指令文件"));
     }
     for (const agent of claude!.copilotAgents) {
-      item("🤖", t("智能体 {name}", { name: agent.name }), () => insert(agent.content), t("插入 Copilot 智能体定义"));
+      item("robot", t("智能体 {name}", { name: agent.name }), () => insert(agent.content), t("插入 Copilot 智能体定义"));
     }
     for (const prompt of claude!.copilotPrompts) {
       item("💬", t("提示词 {name}", { name: prompt.name }), () => insert(prompt.content), t("插入 Copilot 提示词"));
@@ -6042,7 +6073,7 @@ function openGoalMenu(anchor: HTMLElement) {
       menu.append(row);
     };
     const ref = { id: inner.id, revision: inner.revision };
-    add("✏️", t("修改目标"), async () => {
+    add("edit", t("修改目标"), async () => {
       const objective = await showDialog({
         title: t("修改目标"),
         text: t("修改目标描述(已填入当前目标):"),
@@ -6054,26 +6085,34 @@ function openGoalMenu(anchor: HTMLElement) {
         vscode.postMessage({ kind: "goalEdit", ref, objective: objective.trim() });
       }
     });
-    add("⏸️", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
-    add("✅", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
-    add("🗑️", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
+    add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
+    add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
+    add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
   });
 }
 
 /** 芯片渲染签名:仅当关键状态变化时才重建,避免投影更新打断打开的菜单。 */
 let chipsSignature = "";
 
+/** 去掉词条开头的 emoji(词典里不少条目带 emoji,芯片改用线描图标后需要剥掉)。 */
+function stripLeadingEmoji(text: string): string {
+  return text.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, "");
+}
+
 function renderModeChips() {
   const inner = state.goal?.goal;
   // 计划模式:优先用 `plan` 投影的有效目标态,投影缺席时退回 plan/mode 事件
   const planActive = state.plan ? (state.plan.pending ? !state.plan.active : state.plan.active) : state.planMode;
   const planPending = state.plan?.pending === true;
+  // 计划模式下输入框边框转橙黄(视觉上区分"只做计划"的回合);先于签名缓存设置,保证状态一变就生效
+  composer.classList.toggle("plan-mode", planActive);
   const sig = `${planActive}|${planPending}|${inner?.id ?? ""}|${inner?.phase ?? ""}`;
   if (sig === chipsSignature) return;
   chipsSignature = sig;
   modeChips.innerHTML = "";
   if (planActive) {
-    const chip = el("span", "mode-chip plan-chip", planPending ? t("📝 计划模式(切换中…)") : t("📝 计划模式"));
+    const chip = el("span", "mode-chip plan-chip", stripLeadingEmoji(planPending ? t("📝 计划模式(切换中…)") : t("📝 计划模式")));
+chip.prepend(lineIcon(ICONS.plan, 12));
     chip.title = t("点击退出计划模式(发送 /plan off)");
     const close = el("button", "chip-close", "×");
     chip.append(close);
@@ -6085,7 +6124,8 @@ function renderModeChips() {
     // 仅当对话存在实际目标(进行中/暂停/阻塞)时显示 🎯 芯片;已完成或无目标时隐藏
     const phase = inner.phase ?? "active";
     const cls: Record<string, string> = { active: "goal-chip", complete: "goal-chip done", blocked: "goal-chip blocked", paused: "goal-chip paused" };
-    const chip = el("span", "mode-chip " + (cls[phase] ?? "goal-chip"), t("🎯 目标"));
+    const chip = el("span", "mode-chip " + (cls[phase] ?? "goal-chip"), stripLeadingEmoji(t("🎯 目标")));
+chip.prepend(lineIcon(ICONS.target, 12));
     chip.title = t("点击管理目标(暂停 / 修改 / 完成 / 取消)");
     const close = el("button", "chip-close", "×");
     chip.append(close);
@@ -6093,7 +6133,10 @@ function renderModeChips() {
       e.stopPropagation();
       openAnchoredMenu(chip, (menu) => {
         const add = (icon: string, label: string, action: () => void) => {
-          const row = el("button", "plus-menu-item", `${icon} ${label}`);
+          const row = el("button", "plus-menu-item");
+          const iconPaths = (ICONS as Record<string, string>)[icon];
+          if (iconPaths) row.append(lineIcon(iconPaths, 14), el("span", "menu-item-label", label));
+          else row.append(el("span", "plus-menu-icon", stripLeadingEmoji(icon)), el("span", "menu-item-label", label));
           row.addEventListener("click", () => {
             closeActivePopover();
             action();
@@ -6102,11 +6145,11 @@ function renderModeChips() {
         };
         const ref = { id: inner.id, revision: inner.revision };
         if (phase === "active") {
-          add("⏸️", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
+          add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
         } else if (phase === "paused" || phase === "blocked") {
           add("▶️", t("继续目标"), () => vscode.postMessage({ kind: "goalResume", ref }));
         }
-        add("✏️", t("修改目标"), async () => {
+        add("edit", t("修改目标"), async () => {
           const objective = await showDialog({
             title: t("修改目标"),
             text: t("修改目标描述(已填入当前目标):"),
@@ -6119,15 +6162,16 @@ function renderModeChips() {
           }
         });
         if (phase === "active") {
-          add("✅", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
+          add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
         }
-        add("🗑️", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
+        add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
       });
     });
     modeChips.append(chip);
   } else if (!inner) {
     // 无目标:提供"设置目标"入口(goal.create,网页端同等操作)
-    const chip = el("span", "mode-chip goal-chip", t("🎯 设置目标"));
+    const chip = el("span", "mode-chip goal-chip", stripLeadingEmoji(t("🎯 设置目标")));
+    chip.prepend(lineIcon(ICONS.target, 12));
     chip.title = t("创建一个长期目标(agent 自动多轮推进直至完成)");
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -6652,7 +6696,8 @@ function renderPermissionPill() {
   const options = state.permissions?.options ?? [];
   const current = state.permissions?.currentValue ?? "";
   const currentOpt = options.find((o) => o.value === current);
-  permissionPillIcon.textContent = permissionIcon(current);
+  permissionPillIcon.innerHTML = "";
+permissionPillIcon.append(lineIcon(PERMISSION_ICONS[current]?.icon ?? ICONS.lock, 13));
   permissionPillText.textContent = permissionLabel(current, currentOpt?.name);
   permissionPill.classList.toggle("danger", PERMISSION_ICONS[current]?.danger === true);
   permissionPillHead.disabled = options.length === 0;
@@ -6662,7 +6707,9 @@ function renderPermissionPill() {
     const danger = PERMISSION_ICONS[option.value]?.danger === true;
     const row = el("button", "pp-opt" + (danger ? " danger" : "") + (current === option.value ? " current" : ""));
     row.type = "button";
-    row.append(el("span", "pp-opt-icon", permissionIcon(option.value)));
+    const optIcon = el("span", "pp-opt-icon");
+optIcon.append(lineIcon(permissionIcon(option.value), 13));
+row.append(optIcon);
     const body = el("span", "pp-opt-body");
     body.append(el("span", "pp-opt-name", permissionLabel(option.value, option.name)));
     const desc = permissionDescription(option.value, option.description);
@@ -6682,7 +6729,9 @@ function renderPermissionPill() {
   if (current && !currentOpt) {
     const row = el("button", "pp-opt current");
     row.type = "button";
-    row.append(el("span", "pp-opt-icon", permissionIcon(current)));
+    const curIcon = el("span", "pp-opt-icon");
+curIcon.append(lineIcon(permissionIcon(current), 13));
+row.append(curIcon);
     const body = el("span", "pp-opt-body");
     body.append(el("span", "pp-opt-name", permissionLabel(current)));
     row.append(body, el("span", "pp-opt-check", "✓"));
@@ -8062,7 +8111,11 @@ function showToast(message: string, level: string, action?: { label: string; onC
   if (!text) return;
   const icon = leading === null ? (level === "info" ? "ℹ️" : "⚠️") : normalizeStatusEmoji(leading[1]);
   const toast = el("div", `toast toast-${level === "error" ? "error" : level === "warning" ? "warning" : "info"}`);
-  toast.append(el("span", "toast-icon", icon));
+  // 状态图标改线描(与菜单/芯片统一):成功=对勾,警告/错误=警告三角,其它=信息
+  const toastIcon = el("span", "toast-icon");
+  const iconKey = leading !== null && /✅/u.test(leading[1]) ? "check" : level === "error" || level === "warning" || leading !== null ? "alert" : "info";
+  toastIcon.append(lineIcon((ICONS as Record<string, string>)[iconKey] ?? ICONS.info, 14));
+  toast.append(toastIcon);
   toast.append(el("span", "toast-text", text));
   if (action) {
     const btn = el("button", "toast-action", action.label);
@@ -8243,7 +8296,9 @@ function handleMessage(msg: any) {
       state.settingsDescribe = null;
       state.turnStarts = [];
       state.rollback = undefined;
-      state.planMode = false;
+      // 计划模式状态在 8223-8225 已按 `plan` 投影设好;这里不能再无条件清零,
+      // 否则重载/切会话后「计划模式」芯片会消失(投影在场时保持投影结论)。
+      if (!msg.plan) state.planMode = false;
       state.stepStarts = new Map();
       state.currentStreamTurn = undefined;
       state.streamedBlockKeys = new Set();
@@ -8839,6 +8894,15 @@ function sendCurrent() {
   }
   // 上下文守卫:接近/超出窗口时先把风险说清楚,并给一键压缩(issue #19);不阻断发送
   warnIfContextTight(state.current, text);
+  // /plan 与 /plan off 是本地可判定的模式切换:先乐观更新芯片,
+  // 宿主随后送来的 plan 投影会覆盖成权威值(投影缺席时也不至于"进了计划模式却没提示")。
+  const command = text.trim();
+  if (command === "/plan" || command === "/plan off") {
+    const active = command === "/plan";
+    state.plan = { active, pending: false };
+    state.planMode = active;
+    renderModeChips();
+  }
   vscode.postMessage({
     kind: "send",
     text,

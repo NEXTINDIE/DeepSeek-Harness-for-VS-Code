@@ -1,6 +1,42 @@
 # Changelog
 
 
+## 0.13.61
+- **Plan-mode composer border is now purple.** It uses the same `--dsh-plan` token as the 计划模式 chip, so the border and the chip read as one state (and no longer collide with the amber 完全访问 permission chip).
+- **Permission descriptions no longer show raw keys.** The permission menu rendered the i18n keys themselves (`perm.desc.readOnly`, `perm.desc.workspaceWrite`, `perm.desc.dangerFullAccess`) because those four strings were missing from the webview dictionaries — `t()` fell back to the key. All four are added in 14 languages, so 只读 / 工作区可写 / 完全访问 now carry a one-line explanation again.
+- Typecheck and the i18n checks pass with nothing missing.
+- **计划模式的输入框边框改为紫色**。与「计划模式」芯片共用 `--dsh-plan` 令牌,边框与芯片看起来是同一个状态,也不再和琥珀色的「完全访问」权限芯片撞色。
+- **权限说明不再显示原始键名**。权限弹层此前直接渲染了 `perm.desc.readOnly` / `perm.desc.workspaceWrite` / `perm.desc.dangerFullAccess` —— 因为这四条文案在 Webview 词典里缺失,`t()` 回退成了键本身。现在四种预设补齐 14 种语言,只读 / 工作区可写 / 完全访问 又各自带上了一行说明。
+- typecheck 与 i18n 校验通过,无缺失键。
+
+
+## 0.13.60
+- **Menu icons line up with their labels.** `.plus-menu-item` is a flex row with an 8px gap, each icon sits in a fixed 16px slot vertically centred and muted, brightening on hover; the label takes the remaining width. Before this the icon and text were glued together with no gap.
+- **设置目标 chip uses the target glyph.** The empty-goal entry point still carried 🎯; it now draws the line-art target icon like the other chips.
+- **Toasts use line icons too.** Every status emoji is stripped from the toast text and replaced by a line-art glyph (check for success, warning triangle for warnings/errors, info otherwise), so no coloured emoji remains in transient messages either.
+- Typecheck, i18n (nothing missing) and the plan / 0.2.1 / session-UX / plan-border / deliverable suites all pass.
+- **菜单图标与文字对齐并保持间距**。`.plus-menu-item` 改为 flex 行 + 8px 间距,图标放进固定 16px 槽位、垂直居中且用次要色,悬停提亮;文字占满剩余宽度。此前图标和文字是贴在一起的。
+- **「设置目标」芯片改用目标图形**:无目标时的入口原本还是 🎯,现在与其它芯片一致,画线描 target 图标。
+- **toast 也改线描图标**:文案里的状态 emoji 一律剥掉,改由 toast 输出线描图形(成功=对勾、警告/错误=警告三角、其它=信息),瞬时提示里不再出现彩色 emoji。
+- typecheck、i18n(无缺失)与计划模式 / 0.2.1 / 会话交互 / 计划边框 / 交付卡五套夹具均通过。
+
+
+## 0.13.59
+- **Plan mode now turns the composer border orange-yellow.** While plan mode is effective (including the brief "switching" window), the input box keeps the amber border instead of the blue focus ring — even when the textarea has focus — plus a soft matching glow, so the current turn reads as "planning only, no edits" at a glance. Driven by a `plan-mode` class toggled from the same effective-state calculation that renders the plan chip, so chip and border can never disagree; it reacts to both the `plan` projection and `plan/mode` events, and clears as soon as plan mode ends.
+- Verified with a 7-check harness over the class lifecycle (normal, projection active, projection pending, exit, event-driven enter/exit) plus the plan chip regression, and rendered from the real bundle in the dark theme.
+- **计划模式下输入框边框改为橙黄色**。计划模式生效期间(含切换中的短暂窗口)输入框保持琥珀色边框,而不是聚焦时的蓝色 —— 聚焦时同样是橙黄 —— 外加一层同色柔光,一眼就能看出"当前回合只做计划、不改文件"。由 `plan-mode` 类驱动,而该类与计划芯片共用同一套"有效状态"计算,所以芯片和边框不会互相矛盾;`plan` 投影与 `plan/mode` 事件都会更新,退出即恢复。
+- 验证:7 项夹具覆盖类的生命周期(普通 / 投影 active / 投影 pending / 退出 / 事件进入与退出)+ 计划芯片回归,并用真实包在深色主题下渲染核对。
+
+
+## 0.13.58
+- **No more coloured emoji in the composer menus or the mode chips.** The attachment menu (添加文件 / 添加文件夹 / 添加图片), the whole + command list (计划模式, 压缩上下文, 设置目标, 记录反馈, 列出/运行/更新/停止/删除插件, 技能, 智能体, 记忆) and the 计划模式 / 目标 chips now draw line icons from the shared set — nine new glyphs (plan, target, comment, compress, play, pause, lock, unlock, check-adjacent) were added for the ones the set was missing. Chips strip the leading emoji from their localized text at render time, so no dictionary churn and every language benefits. Permission entries (只读 / 工作区可写 / 完全访问) use the lock, pencil and warning glyphs instead of 🔒/🖊️/⚠️.
+- **Fixed: entering plan mode could leave no 计划模式 chip.** Two causes. (1) `init` assigned the plan projection and then unconditionally reset the local flag later in the same handler, so a reload or session switch dropped the chip; it now only resets when the host sent no projection. (2) When the host applies `/plan` without emitting a projection frame (or before it arrives), nothing updated the UI — sending `/plan` or `/plan off` now updates the chip optimistically, and the host's projection still overwrites it when present.
+- Verified: typecheck, 687 keys with nothing missing, and all twelve UI suites (plan mode, 0.2.1 features, history, images, attachments, compaction, stats, session UX, worktree/account, settings fixes, settings form, deliverables).
+- **输入区菜单与模式芯片里的彩色 emoji 全部改为线描图标**。附件菜单(添加文件 / 添加文件夹 / 添加图片)、整张 + 命令清单(计划模式、压缩上下文、设置目标、记录反馈、列出/运行/更新/停止/删除插件、技能、智能体、记忆)以及「计划模式 / 目标」芯片都改用共享图标集绘制;为此补齐了九个图形(plan、target、comment、compress、play、pause、lock、unlock 等)。芯片在渲染时剥掉本地化文案开头的 emoji,不必改词条,所有语言一并受益。权限条目(只读 / 工作区可写 / 完全访问)改用锁、铅笔、警告图形,不再用 🔒/🖊️/⚠️。
+- **修复:进入计划模式后可能不显示「计划模式」芯片**。两个原因:(1) `init` 先按 `plan` 投影赋值,随后又在同一处理器里无条件把本地标志清零,导致重载或切会话后芯片消失 —— 现在只有宿主没送投影时才清零;(2) 宿主执行 `/plan` 但没发投影帧、或投影还没到时,界面没有任何更新 —— 发送 `/plan` / `/plan off` 现在会先乐观更新芯片,宿主投影到达后仍以投影为准。
+- 验证:typecheck、687 个键无缺失,以及全部十二套界面夹具(计划模式、0.2.1 功能、历史、图片、附件、压缩、统计、会话交互、工作树/账号、设置修复、设置表单、交付卡)。
+
+
 ## 0.13.57
 - **Deliverable cards now match the web card anatomy.** Every presented file used to show the same copy glyph as its icon — it looked like a stray button. Icons are now a 34px rounded tile tinted by file type with the matching pictogram: images (purple), archives and .vsix (amber), source and config files (blue), documents (green), everything else neutral. Same name + description layout, same one-line height.
 - **The whole card opens the file**, like the web's full-card preview target, while the action buttons stop propagation so a click never fires twice.

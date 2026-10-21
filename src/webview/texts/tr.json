@@ -711,5 +711,12 @@
   "复制路径": "Yolu kopyala",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "Ana bilgisayar ayarlarından ön ayar okunamadı; aşağıda genel form gösteriliyor.",
   "发现模型": "Modelleri keşfet",
-  "JSON 格式有误,修正后才会保存。": "Geçersiz JSON — düzeltilene kadar kaydedilmez."
+  "JSON 格式有误,修正后才会保存。": "Geçersiz JSON — düzeltilene kadar kaydedilmez.",
+  "添加文件": "Dosya ekle",
+  "添加文件夹": "Klasör ekle",
+  "添加图片": "Görsel ekle",
+  "perm.desc.readOnly": "Ajan dosyaları ve çalışma alanını okuyabilir ancak hiçbir şeyi değiştiremez.",
+  "perm.desc.workspaceWrite": "Ajan çalışma alanı içinde dosya oluşturup düzenleyebilir; dışında onay gerekir.",
+  "perm.desc.dangerFullAccess": "Sandbox ve onay yok: ajan bu makinedeki her dosyayı okuyup değiştirebilir.",
+  "perm.desc.custom": "Ana bilgisayarın yapılandırdığı özel sandbox ve onay ilkesi."
 }

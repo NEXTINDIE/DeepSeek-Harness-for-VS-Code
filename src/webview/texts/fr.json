@@ -711,5 +711,12 @@
   "复制路径": "Copier le chemin",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "Aucun préréglage n'a pu être lu dans les réglages de l'hôte ; le formulaire générique est affiché ci-dessous.",
   "发现模型": "Découvrir les modèles",
-  "JSON 格式有误,修正后才会保存。": "JSON invalide — la valeur ne sera pas enregistrée avant correction."
+  "JSON 格式有误,修正后才会保存。": "JSON invalide — la valeur ne sera pas enregistrée avant correction.",
+  "添加文件": "Ajouter un fichier",
+  "添加文件夹": "Ajouter un dossier",
+  "添加图片": "Ajouter une image",
+  "perm.desc.readOnly": "L'agent peut lire les fichiers et l'espace de travail, mais ne peut rien modifier.",
+  "perm.desc.workspaceWrite": "L'agent peut créer et modifier des fichiers dans l'espace de travail ; au-delà, une approbation est requise.",
+  "perm.desc.dangerFullAccess": "Aucun bac à sable ni approbation : l'agent peut lire et modifier n'importe quel fichier de cette machine.",
+  "perm.desc.custom": "Politique de bac à sable et d'approbation personnalisée par l'hôte."
 }

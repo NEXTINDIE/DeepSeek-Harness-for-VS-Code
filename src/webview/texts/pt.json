@@ -711,5 +711,12 @@
   "复制路径": "Copiar caminho",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "Não foi possível ler presets das configurações do host; abaixo está o formulário genérico.",
   "发现模型": "Descobrir modelos",
-  "JSON 格式有误,修正后才会保存。": "JSON inválido — não será salvo até ser corrigido."
+  "JSON 格式有误,修正后才会保存。": "JSON inválido — não será salvo até ser corrigido.",
+  "添加文件": "Adicionar arquivo",
+  "添加文件夹": "Adicionar pasta",
+  "添加图片": "Adicionar imagem",
+  "perm.desc.readOnly": "O agente pode ler arquivos e o espaço de trabalho, mas não alterar nada.",
+  "perm.desc.workspaceWrite": "O agente pode criar e editar arquivos dentro do espaço de trabalho; fora dele exige aprovação.",
+  "perm.desc.dangerFullAccess": "Sem sandbox nem aprovações: o agente pode ler e modificar qualquer arquivo desta máquina.",
+  "perm.desc.custom": "Política personalizada de sandbox e aprovações configurada pelo host."
 }

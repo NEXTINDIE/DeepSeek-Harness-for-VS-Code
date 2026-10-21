@@ -711,5 +711,12 @@
   "复制路径": "Pfad kopieren",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "Aus den Host-Einstellungen ließen sich keine Presets ableiten; unten steht das allgemeine Formular.",
   "发现模型": "Modelle ermitteln",
-  "JSON 格式有误,修正后才会保存。": "Ungültiges JSON — der Wert wird erst nach der Korrektur gespeichert."
+  "JSON 格式有误,修正后才会保存。": "Ungültiges JSON — der Wert wird erst nach der Korrektur gespeichert.",
+  "添加文件": "Datei hinzufügen",
+  "添加文件夹": "Ordner hinzufügen",
+  "添加图片": "Bild hinzufügen",
+  "perm.desc.readOnly": "Der Agent darf Dateien und den Arbeitsbereich lesen, aber nichts ändern.",
+  "perm.desc.workspaceWrite": "Der Agent darf im Arbeitsbereich Dateien erstellen und ändern; außerhalb ist eine Freigabe nötig.",
+  "perm.desc.dangerFullAccess": "Keine Sandbox, keine Freigaben: Der Agent kann jede Datei dieses Rechners lesen und ändern.",
+  "perm.desc.custom": "Vom Host konfigurierte eigene Sandbox- und Freigaberichtlinie."
 }

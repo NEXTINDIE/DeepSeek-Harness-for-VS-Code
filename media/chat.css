@@ -3830,6 +3830,16 @@ button {
   border-color: var(--dsh-accent);
 }
 
+/*
+ * 计划模式:输入框边框改为紫色(--dsh-plan,与计划芯片同色,提示当前回合只做计划、不动文件)。
+ * 用两个类提高特异性,聚焦(:focus-within)时也保持紫色。
+ */
+.composer.plan-mode,
+.composer.plan-mode:focus-within {
+  border-color: var(--dsh-plan);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dsh-plan) 45%, transparent);
+}
+
 .composer-tools {
   display: flex;
   flex-wrap: wrap;
@@ -4739,6 +4749,9 @@ button {
 }
 
 .plus-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: transparent;
   color: var(--dsh-fg);
   border: none;
@@ -4748,6 +4761,26 @@ button {
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* 菜单项图标:固定 16px 槽位,与文字基线对齐并保持间距 */
+.plus-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.plus-menu-item:hover .plus-menu-icon {
+  color: var(--vscode-foreground);
+}
+
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
 }
 
 .plus-menu-item:hover {

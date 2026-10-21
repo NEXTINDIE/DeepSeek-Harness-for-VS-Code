@@ -711,5 +711,12 @@
   "复制路径": "Salin jalur",
   "没有从宿主设置里解析出可选预设,下面按通用表单展示。": "Tidak ada preset yang bisa dibaca dari pengaturan host; formulir umum ditampilkan di bawah.",
   "发现模型": "Temukan model",
-  "JSON 格式有误,修正后才会保存。": "JSON tidak valid — tidak akan disimpan sampai diperbaiki."
+  "JSON 格式有误,修正后才会保存。": "JSON tidak valid — tidak akan disimpan sampai diperbaiki.",
+  "添加文件": "Tambah berkas",
+  "添加文件夹": "Tambah folder",
+  "添加图片": "Tambah gambar",
+  "perm.desc.readOnly": "Agen dapat membaca berkas dan ruang kerja, tetapi tidak dapat mengubah apa pun.",
+  "perm.desc.workspaceWrite": "Agen dapat membuat dan mengedit berkas di dalam ruang kerja; di luarnya perlu persetujuan.",
+  "perm.desc.dangerFullAccess": "Tanpa sandbox dan persetujuan: agen dapat membaca dan mengubah berkas apa pun di mesin ini.",
+  "perm.desc.custom": "Kebijakan sandbox dan persetujuan khusus yang dikonfigurasi host."
 }
