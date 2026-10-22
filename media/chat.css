@@ -1185,6 +1185,12 @@ button {
   gap: 10px;
 }
 
+/* 正文区自己持有焦点(复制按文档选区执行),聚焦时不画轮廓,避免看起来像按到了按钮 */
+.messages:focus,
+.messages:focus-visible {
+  outline: none;
+}
+
 .btn-load-more {
   align-self: center;
   background: transparent;
@@ -1532,6 +1538,24 @@ button {
 .msg-body pre code {
   background: transparent;
   padding: 0;
+}
+
+/* 行内文件路径:可点击打开(虚线下划线提示可交互,悬停反色) */
+.msg-body code.path-chip {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.msg-body code.path-chip:hover {
+  background: var(--vscode-textLink-foreground, #3794ff);
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+.msg-body code.path-chip:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 1px;
 }
 
 /* ---------- 代码块(对齐网页端:header 一条,语言标签 + 复制) ---------- */

@@ -1741,7 +1741,8 @@ export class ChatChannel {
         if (typeof msg.path === "string" && msg.path) {
           let target = msg.path;
           if (!isAbsolutePath(target) && current) {
-            const cwd = store.sessions.get(current)?.cwd;
+            // 按**生效**工作目录解析(工作树里点正文路径也能命中),回退到会话头 cwd
+            const cwd = this.sessionCwd(current) ?? store.sessions.get(current)?.cwd;
             if (cwd) target = join(cwd, target);
           }
           try {

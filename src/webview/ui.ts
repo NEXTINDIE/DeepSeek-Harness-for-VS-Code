@@ -150,6 +150,10 @@ interface BlockState {
   userOpen?: boolean;
   /** 思考行的一行摘要(流式期间增量刷新) */
   previewEl?: HTMLElement | null;
+  /** 正文有选区时被推迟的重绘(选区结束后由 flushDeferredRenders 统一补画) */
+  dirty?: boolean;
+  /** 已排队到下一帧,避免同一帧重复安排重绘 */
+  paintScheduled?: boolean;
 }
 
 interface NodeState {
@@ -182,6 +186,8 @@ interface NodeState {
   /** 思考耗时:首个推理块开始到首个文本块开始的间隔 */
   reasoningMs?: number;
   reasoningStartMs?: number;
+  /** 正文有选区时被推迟的整块重绘(选区结束后补画,避免把用户的选区冲掉) */
+  dirtyRender?: boolean;
   /** 助手节点内联的工具行(网页端工作流:工具插在所属思考块之后) */
   tools?: NodeState[];
   /** 过程段容器(思考/工具连续段),段尾汇总行按段折叠时使用 */
@@ -441,6 +447,47 @@ function markdownHtml(text: string): string {
 function setHtml(node: HTMLElement, text: string) {
   node.innerHTML = markdownHtml(text);
   decorateCodeBlocks(node);
+  decorateInlinePaths(node);
+}
+
+/**
+ * 行内代码里的文件路径(如 `includes/config.php`)变成可点击:点一下就在编辑器里打开。
+ * 只处理「看起来就是路径」的片段(无空白、带扩展名或含目录分隔符),避免把普通标识符变成链接。
+ */
+function decorateInlinePaths(root: HTMLElement) {
+  for (const code of root.querySelectorAll("code")) {
+    if (code.closest("pre") || code.classList.contains("path-chip")) continue;
+    const text = (code.textContent ?? "").trim();
+    if (!looksLikeFilePath(text)) continue;
+    code.classList.add("path-chip");
+    (code as HTMLElement).title = t("点击打开:{path}", { path: text });
+    code.setAttribute("role", "link");
+    code.tabIndex = 0;
+    const open = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      vscode.postMessage({ kind: "openFile", path: text });
+    };
+    code.addEventListener("click", open);
+    code.addEventListener("keydown", (e) => {
+      const key = (e as KeyboardEvent).key;
+      if (key === "Enter" || key === " ") open(e);
+    });
+  }
+}
+
+/** 路径判定:无空白、长度合理,且带扩展名或包含目录分隔符;排除 URL / 纯标识符。 */
+function looksLikeFilePath(text: string): boolean {
+  if (text.length < 3 || text.length > 160) return false;
+  if (/\s/.test(text)) return false;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) return false;
+  if (/^[<{@#]/.test(text)) return false;
+  if (text.endsWith(":") || text.endsWith("/") || text.endsWith("\\")) return false;
+  const hasSep = text.includes("/") || text.includes("\\");
+  const hasExt = /\.[A-Za-z0-9]{1,8}$/.test(text);
+  // 必须像文件名:有扩展名,或(带分隔符且绝不是纯数字/版本号)
+  if (!hasExt) return hasSep && /[A-Za-z]/.test(text);
+  return /[A-Za-z]/.test(text);
 }
 
 /**
@@ -5010,8 +5057,18 @@ function refreshAssistantNode(assistant: NodeState, activeBlock?: BlockState, fo
   if (!assistant.el || !assistant.blocks) return;
   // 重放历史时跳过中间渲染(block-start),仅在 assistant/message(force)时一次性渲染最终内容
   if (state.replaying && !force) return;
+  // 正文里有选区时不能整块替换:replaceWith 会把选区的锚点节点一起删掉,
+  // 用户正在划选/准备复制的文本会瞬间丢失(流式与工具执行期间尤其频繁)。
+  // 先记脏,等选区结束由 flushDeferredRenders 补画。
+  if (selectionInside(assistant.el)) {
+    assistant.dirtyRender = true;
+    return;
+  }
+  assistant.dirtyRender = false;
   const old = assistant.el.querySelector(".msg-blocks") as HTMLElement;
   if (old) old.replaceWith(renderAssistantBlocks(assistant));
+  // 整块已重画:块级的"推迟重绘"标记一并清掉,避免之后重复补画
+  for (const block of assistant.blocks) block.dirty = false;
   void activeBlock; // 块渲染时 block.el 已指向新 DOM,无需二次查找
   scrollToBottom();
 }
@@ -5028,7 +5085,9 @@ function appendToStream(blockType: string, text: string) {
   if (!block.el && wasEmpty && block.text.trim() !== "" && block.owner) {
     refreshAssistantNode(block.owner, block, true);
   }
-  if (block.el) setHtml(block.el, block.text);
+  // 每个增量都重建 innerHTML 会把正文选区冲掉,并在流式期间造成大量布局抖动:
+  // 合帧重绘(每帧至多一次),选区存在时推迟到选区结束。
+  if (block.el) paintStreamBlock(block);
   // 思考行的一行摘要在流式期间同步刷新,避免预览停留在最初几个 token
   if (block.previewEl) block.previewEl.textContent = reasoningPreview(block.text);
   scrollToBottom();
@@ -5102,7 +5161,7 @@ function renderActions(node: NodeState) {
   // 复制
   actionBtn(ICONS.copy, t("复制回答"), () => {
     const text = node.plainText ?? node.blocks?.map((b) => b.text).join("\n") ?? "";
-    void navigator.clipboard?.writeText(text);
+    void copyTextToClipboard(text);
   });
 
   // ↪ 分支 / 回退:单图标,点击弹出菜单(固定定位弹层,视口内自动钳制)
@@ -5802,6 +5861,8 @@ function handleEvent(wire: WireEvent) {
       if (typeof data.turn === "number") state.turnStartMs.set(data.turn, ev.time);
       // 新回合开始:历史回合的操作条与用量改为 hover 才显示(避免"还在思考就出现底部操作栏")
       refreshActionsReveal();
+      // 安全阀:上一个回合被选区挡下的重绘在这里补画(正文里仍有选区时会被逐节点守卫挡下)
+      flushDeferredRenders();
       // 每回合重置产物累积器(不再读取 data.deliverables —— 本部署该字段为空)
       turnProduced = [];
       turnProducedSet.clear();
@@ -7604,8 +7665,200 @@ function updateStatus(status: HubStatus) {
   statusDot.onclick = null;
 }
 
+// ---------- 正文选区与复制 ----------
+//
+// 为什么要有这一段:webview 里的 Ctrl+C / 右键「复制」走的是浏览器默认复制,而它复制的是
+// **焦点元素**的选区。正文区原本不可聚焦,焦点常常还留在输入框上,复制时拿到的是空选区
+// → 剪贴板保持旧值,表现就是「右键复制粘出来是上一次的内容」「按完快捷键焦点跑回输入框」。
+// 这里让正文自己持有焦点,并接管 copy 事件,显式写入当前选区;选区已折叠时用最近一次
+// 正文选区兜底,避免复制命令晚到一拍就写不进东西。
+
+/** 最近一次正文选区的文本(焦点被抢走、选区已折叠时用它兜底)。 */
+let lastTranscriptSelection = "";
+let lastTranscriptSelectionAt = 0;
+/** 兜底快照的有效期:太久以前的选区不再顶替空选区,避免复制到无关内容。 */
+const TRANSCRIPT_SELECTION_TTL_MS = 5 * 60 * 1000;
+/** 是否正在正文区拖拽(暂停自动滚动,避免选区随内容跳动)。 */
+let transcriptPointerDown = false;
+/** 选区变化去抖句柄。 */
+let selectionFlushTimer: number | null = null;
+
+// 让正文成为可聚焦的文档区域:Ctrl+C 才会按文档选区执行,而不是按输入框的选区
+messages.tabIndex = -1;
+
+function isEditableElement(node: EventTarget | null): boolean {
+  const el = node as HTMLElement | null;
+  if (!el || typeof el !== "object") return false;
+  // 用 tagName 判定而不是 instanceof:webview 与夹具(jsdom)里构造器来源不一定一致
+  if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return true;
+  return el.isContentEditable === true;
+}
+
+/** 正文内当前选中的文本;选区不在正文里(输入框、设置面板)时返回空串。 */
+function transcriptSelectionText(): string {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return "";
+  const range = selection.getRangeAt(0);
+  if (!messages.contains(range.startContainer) && !messages.contains(range.endContainer)) return "";
+  return selection.toString();
+}
+
+/** 该元素是否与当前选区相交(非塌缩)。用于判断重绘会不会把用户的选区冲掉。 */
+function selectionInside(el: HTMLElement | null | undefined): boolean {
+  if (!el) return false;
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
+  for (let i = 0; i < selection.rangeCount; i += 1) {
+    const range = selection.getRangeAt(i);
+    if (el.contains(range.startContainer) || el.contains(range.endContainer)) return true;
+  }
+  return false;
+}
+
+/** 焦点是否还在正文/文档层(决定能不能用旧选区快照兜底)。 */
+function focusInTranscript(): boolean {
+  const active = document.activeElement;
+  return !active || active === document.body || active === messages || messages.contains(active);
+}
+
+/** 记住最近一次正文选区:拖选结束/成功复制时调用,供"选区已折叠"的复制命令兜底。 */
+function rememberTranscriptSelection() {
+  const text = transcriptSelectionText();
+  if (!text) return;
+  lastTranscriptSelection = text;
+  lastTranscriptSelectionAt = Date.now();
+}
+
+/** 重画被选区挡下、标记为 dirty 的正文节点。选区还在的部分保持不动。 */
+function flushDeferredRenders() {
+  for (const node of state.nodes) {
+    if (node.kind !== "assistant") continue;
+    if (node.dirtyRender) {
+      if (selectionInside(node.el)) continue;
+      node.dirtyRender = false;
+      refreshAssistantNode(node, undefined, true);
+      for (const block of node.blocks ?? []) block.dirty = false;
+      continue;
+    }
+    for (const block of node.blocks ?? []) {
+      if (!block.dirty) continue;
+      if (!block.el || selectionInside(block.el)) continue;
+      block.dirty = false;
+      setHtml(block.el, block.text);
+    }
+  }
+}
+
+/** 流式块合帧重绘:每帧至多一次;正文里有选区时推迟到选区结束。 */
+function paintStreamBlock(block: BlockState) {
+  if (!block.el) return;
+  block.dirty = true;
+  if (block.paintScheduled) return;
+  block.paintScheduled = true;
+  window.requestAnimationFrame(() => {
+    block.paintScheduled = false;
+    if (!block.el || !block.dirty) return;
+    if (selectionInside(block.el)) return; // 选区还在:保持 dirty,交给 flushDeferredRenders
+    block.dirty = false;
+    setHtml(block.el, block.text);
+  });
+}
+
+/** 写剪贴板:webview 里 navigator.clipboard 不一定可用,失败退回宿主通道并给出反馈。 */
+async function copyTextToClipboard(text: string) {
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      showToast(t("已复制"), "info");
+      return;
+    }
+  } catch {
+    // 落到宿主通道
+  }
+  vscode.postMessage({ kind: "copyText", text });
+  showToast(t("已复制"), "info");
+}
+
+document.addEventListener("selectionchange", () => {
+  if (selectionFlushTimer !== null) return;
+  selectionFlushTimer = window.setTimeout(() => {
+    selectionFlushTimer = null;
+    const text = transcriptSelectionText();
+    if (text) {
+      lastTranscriptSelection = text;
+      lastTranscriptSelectionAt = Date.now();
+    } else {
+      const selection = window.getSelection();
+      // 正文之外重新选了内容:旧快照作废,避免顶替别的面板里的复制
+      if (selection && !selection.isCollapsed) lastTranscriptSelection = "";
+    }
+    flushDeferredRenders();
+  }, 40);
+});
+
+messages.addEventListener("mousedown", (event) => {
+  if (event.button !== 0 || isEditableElement(event.target)) return;
+  // 先让正文拿到焦点,再开始划选:随后的 Cmd/Ctrl+C 才会按文档选区执行
+  messages.focus({ preventScroll: true });
+});
+
+messages.addEventListener("pointerdown", () => {
+  transcriptPointerDown = true;
+});
+
+function endTranscriptPointer() {
+  if (!transcriptPointerDown) return;
+  transcriptPointerDown = false;
+  // 拖选结束时立刻记一次选区:有些环境不发 selectionchange,不能只靠它
+  rememberTranscriptSelection();
+  // 选区还在时 flush 会被逐节点守卫挡下,这里只是"普通点击"情况下尽快补画
+  window.requestAnimationFrame(flushDeferredRenders);
+}
+
+window.addEventListener("pointerup", endTranscriptPointer);
+window.addEventListener("pointercancel", endTranscriptPointer);
+window.addEventListener("mouseup", endTranscriptPointer);
+
+document.addEventListener("copy", (event) => {
+  // 用户在输入框/设置面板里复制自己的内容(草稿、输入值)时保持原生行为;
+  // 注意只在编辑控件**确实有选区**时放手,否则"焦点留在输入框、正文已选好"的场景会拿不到内容。
+  const active = document.activeElement;
+  const editable = isEditableElement(active);
+  if (editable) {
+    const field = active as { selectionStart?: number | null; selectionEnd?: number | null };
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    if (typeof start === "number" && typeof end === "number" && start !== end) return;
+  }
+  const current = transcriptSelectionText();
+  if (current) rememberTranscriptSelection();
+  const selection = window.getSelection();
+  // 在别处(计划预览、设置面板、弹窗)刚选了内容:不要拿正文的旧快照顶替,交给浏览器原生复制
+  const foreignSelection = selection !== null && !selection.isCollapsed && current === "";
+  const fresh = Date.now() - lastTranscriptSelectionAt < TRANSCRIPT_SELECTION_TTL_MS;
+  // 焦点还在输入框、但输入框里没有选区时也算"正文场景":这正是复制拿不到内容的那种情况
+  const fallback = fresh && !foreignSelection && (focusInTranscript() || editable) ? lastTranscriptSelection : "";
+  const text = current || fallback;
+  if (!text) return;
+  const data = (event as ClipboardEvent).clipboardData;
+  if (data) {
+    try {
+      data.setData("text/plain", text);
+      event.preventDefault();
+      return;
+    } catch {
+      // 环境不允许写 clipboardData:落到宿主通道
+    }
+  }
+  event.preventDefault();
+  vscode.postMessage({ kind: "copyText", text });
+});
+
 function scrollToBottom() {
   if (state.replaying) return; // 重放历史时跳过滚动(避免每次插入都触发强制布局)
+  // 正在拖选或正文里有选区:不要抢滚动位置,否则选区会随内容跳动(复制到一半就选丢了)
+  if (transcriptPointerDown || selectionInside(messages)) return;
   const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 260;
   if (nearBottom) messages.scrollTop = messages.scrollHeight;
 }
