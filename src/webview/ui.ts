@@ -448,6 +448,7 @@ function setHtml(node: HTMLElement, text: string) {
   node.innerHTML = markdownHtml(text);
   decorateCodeBlocks(node);
   decorateInlinePaths(node);
+  decorateImages(node);
 }
 
 /**
@@ -488,6 +489,48 @@ function looksLikeFilePath(text: string): boolean {
   // 必须像文件名:有扩展名,或(带分隔符且绝不是纯数字/版本号)
   if (!hasExt) return hasSep && /[A-Za-z]/.test(text);
   return /[A-Za-z]/.test(text);
+}
+
+/**
+ * 正文里的 markdown 图片:webview 的 CSP 是 `img-src ${cspSource} data:`,
+ * 相对路径 / 绝对路径 / file: 一律加载不了(只显示 alt 与裂图图标)。
+ * 这里把没内联的来源交给宿主读盘,拿回 data URL 再赋值;同一张图只请求一次。
+ */
+const inlineImageCache = new Map<string, string>();
+const pendingInlineImages = new Map<string, HTMLImageElement[]>();
+let inlineImageRequestSeq = 0;
+
+function isInlineImageUri(src: string): boolean {
+  return (
+    /^(data:|blob:)/i.test(src) ||
+    /^vscode-(webview-)?resource:/i.test(src) ||
+    /^https:\/\/[^/]*vscode-cdn\.net\//i.test(src)
+  );
+}
+
+function decorateImages(root: HTMLElement) {
+  for (const node of root.querySelectorAll("img")) {
+    const img = node as HTMLImageElement;
+    const src = (img.getAttribute("src") ?? "").trim();
+    if (!src || isInlineImageUri(src)) continue;
+    img.classList.add("inline-image");
+    img.loading = "lazy";
+    const cached = inlineImageCache.get(src);
+    if (cached) {
+      img.src = cached;
+      continue;
+    }
+    if (img.dataset.inlinePending === src) continue;
+    img.dataset.inlinePending = src;
+    // 宿主回填成功后会触发 load;失败则保留 alt 并标成"缺失"态
+    img.addEventListener("load", () => img.classList.remove("inline-image-missing"));
+    img.addEventListener("error", () => {
+      if (!img.src.startsWith("data:")) img.classList.add("inline-image-missing");
+    });
+    const requestId = `img-${++inlineImageRequestSeq}`;
+    pendingInlineImages.set(requestId, [img]);
+    vscode.postMessage({ kind: "inlineImage", requestId, src, sessionId: state.current ?? undefined });
+  }
 }
 
 /**
@@ -8865,6 +8908,28 @@ function handleMessage(msg: any) {
       rbDiffTargets.delete(msg.requestId);
       if (typeof msg.diff === "string" && msg.diff) pre.innerHTML = renderGitDiffHtml(msg.diff);
       else pre.textContent = t("差异不可用");
+      break;
+    }
+    case "inlineImageData": {
+      // 宿主读盘结果:正文图片以 data URL 注入(CSP 只放行 data: 与扩展资源)
+      const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+      const targets = pendingInlineImages.get(requestId) ?? [];
+      pendingInlineImages.delete(requestId);
+      if (targets.length === 0) break;
+      const dataUrl = typeof msg.dataUrl === "string" ? msg.dataUrl : "";
+      if (dataUrl.startsWith("data:")) {
+        for (const img of targets) {
+          const src = img.dataset.inlinePending ?? "";
+          if (src) inlineImageCache.set(src, dataUrl);
+          img.classList.remove("inline-image-missing");
+          img.src = dataUrl;
+        }
+      } else {
+        for (const img of targets) {
+          img.classList.add("inline-image-missing");
+          img.title = typeof msg.error === "string" && msg.error ? msg.error : (img.getAttribute("src") ?? "");
+        }
+      }
       break;
     }
     case "planFile": {

@@ -1558,6 +1558,25 @@ button {
   outline-offset: 1px;
 }
 
+/* 正文内联图片:宿主读盘后以 data URL 注入(CSP 只放行 data: 与扩展资源) */
+img.inline-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0;
+  border-radius: 6px;
+}
+
+/* 读不到时保留 alt 文本,并给出可见的"缺失"占位(悬停 title 显示原因) */
+img.inline-image-missing {
+  min-height: 24px;
+  padding: 6px 8px;
+  border: 1px dashed var(--dsh-border);
+  border-radius: 6px;
+  color: var(--dsh-muted);
+  font-size: 12px;
+}
+
 /* ---------- 代码块(对齐网页端:header 一条,语言标签 + 复制) ---------- */
 .code-block {
   margin: 8px 0;

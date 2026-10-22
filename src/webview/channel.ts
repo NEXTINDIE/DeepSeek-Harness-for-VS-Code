@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import { createTranslator, effectiveLanguage, SUPPORTED_LANGUAGES } from "../dsh/i18n";
 import { readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { basename, isAbsolute, join } from "node:path";
+import { basename, extname, isAbsolute, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { DshHub } from "../dsh/hub";
 import { DshApiError } from "../dsh/apiClient";
 import { isHiddenCommitSession } from "../dsh/commitMessage";
@@ -994,6 +995,52 @@ export class ChatChannel {
     if (typeof effective === "string" && effective) return effective;
     return this.hub.store.sessions.get(sessionId)?.cwd ?? folderCwd();
   }
+
+  /** 正文 markdown 图片的解析缓存(绝对路径 → data URL),同一张图不反复读盘。 */
+  private readonly inlineImages = new Map<string, string>();
+
+  /**
+   * 把正文里的图片引用解析成 data URL。
+   * webview 的 CSP 是 `img-src ${cspSource} data:`,本地文件一律进不来,所以这里读盘后内联。
+   * 支持:绝对路径、`file://` URI、相对路径(按会话**生效**工作目录解析)。
+   * 限制:只认图片扩展名,单张上限 8MB(避免把整段对话撑爆)。
+   */
+  private async inlineImageData(rawSrc: string, sessionId: string | undefined): Promise<string> {
+    const trimmed = rawSrc.trim().replace(/^<|>$/g, "");
+    if (!trimmed) throw new Error("图片路径为空");
+    if (/^data:/i.test(trimmed)) return trimmed;
+    if (/^https?:/i.test(trimmed)) throw new Error("远程图片不支持(CSP 只允许本地图片)");
+    let target = trimmed;
+    if (/^file:\/\//i.test(target)) {
+      target = fileURLToPath(target);
+    } else {
+      try {
+        target = decodeURI(target);
+      } catch {
+        // 保留原样(非法百分号编码)
+      }
+    }
+    if (!isAbsolutePath(target)) {
+      const base = this.sessionCwd(sessionId) ?? (sessionId ? this.hub.store.sessions.get(sessionId)?.cwd : undefined);
+      if (!base) throw new Error("无法定位图片:当前没有工作目录");
+      target = join(base, target);
+    }
+    // 去掉查询串/锚点(markdown 里偶尔带 ?v=1 #frag),否则扩展名判定会失败
+    target = target.split("#")[0].split("?")[0];
+    const key = target.toLowerCase();
+    const cached = this.inlineImages.get(key);
+    if (cached) return cached;
+    const mime = IMAGE_MIME_BY_EXT[extname(target).toLowerCase()];
+    if (!mime) throw new Error(`不支持的图片类型:${extname(target) || "(无扩展名)"}`);
+    const uri = vscode.Uri.file(target);
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > 8 * 1024 * 1024) throw new Error(`图片过大(${Math.round(stat.size / 1024)} KB,上限 8 MB)`);
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+    if (this.inlineImages.size > 200) this.inlineImages.clear();
+    this.inlineImages.set(key, dataUrl);
+    return dataUrl;
+  }
   /** 读取会话的回合快照记录并推送给前端(消息操作条据此显示回退按钮)。 */
   private async refreshRollback(sessionId: string) {
     // 读**生效**工作目录:Agent 用 working_directory / create_worktree 切走后,
@@ -1764,6 +1811,20 @@ export class ChatChannel {
               // 无原生揭示能力则忽略
             }
           }
+        }
+        break;
+      }
+      case "inlineImage": {
+        // 正文里的 markdown 图片:webview 的 CSP 只放行 data: 与扩展资源,
+        // 相对/绝对/`file:` 路径都加载不了,必须由宿主读盘后回传 data URL。
+        const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+        const src = typeof msg.src === "string" ? msg.src : "";
+        if (!requestId || !src) break;
+        try {
+          const dataUrl = await this.inlineImageData(src, current);
+          this.post({ kind: "inlineImageData", requestId, dataUrl });
+        } catch (error) {
+          this.post({ kind: "inlineImageData", requestId, error: error instanceof Error ? error.message : String(error) });
         }
         break;
       }
@@ -2762,6 +2823,17 @@ function isCommandLine(text: string): boolean {
 function isAbsolutePath(p: string): boolean {
   return isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p);
 }
+
+/** 正文内联图片支持的类型(按扩展名判定;data URL 的 mime 直接取自这里)。 */
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".svg": "image/svg+xml",
+};
 
 /** 扫描工作区的智能体/技能配置:.claude(命令与技能)、.codex(技能与配置)、.github(Copilot 指令/智能体/提示词)、.dsh(自身约定:agent / skills / memory)。 */
 async function scanAgentConfigs(
