@@ -1,7 +1,24 @@
 import { DshApiClient, DshApiError, DshAuthError, type RemoteStreamHandle } from "./apiClient";
 import { ServerManager } from "./serverManager";
 import { SessionStore, type StoredSession } from "./sessionStore";
-import type { CommandExecutionView, MessageFeedbackRating, PermissionCatalog, PromptContentPart, ScheduleHistoryRequest, SessionFollowFrame } from "./types";
+import type {
+  CommandExecutionView,
+  MessageFeedbackRating,
+  PermissionCatalog,
+  PromptContentPart,
+  ScheduleCatalogEntry,
+  ScheduleCatalogEntryV2,
+  ScheduleCreateRequestV2,
+  ScheduleDeleteInactiveResultV2,
+  ScheduleDeleteValue,
+  ScheduleEditRequestV2,
+  ScheduleEditResultV2,
+  ScheduleHistoryRequest,
+  ScheduleHistoryValue,
+  ScheduleRunResultV2,
+  ScheduleTaskEntry,
+  SessionFollowFrame,
+} from "./types";
 import type {
   CordisPluginRow,
   CordisRequestRun,
@@ -21,6 +38,8 @@ export interface HubStatus {
   version?: string;
   provider?: string;
   model?: string;
+  /** 会话本地推理强度(状态栏展示用;目录 default 是部署默认值,不能替代它)。 */
+  reasoningEffort?: string;
   message?: string;
   /** 宿主是否仍提供预设作者端点(copy / deletePreset / openAgentPresetDirectory;0.1.7 起移除)。 */
   presetAuthoring?: boolean;
@@ -199,6 +218,11 @@ export class DshHub {
           void this.refreshSessions();
           return;
         }
+        if (event === "llm/models-updated") {
+          // 0.2.2:模型目录在后台刷新(账号可用模型 / 供应商变更);通知界面重读当前会话目录。
+          for (const listener of this.modelCatalogListeners) listener();
+          return;
+        }
         // 其余 emit(cordis/* 等)交给存储层转发
         this.store.handleRemoteEvent(event, args);
       },
@@ -220,6 +244,13 @@ export class DshHub {
 
   get status(): HubStatus {
     return { ...this.statusState, presetAuthoring: this.presetAuthoring };
+  }
+
+  /** 0.2.2 `llm/models-updated`:模型目录变更(账号模型、供应商配置、发现结果)。 */
+  private modelCatalogListeners = new Set<() => void>();
+  onModelCatalogChanged(listener: () => void): () => void {
+    this.modelCatalogListeners.add(listener);
+    return () => this.modelCatalogListeners.delete(listener);
   }
   onStatus(listener: (status: HubStatus) => void): () => void {
     this.statusListeners.add(listener);
@@ -853,6 +884,18 @@ export class DshHub {
   }
 
   /**
+   * 把「会话本地选择」直接写进状态栏,不等宿主的后台默认值保存。
+   * session/selectModel 的语义就是会话本地立即生效,目录里的 default 只是部署默认值 ——
+   * 用它回写界面会让第一次切换看起来没生效。
+   */
+  applyLocalModelSelection(_sessionId: string, provider: string, model: string, reasoningEffort?: string) {
+    this.statusState.model = model;
+    this.statusState.provider = provider;
+    if (reasoningEffort !== undefined) this.statusState.reasoningEffort = reasoningEffort;
+    this.emitStatus();
+  }
+
+  /**
    * 进程级权限预设目录(0.1.5+):可选权限列表的权威来源。
    * 会话投影只带当前值,所以下拉的选项必须来自这里 —— 官方网页端也是
    * selection=投影 / catalog=目录 的分工。旧宿主无该端点时返回 undefined。
@@ -931,6 +974,21 @@ export class DshHub {
     return result;
   }
 
+  /**
+   * 以服务端投影为准重新对齐 goal 状态。
+   * 目标可能已经结束(达到最大轮数、别的客户端清掉、或本来就不存在),
+   * 此时本地若还留着旧投影,芯片会停在「已阻塞/进行中」,再点取消就报 `no current goal`。
+   */
+  async refreshGoal(sessionId: string) {
+    try {
+      const projection = await this.client.sessionProjections(sessionId);
+      const goal = projection?.values?.goal ?? null;
+      this.store.applyGoal(sessionId, goal);
+    } catch (error) {
+      console.error("[dsh] goal projection refresh failed:", error);
+    }
+  }
+
   // ---------- 技能 / 子代理 ----------
 
   getSkills(sessionId: string) {
@@ -953,23 +1011,150 @@ export class DshHub {
     return this.client.subagentInterrupt(parentSessionId, childSessionId);
   }
 
-  // ---------- 定时任务(0.1.7 schedule/*;宿主未启用定时任务插件时方法不可用) ----------
+  // ---------- 定时任务(0.1.7 schedule/*;0.2.2 升级为宿主级任务) ----------
 
-  /** 全局保留任务目录(网页端「自动化任务」页同款数据源)。 */
-  scheduleCatalog() {
-    return this.client.scheduleCatalog();
+  /**
+   * 宿主定时任务协议版本:
+   * - v2 = 0.2.2+(target / active|paused|ended / schedule/edit|create|run|deleteInactive)
+   * - v1 = 0.1.7–0.2.1(sessionId / active|inactive / schedule/delete)
+   * 首次读取目录时按条目形状判断;空目录用 deliveryLimits 探测(v1 无此端点)。
+   */
+  scheduleVersion: "v2" | "v1" | undefined;
+  scheduleDeliveryLimits: { newSessionIntervalSeconds: number } | undefined;
+
+  private scheduleDetect(raw: unknown): "v2" | "v1" | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    if (raw.some((entry) => entry && typeof entry === "object" && ("target" in entry || entry.status === "paused" || entry.status === "ended"))) {
+      return "v2";
+    }
+    return raw.length > 0 ? "v1" : undefined;
   }
 
-  /** 某会话内的任务列表。 */
+  private async ensureScheduleVersion(): Promise<"v2" | "v1"> {
+    if (this.scheduleVersion) return this.scheduleVersion;
+    let raw: unknown;
+    try {
+      raw = await this.client.scheduleCatalogRaw();
+    } catch (error) {
+      // 定时任务插件未组合:保留原始错误,由调用方按 unavailable 降级
+      throw error;
+    }
+    const detected = this.scheduleDetect(raw);
+    if (detected) {
+      this.scheduleVersion = detected;
+      return detected;
+    }
+    // 空目录:0.2.2 有 deliveryLimits,v1 没有
+    try {
+      this.scheduleDeliveryLimits = await this.client.scheduleDeliveryLimits();
+      this.scheduleVersion = "v2";
+    } catch {
+      this.scheduleVersion = "v1";
+    }
+    return this.scheduleVersion;
+  }
+
+  /** 把 v1/v2 目录条目归一化成界面使用的统一形状。 */
+  private normalizeScheduleEntry(raw: ScheduleCatalogEntry | ScheduleCatalogEntryV2): ScheduleTaskEntry {
+    if ("target" in raw && raw.target && typeof raw.target === "object") {
+      const entry = raw as ScheduleCatalogEntryV2;
+      const target = entry.target;
+      const sessionId =
+        target.kind === "session" || target.kind === "new_once"
+          ? target.sessionId
+          : (entry.involvedSessionIds ?? [])[0] ?? "";
+      return {
+        ...entry,
+        target,
+        sessionId,
+        involvedSessionIds: entry.involvedSessionIds ?? [],
+      };
+    }
+    const entry = raw as ScheduleCatalogEntry;
+    return {
+      ...entry,
+      target: { kind: "session", sessionId: entry.sessionId },
+      sessionId: entry.sessionId,
+      involvedSessionIds: [entry.sessionId],
+      status: entry.status === "inactive" ? "ended" : "active",
+    };
+  }
+
+  /** 全局保留任务目录(网页端「自动化任务」页同款数据源)。 */
+  async scheduleCatalog(): Promise<ScheduleTaskEntry[]> {
+    const raw = await this.client.scheduleCatalogRaw();
+    const detected = this.scheduleDetect(raw);
+    if (detected) this.scheduleVersion = detected;
+    else if (!this.scheduleVersion) await this.ensureScheduleVersion();
+    if (this.scheduleVersion === "v2" && !this.scheduleDeliveryLimits) {
+      try {
+        this.scheduleDeliveryLimits = await this.client.scheduleDeliveryLimits();
+      } catch {
+        // 受限连接读不到限流值:只影响「新建任务」的提示文案,不阻塞任务管理
+      }
+    }
+    return (raw as (ScheduleCatalogEntry | ScheduleCatalogEntryV2)[]).map((entry) => this.normalizeScheduleEntry(entry));
+  }
+
+  /** 某会话内的任务列表(仅 0.1.7 老 API 暴露;新宿主用全局目录)。 */
   scheduleList(sessionId: string) {
     return this.client.scheduleList(sessionId);
   }
 
-  scheduleDelete(sessionId: string, id: string) {
-    return this.client.scheduleDelete(sessionId, id);
+  /**
+   * 删除任务。v2 走 schedule/edit {action:"delete"};v1 走旧 schedule/delete。
+   * expectedUpdatedAt 用于 v2 的 CAS(编辑面板拿到的是哪一版就删哪一版)。
+   */
+  async scheduleDelete(id: string, sessionId?: string, expectedUpdatedAt?: string | null): Promise<ScheduleDeleteValue> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v1") {
+      if (!sessionId) throw new DshApiError("schedule/session-required", "老宿主删除定时任务需要 sessionId");
+      return this.client.scheduleDelete(sessionId, id);
+    }
+    const result = await this.client.scheduleEdit({
+      id,
+      action: "delete",
+      ...(expectedUpdatedAt !== undefined ? { expectedUpdatedAt } : {}),
+    });
+    if ("deleted" in result && result.deleted === true) return { id, deleted: true };
+    const code = "code" in result ? result.code : undefined;
+    return { id, deleted: false, ...(code ? { code: code as ScheduleDeleteValue["code"] } : {}) };
   }
 
-  scheduleHistory(request: ScheduleHistoryRequest) {
+  async scheduleCreate(request: ScheduleCreateRequestV2): Promise<ScheduleCatalogEntryV2> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v1") throw new DshApiError("schedule/unsupported", this.deps.t?.("hub.scheduleUnsupportedCreate") ?? "This host (DSH < 0.2.2) does not support creating host-level automation tasks.");
+    return this.client.scheduleCreate(request);
+  }
+
+  async scheduleEdit(request: ScheduleEditRequestV2): Promise<ScheduleEditResultV2> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v1") throw new DshApiError("schedule/unsupported", this.deps.t?.("hub.scheduleUnsupportedEdit") ?? "This host (DSH < 0.2.2) does not support editing host-level automation tasks.");
+    return this.client.scheduleEdit(request);
+  }
+
+  async scheduleRun(id: string): Promise<ScheduleRunResultV2> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v1") throw new DshApiError("schedule/unsupported", this.deps.t?.("hub.scheduleUnsupportedRun") ?? "This host (DSH < 0.2.2) does not support running automation tasks immediately.");
+    return this.client.scheduleRun(id);
+  }
+
+  async scheduleDeleteInactive(): Promise<ScheduleDeleteInactiveResultV2> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v1") throw new DshApiError("schedule/unsupported", this.deps.t?.("hub.scheduleUnsupportedDeleteInactive") ?? "This host (DSH < 0.2.2) does not support clearing ended tasks in bulk.");
+    return this.client.scheduleDeleteInactive();
+  }
+
+  async scheduleHistory(request: ScheduleHistoryRequest): Promise<ScheduleHistoryValue> {
+    const version = await this.ensureScheduleVersion();
+    if (version === "v2") {
+      const page = await this.client.scheduleHistoryV2({
+        id: request.id,
+        limit: request.limit,
+        ...(request.before !== undefined ? { before: request.before } : {}),
+      });
+      return page as unknown as ScheduleHistoryValue;
+    }
     return this.client.scheduleHistory(request);
   }
 

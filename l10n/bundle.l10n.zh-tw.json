@@ -199,5 +199,11 @@
   "perm.desc.custom": "自訂組合(在設定中編輯)",
   "commit.modelRestoreFailed": "提交訊息已產生,但預設模型未能還原為 {model}。請在模型下拉中重新選擇一次(主機背景儲存可能失敗)。",
   "notice.openImageFailed": "開啟圖片失敗:{error}",
-  "hub.remoteAccessLimited": "該 DSH 主機只給本連線授予受限存取權限,部分操作可能被拒絕。"
+  "hub.remoteAccessLimited": "該 DSH 主機只給本連線授予受限存取權限,部分操作可能被拒絕。",
+  "notice.scheduleConflict": "定時任務已在別處修改,已重新整理清單,請重試。",
+  "notice.scheduleGone": "定時任務已不存在。",
+  "hub.scheduleUnsupportedCreate": "目前宿主(DSH < 0.2.2)不支援建立宿主層級自動化任務。",
+  "hub.scheduleUnsupportedEdit": "目前宿主(DSH < 0.2.2)不支援編輯宿主層級自動化任務。",
+  "hub.scheduleUnsupportedRun": "目前宿主(DSH < 0.2.2)不支援立即執行自動化任務。",
+  "hub.scheduleUnsupportedDeleteInactive": "目前宿主(DSH < 0.2.2)不支援批次清除已結束任務。"
 }

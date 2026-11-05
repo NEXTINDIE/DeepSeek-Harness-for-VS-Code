@@ -1207,6 +1207,12 @@ button {
   min-width: 0;
   overflow-wrap: break-word;
   word-break: break-word;
+  /*
+   * 长会话:视口外的消息跳过排版与绘制(滚动高度按 contain-intrinsic-size 估算),
+   * 打开几百轮的会话时首屏排版量与滚动重绘量只和可见条数相关。
+   */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
 }
 
 .msg-user {
@@ -6060,6 +6066,43 @@ img.inline-image-missing {
 .sched-record { display: flex; gap: 8px; font-size: 10.5px; align-items: baseline; }
 .sched-record-time { flex: none; color: var(--vscode-descriptionForeground); }
 .sched-record-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 0.2.2:宿主级自动化任务(状态 / 目标 / 新建与编辑表单) */
+.sched-title-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sched-title-line .sched-title { min-width: 0; }
+.sched-badge {
+  flex: none;
+  font-size: 9.5px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  border: 1px solid var(--vscode-textLink-foreground, #3794ff);
+  opacity: 0.85;
+}
+.sched-paused { color: var(--vscode-editorWarning-foreground, #cca700); }
+.sched-target { font-size: 10px; color: var(--vscode-descriptionForeground); }
+
+.sched-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px;
+  margin: 0 0 6px;
+  border: 1px solid var(--vscode-focusBorder, #3794ff);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.06));
+}
+.sched-form-title { font-size: 11.5px; font-weight: 600; }
+.sched-form-field { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.sched-form-label { font-size: 10.5px; color: var(--vscode-descriptionForeground); }
+.sched-form-hint { font-size: 10px; color: var(--vscode-descriptionForeground); opacity: 0.85; }
+.sched-form .settings-input,
+.sched-form .settings-textarea { width: 100%; box-sizing: border-box; }
+.sched-form-grid { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.sched-form-actions { display: flex; gap: 6px; align-items: center; }
+.sched-weekdays { display: flex; gap: 6px; flex-wrap: wrap; }
+.sched-weekday { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; }
 
 /* 轨迹视图 */
 

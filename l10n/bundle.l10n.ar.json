@@ -199,5 +199,11 @@
   "perm.desc.custom": "تركيبة مخصّصة (عدّلها في الإعدادات).",
   "commit.modelRestoreFailed": "تم إنشاء رسالة الالتزام، لكن تعذّر إرجاع الطراز الافتراضي إلى {model}. يرجى اختياره مرة أخرى من قائمة الطرازات (قد تكون الكتابة في الخلفية قد فشلت).",
   "notice.openImageFailed": "تعذّر فتح الصورة: {error}",
-  "hub.remoteAccessLimited": "منح مضيف DSH هذا وصولاً محدودًا لهذا الاتصال فقط، وقد تُرفض بعض الإجراءات."
+  "hub.remoteAccessLimited": "منح مضيف DSH هذا وصولاً محدودًا لهذا الاتصال فقط، وقد تُرفض بعض الإجراءات.",
+  "notice.scheduleConflict": "تم تغيير المهمة في مكان آخر وتم تحديث القائمة. أعد المحاولة.",
+  "notice.scheduleGone": "لم تعد المهمة موجودة.",
+  "hub.scheduleUnsupportedCreate": "هذا المضيف (DSH < 0.2.2) لا يدعم إنشاء مهام الأتمتة على مستوى المضيف.",
+  "hub.scheduleUnsupportedEdit": "هذا المضيف (DSH < 0.2.2) لا يدعم تعديل مهام الأتمتة على مستوى المضيف.",
+  "hub.scheduleUnsupportedRun": "هذا المضيف (DSH < 0.2.2) لا يدعم تشغيل مهام الأتمتة فورًا.",
+  "hub.scheduleUnsupportedDeleteInactive": "هذا المضيف (DSH < 0.2.2) لا يدعم مسح المهام المنتهية دفعة واحدة."
 }

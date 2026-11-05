@@ -199,5 +199,11 @@
   "perm.desc.custom": "사용자 지정 조합(설정에서 편집).",
   "commit.modelRestoreFailed": "커밋 메시지는 생성되었지만 기본 모델을 {model}(으)로 되돌리지 못했습니다. 모델 선택에서 다시 선택해 주세요(호스트 백그라운드 저장이 실패했을 수 있습니다).",
   "notice.openImageFailed": "이미지를 열지 못했습니다: {error}",
-  "hub.remoteAccessLimited": "이 DSH 호스트가 이 연결에 제한된 액세스만 부여했습니다. 일부 작업이 거부될 수 있습니다."
+  "hub.remoteAccessLimited": "이 DSH 호스트가 이 연결에 제한된 액세스만 부여했습니다. 일부 작업이 거부될 수 있습니다.",
+  "notice.scheduleConflict": "다른 곳에서 작업이 변경되어 목록을 새로고침했습니다. 다시 시도하세요.",
+  "notice.scheduleGone": "작업이 더 이상 존재하지 않습니다.",
+  "hub.scheduleUnsupportedCreate": "현재 호스트(DSH < 0.2.2)는 호스트 수준 자동화 작업 생성을 지원하지 않습니다.",
+  "hub.scheduleUnsupportedEdit": "현재 호스트(DSH < 0.2.2)는 호스트 수준 자동화 작업 편집을 지원하지 않습니다.",
+  "hub.scheduleUnsupportedRun": "현재 호스트(DSH < 0.2.2)는 자동화 작업 즉시 실행을 지원하지 않습니다.",
+  "hub.scheduleUnsupportedDeleteInactive": "현재 호스트(DSH < 0.2.2)는 종료된 작업 일괄 지우기를 지원하지 않습니다."
 }

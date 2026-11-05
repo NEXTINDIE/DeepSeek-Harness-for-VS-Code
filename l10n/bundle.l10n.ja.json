@@ -199,5 +199,11 @@
   "perm.desc.custom": "カスタムの組み合わせ(設定で編集できます)。",
   "commit.modelRestoreFailed": "コミットメッセージは生成されましたが、既定のモデルを {model} に戻せませんでした。モデル選択で選び直してください(ホストのバックグラウンド保存が失敗した可能性があります)。",
   "notice.openImageFailed": "画像を開けませんでした: {error}",
-  "hub.remoteAccessLimited": "この DSH ホストはこの接続に限定的なアクセス権のみを付与しています。一部の操作は拒否される場合があります。"
+  "hub.remoteAccessLimited": "この DSH ホストはこの接続に限定的なアクセス権のみを付与しています。一部の操作は拒否される場合があります。",
+  "notice.scheduleConflict": "タスクが別の場所で変更されました。一覧を更新しました。もう一度お試しください。",
+  "notice.scheduleGone": "タスクは存在しません。",
+  "hub.scheduleUnsupportedCreate": "現在のホスト(DSH < 0.2.2)はホストレベルの自動化タスク作成に対応していません。",
+  "hub.scheduleUnsupportedEdit": "現在のホスト(DSH < 0.2.2)はホストレベルの自動化タスク編集に対応していません。",
+  "hub.scheduleUnsupportedRun": "現在のホスト(DSH < 0.2.2)は自動化タスクの即時実行に対応していません。",
+  "hub.scheduleUnsupportedDeleteInactive": "現在のホスト(DSH < 0.2.2)は終了したタスクの一括クリアに対応していません。"
 }

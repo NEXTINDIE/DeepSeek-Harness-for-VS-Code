@@ -199,5 +199,11 @@
   "perm.desc.custom": "Eigene Kombination (in den Einstellungen bearbeiten).",
   "commit.modelRestoreFailed": "Die Commit-Nachricht wurde erstellt, aber das Standardmodell konnte nicht auf {model} zurückgesetzt werden. Bitte wählen Sie es erneut im Modellmenü (das Speichern im Hintergrund ist möglicherweise fehlgeschlagen).",
   "notice.openImageFailed": "Bild konnte nicht geöffnet werden: {error}",
-  "hub.remoteAccessLimited": "Dieser DSH-Host hat dieser Verbindung nur eingeschränkten Zugriff gewährt; einige Aktionen können abgelehnt werden."
+  "hub.remoteAccessLimited": "Dieser DSH-Host hat dieser Verbindung nur eingeschränkten Zugriff gewährt; einige Aktionen können abgelehnt werden.",
+  "notice.scheduleConflict": "Die Aufgabe wurde anderswo geändert; die Liste wurde aktualisiert. Bitte erneut versuchen.",
+  "notice.scheduleGone": "Die Aufgabe existiert nicht mehr.",
+  "hub.scheduleUnsupportedCreate": "Dieser Host (DSH < 0.2.2) unterstützt das Erstellen von Automatisierungsaufgaben auf Host-Ebene nicht.",
+  "hub.scheduleUnsupportedEdit": "Dieser Host (DSH < 0.2.2) unterstützt das Bearbeiten von Automatisierungsaufgaben auf Host-Ebene nicht.",
+  "hub.scheduleUnsupportedRun": "Dieser Host (DSH < 0.2.2) unterstützt das sofortige Ausführen von Automatisierungsaufgaben nicht.",
+  "hub.scheduleUnsupportedDeleteInactive": "Dieser Host (DSH < 0.2.2) unterstützt das massenhafte Löschen beendeter Aufgaben nicht."
 }

@@ -199,5 +199,11 @@
   "perm.desc.custom": "Özel bileşim (Ayarlar'dan düzenleyin).",
   "commit.modelRestoreFailed": "Commit mesajı oluşturuldu ancak varsayılan model {model} olarak geri alınamadı. Lütfen model listesinden yeniden seçin (arka planda kaydetme başarısız olmuş olabilir).",
   "notice.openImageFailed": "Görsel açılamadı: {error}",
-  "hub.remoteAccessLimited": "Bu DSH ana bilgisayarı bu bağlantıya yalnızca sınırlı erişim verdi; bazı işlemler reddedilebilir."
+  "hub.remoteAccessLimited": "Bu DSH ana bilgisayarı bu bağlantıya yalnızca sınırlı erişim verdi; bazı işlemler reddedilebilir.",
+  "notice.scheduleConflict": "Görev başka bir yerde değiştirildi; liste yenilendi. Tekrar deneyin.",
+  "notice.scheduleGone": "Görev artık mevcut değil.",
+  "hub.scheduleUnsupportedCreate": "Bu ana makine (DSH < 0.2.2) ana makine düzeyinde otomasyon görevi oluşturmayı desteklemiyor.",
+  "hub.scheduleUnsupportedEdit": "Bu ana makine (DSH < 0.2.2) ana makine düzeyinde otomasyon görevi düzenlemeyi desteklemiyor.",
+  "hub.scheduleUnsupportedRun": "Bu ana makine (DSH < 0.2.2) otomasyon görevlerini hemen çalıştırmayı desteklemiyor.",
+  "hub.scheduleUnsupportedDeleteInactive": "Bu ana makine (DSH < 0.2.2) biten görevleri toplu temizlemeyi desteklemiyor."
 }

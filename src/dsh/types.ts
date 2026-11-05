@@ -1,6 +1,36 @@
 /**
- * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.1-rc.2 的 Typert Remote 契约,
- * 同时兼容 0.2.1-rc.1 / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.2-rc.1 的 Typert Remote 契约,
+ * 同时兼容 0.2.1-rc.5 | rc.4 | rc.3 | rc.2 | rc.1 / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ *
+ * 0.2.1-rc.3 → 0.2.2-rc.1(已按已发布包机械 diff + 真实 rc.1 服务器逐项实机验证):
+ * - 端点 173 → 224:新增 53、移除 2、签名变化 2。本扩展用到的端点除 schedule 外零变化;
+ * - **移除** schedule/delete 与 schedule/update(旧会话内提醒 API),**替换为宿主级任务**:
+ *   schedule/create|edit|view|run|deleteInactive|deliveryLimits;schedule/list 结果由
+ *   ScheduleRecord[] 变为 {items,total,shown,limit,offset};schedule/history 不再需要 sessionId,
+ *   条目改为 target + status:"active"|"paused"|"ended",删除走 schedule/edit{action:"delete"} 的 CAS;
+ * - session/page 仍是兼容别名,结果变为 SessionEventsPage(= SessionPage + 顶层 cursor);
+ *   新增 session/events(同参)、session/state、session/wait、session/observeEvent|observeProjections|observeState、
+ *   toolResults/watch —— 都是附加能力,老客户端可继续用 session/page;
+ * - $events 词表 23 → 25:新增 llm/models-updated(模型目录后台刷新)与 plugin-manager/update-state;
+ * - 会话投影 21 → 25:新增 actionCards / forgeChangeRequests / forgeWorktree / forkLineage;
+ *   modelSelection 从 dsh-api-session-controller 移到 dsh-agent 声明,**键仍在**(本扩展读取路径不变);
+ * - 会话事件词表 60 条前后完全一致;mux 三条流常量不变;信封、认证与 cookie 不变;
+ * - 其余新增端点(forgePanel/*、liveshareShares/*、pluginManager/listVersions|readBundleDetail|updateBundle、
+ *   pluginMarket/readEntryDetail、actionCards/act、pluginRecommendations/describe)属于可选组合包,
+ *   未组合时网关 404,扩展按「端点不可用」降级,不阻塞核心聊天;
+ * - 宿主插件侧(与本扩展随包分发的 dsh-git-rollback 相关):Session Projection 注册改为异步、
+ *   tools.resolve/executable 与 PTC 执行拆分、Cordis Timer 返回值变化 —— 该插件只用
+ *   session/event、commands.register、workingDirectory.get 与 webServer.register,均未变;
+ *   0.2.2 插件管理器会读取 package.json 的 icon 与 locale/*.json,自动安装器已补齐这两个文件。
+ *
+ * 0.2.1-rc.2 → 0.2.1-rc.3(已按已发布包机械 diff):**契约零变化** ——
+ * 173 个 Typert 端点签名、23 条 $events 词表、21 个会话投影、会话事件词表与三条 mux 流常量全部一致。
+ * 该版本的三项发布说明都在网页端,不进线协议:
+ * ① 左侧栏 / 会话视图 / 右侧栏的「更多」菜单(纯 UI);② 修复切换会话后点「新会话」找不回未发送草稿;
+ * ③ DeepSeek API Key 适配器的模型列表改为与账号登录模式一致地更新(仍是 session/modelCatalog)。
+ * 注意 ②③ 对客户端的含义:草稿要按会话保存(本扩展 0.13.52 起已支持);
+ * session/selectModel 只保证「会话本地生效」,目录里的 default 是**部署默认值**且后台保存可能滞后 ——
+ * 切换后必须用响应里的 selected 校准界面,不能用 modelCatalog.default 回写(否则首次切换看起来没生效)。
  *
  * 0.2.1-rc.1 → 0.2.1-rc.2(已按已发布包机械 diff + 真实 rc.2 服务器实机验证):
  * - 契约零变化:173 个 Typert 端点签名、23 条 $events 词表、21 个会话投影、57 种会话事件、
@@ -725,6 +755,8 @@ export interface ScheduleDeliveryReceipt {
   scheduledAt: string;
   deliveredAt: string;
   messageId: string;
+  /** 0.2.2:实际接收投递的会话(new 目标每次可能不同)。 */
+  targetSessionId?: string;
 }
 
 /** 运行记录(含当次发送的提示词;旧记录可能没有 prompt)。 */
@@ -762,6 +794,153 @@ export interface ScheduleDeleteValue {
   id: string;
   deleted: boolean;
   code?: "schedule_not_found";
+}
+
+// ---------- 定时任务 v2(0.2.2 宿主级自动化任务) ----------
+//
+// 0.2.2 把定时任务从「会话内提醒」升级为宿主级任务:
+// - schedule/catalog 条目不再带 sessionId/status:"inactive",改为 target + status:"active"|"paused"|"ended";
+// - schedule/delete|update 移除,改为 schedule/edit(action:"update"|"delete",CAS expectedUpdatedAt);
+// - 新增 schedule/create|view|run|deleteInactive|deliveryLimits;
+// - schedule/history 请求不再需要 sessionId(只按任务 id);
+// - 投递记录新增 targetSessionId,历史页新增 earlierRecordsUnavailable。
+
+export type ScheduleTaskStatus = "active" | "paused" | "ended";
+
+/** 任务投递目标:固定会话 / 首次投递新建并复用 / 每次投递新建。 */
+export type ScheduleTarget =
+  | { kind: "session"; sessionId: string }
+  | { kind: "new_once"; sessionId: string; create?: { cwd?: string; agentPreset?: string } }
+  | { kind: "new"; create?: { cwd?: string; agentPreset?: string } };
+
+/** 创建/编辑时提交的目标(host 会为 new_once 预留 sessionId)。 */
+export type ScheduleTargetRequest =
+  | { kind: "session"; sessionId: string }
+  | { kind: "new_once"; create?: { cwd?: string; agentPreset?: string } }
+  | { kind: "new"; create?: { cwd?: string; agentPreset?: string } };
+
+/** 绝对时刻输入:ISO 字符串或结构化本地日期/时间 + 时区。 */
+export type ScheduleAtInput =
+  | string
+  | { date: string; time: string; time_zone: string };
+
+/** 创建/编辑提交的时间规则。 */
+export type ScheduleTiming =
+  | { kind: "after"; after_seconds: number }
+  | { kind: "at"; at: ScheduleAtInput }
+  | { kind: "every"; every_seconds: number }
+  | { kind: "daily"; daily: { time: string; time_zone: string } }
+  | { kind: "weekly"; weekly: { time: string; time_zone: string; weekdays: number[] } }
+  | { kind: "cron"; cron: { expression: string; time_zone: string } }
+  | { kind: "rrule"; rrule: string };
+
+export interface ScheduleCatalogEntryV2 {
+  id: string;
+  kind: "after" | "at" | "every" | "daily" | "weekly" | "cron" | "rrule";
+  title: string;
+  prompt: string;
+  scheduledAt: string;
+  afterSeconds?: number;
+  everySeconds?: number;
+  time?: string;
+  timeZone?: string;
+  weekdays?: number[];
+  expression?: string;
+  rrule?: string;
+  target: ScheduleTarget;
+  involvedSessionIds: string[];
+  status: ScheduleTaskStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  executionActive?: true;
+  deliveryFloorEndsAt?: string;
+  lastDelivery?: ScheduleDeliveryReceipt;
+}
+
+export interface ScheduleCreateRequestV2 {
+  title: string;
+  prompt: string;
+  timing: ScheduleTiming;
+  target?: ScheduleTargetRequest;
+}
+
+export interface SchedulePatchV2 {
+  title?: string;
+  prompt?: string;
+  timing?: ScheduleTiming;
+  target?: ScheduleTargetRequest;
+  active?: boolean;
+}
+
+export type ScheduleEditRequestV2 =
+  | { id: string; action: "update"; patch: SchedulePatchV2; expectedUpdatedAt?: string | null }
+  | { id: string; action: "delete"; expectedUpdatedAt?: string | null };
+
+/** 编辑结果:更新后的任务 / 已删除 / 任务不存在 / CAS 冲突。 */
+export type ScheduleEditResultV2 =
+  | ScheduleCatalogEntryV2
+  | { id: string; deleted: true }
+  | { id: string; code: "schedule_not_found" }
+  | { id: string; code: "schedule_conflict" };
+
+export type ScheduleRunResultV2 =
+  | ScheduleCatalogEntryV2
+  | { id: string; code: "schedule_not_found" }
+  | { id: string; code: "schedule_execution_pending" };
+
+export interface ScheduleViewResultMissV2 {
+  id: string;
+  code: "schedule_not_found";
+}
+
+export interface ScheduleDeleteInactiveResultV2 {
+  deleted: number;
+}
+
+export interface ScheduleDeliveryLimitsV2 {
+  newSessionIntervalSeconds: number;
+}
+
+export interface ScheduleHistoryPageV2 {
+  id: string;
+  records: ScheduleDeliveryRecord[];
+  earlierRecordsUnavailable: boolean;
+  earlierRecordsPruned: boolean;
+  retention: { days: number; records: number };
+  nextBefore?: string;
+}
+
+export type ScheduleHistoryValueV2 =
+  | ScheduleHistoryPageV2
+  | { id: string; code: "schedule_not_found" | "delivery_cursor_not_found" };
+
+/**
+ * 扩展内部统一任务形状(v1/v2 归一化后)。
+ * Webview 的 PanelScheduleEntry 与此字段兼容;v1 的 sessionId/inactive 也映射进来。
+ */
+export interface ScheduleTaskEntry {
+  id: string;
+  kind: "after" | "at" | "every" | "daily" | "weekly" | "cron" | "rrule";
+  title: string;
+  prompt: string;
+  scheduledAt: string;
+  afterSeconds?: number;
+  everySeconds?: number;
+  time?: string;
+  timeZone?: string;
+  weekdays?: number[];
+  expression?: string;
+  rrule?: string;
+  target: ScheduleTarget;
+  /** 便于 UI 直接打开的会话(v2:target.sessionId;v1:sessionId;new:第一个关联会话)。 */
+  sessionId: string;
+  involvedSessionIds: string[];
+  status: ScheduleTaskStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  executionActive?: true;
+  deliveryFloorEndsAt?: string;
+  lastDelivery?: ScheduleDeliveryReceipt;
 }
 
 // ---------- 逐消息反馈(messageFeedback/*;0.1.7 新增) ----------

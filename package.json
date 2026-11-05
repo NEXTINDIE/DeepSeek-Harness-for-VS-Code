@@ -1,8 +1,8 @@
 {
   "name": "dsh-vscode",
   "displayName": "DeepSeek Harness for VS Code",
-  "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant with @ file/session/agent mentions, multimodal image attachments, model/preset/permission/thinking controls, subagents, Cordis plugin approvals, and turn-level Git rollback (undo one turn, restore checkpoints).",
-  "version": "0.13.63",
+  "description": "Use DeepSeek Harness directly in VS Code: secondary sidebar chat panel, @dsh built-in chat participant with @ file/session/agent mentions, multimodal image attachments, model/preset/permission/thinking controls, subagents, Cordis plugin approvals, host-level automation tasks (create/edit/pause/run), full-conversation Markdown export, and turn-level Git rollback (undo one turn, restore checkpoints).",
+  "version": "0.13.68",
   "publisher": "Jager",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -385,7 +385,9 @@
     "build": "node esbuild.mjs && node tools/sync-plugins.mjs",
     "watch": "node esbuild.mjs --watch",
     "package": "npm run build && node tools/clean-releases.mjs && vsce package -o Releases",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:schedule": "node tools/test-schedule-tasks.mjs",
+    "test:schedule:i18n": "node tools/test-schedule-i18n.mjs"
   },
   "dependencies": {
     "dompurify": "^3.2.4",

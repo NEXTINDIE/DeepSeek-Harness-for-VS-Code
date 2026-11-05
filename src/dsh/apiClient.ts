@@ -25,10 +25,19 @@ import type {
   RemoteEventOutcome,
   RemoteMuxServerMessage,
   ScheduleCatalogEntry,
+  ScheduleCatalogEntryV2,
+  ScheduleCreateRequestV2,
+  ScheduleDeleteInactiveResultV2,
+  ScheduleDeliveryLimitsV2,
   ScheduleDeleteValue,
+  ScheduleEditRequestV2,
+  ScheduleEditResultV2,
   ScheduleHistoryRequest,
   ScheduleHistoryValue,
+  ScheduleHistoryValueV2,
   ScheduleRecord,
+  ScheduleRunResultV2,
+  ScheduleViewResultMissV2,
   SessionCreateRequest,
   SessionCreateValue,
   SessionHistoryRequest,
@@ -916,21 +925,56 @@ export class DshApiClient {
 
   // ---------- 定时任务(0.1.7 新增 schedule/*;未启用定时任务插件的宿主返回 gateway/method-unavailable) ----------
 
-  /** 某会话内的任务列表(不激活 Agent)。 */
+  /** 某会话内的任务列表(不激活 Agent;0.1.7 老 API)。 */
   scheduleList(sessionId: string) {
-    return this.request<ScheduleRecord[]>("schedule/list", { sessionId });
+    return this.request<ScheduleRecord[]>("schedule/list", { request: { sessionId } });
   }
-  /** 全进程保留任务目录(带绑定会话与状态),对应网页端「自动化任务」页。 */
-  scheduleCatalog() {
-    return this.request<ScheduleCatalogEntry[]>("schedule/catalog", {});
+  /**
+   * 全进程保留任务目录(带绑定会话/目标与状态),对应网页端「自动化任务」页。
+   * 0.2.2 起条目形状改为宿主级任务(target/status:active|paused|ended);老宿主仍是
+   * sessionId/status:inactive。这里返回 unknown 由 hub 按形状归一化。
+   */
+  scheduleCatalogRaw() {
+    return this.request<ScheduleCatalogEntry[] | ScheduleCatalogEntryV2[]>("schedule/catalog", {});
   }
-  /** 删除任务(按原会话绑定);已不存在时返回 deleted:false,不抛错。 */
+  /** 0.1.7 老 API:按原会话绑定删除任务;已不存在时返回 deleted:false,不抛错。 */
   scheduleDelete(sessionId: string, id: string) {
-    return this.request<ScheduleDeleteValue>("schedule/delete", { sessionId, id });
+    return this.request<ScheduleDeleteValue>("schedule/delete", { request: { sessionId, id } });
   }
-  /** 某任务的运行记录(新→旧分页,limit 1-100)。 */
+  /** 某任务的运行记录(新→旧分页,limit 1-100)。老 API 需要 sessionId。 */
   scheduleHistory(request: ScheduleHistoryRequest) {
-    return this.request<ScheduleHistoryValue>("schedule/history", { ...request });
+    return this.request<ScheduleHistoryValue>("schedule/history", { request: { ...request } });
+  }
+
+  // ---------- 定时任务 v2(0.2.2 宿主级任务) ----------
+
+  /** 0.2.2:新投递间隔下限(new 目标的限流值);也是探测 v2 能力的低成本端点。 */
+  scheduleDeliveryLimits() {
+    return this.request<ScheduleDeliveryLimitsV2>("schedule/deliveryLimits", {});
+  }
+  /** 0.2.2:创建宿主级任务。 */
+  scheduleCreate(request: ScheduleCreateRequestV2) {
+    return this.request<ScheduleCatalogEntryV2>("schedule/create", { request: { ...request } });
+  }
+  /** 0.2.2:原子编辑/删除任务(update 用 expectedUpdatedAt 做 CAS)。 */
+  scheduleEdit(request: ScheduleEditRequestV2) {
+    return this.request<ScheduleEditResultV2>("schedule/edit", { request: { ...request } });
+  }
+  /** 0.2.2:按任务 id 读取当前状态(不存在时返回 code)。 */
+  scheduleView(id: string) {
+    return this.request<ScheduleCatalogEntryV2 | ScheduleViewResultMissV2>("schedule/view", { request: { id } });
+  }
+  /** 0.2.2:立即投递一次。 */
+  scheduleRun(id: string) {
+    return this.request<ScheduleRunResultV2>("schedule/run", { request: { id } });
+  }
+  /** 0.2.2:一次性清除所有 ended 任务。 */
+  scheduleDeleteInactive() {
+    return this.request<ScheduleDeleteInactiveResultV2>("schedule/deleteInactive", {});
+  }
+  /** 0.2.2:按任务 id 分页读取运行记录(不再需要 sessionId)。 */
+  scheduleHistoryV2(request: { id: string; limit: number; before?: string }) {
+    return this.request<ScheduleHistoryValueV2>("schedule/history", { request: { ...request } });
   }
 
   // ---------- 逐消息反馈(0.1.7 新增 messageFeedback/*;put 以 ifVersion 做 CAS) ----------

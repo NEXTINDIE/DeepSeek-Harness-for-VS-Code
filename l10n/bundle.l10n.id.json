@@ -199,5 +199,11 @@
   "perm.desc.custom": "Kombinasi kustom (edit di Pengaturan).",
   "commit.modelRestoreFailed": "Pesan commit berhasil dibuat, tetapi model bawaan tidak dapat dikembalikan ke {model}. Pilih lagi di daftar model (penyimpanan latar belakang host mungkin gagal).",
   "notice.openImageFailed": "Gagal membuka gambar: {error}",
-  "hub.remoteAccessLimited": "Host DSH ini hanya memberikan akses terbatas untuk koneksi ini; beberapa tindakan mungkin ditolak."
+  "hub.remoteAccessLimited": "Host DSH ini hanya memberikan akses terbatas untuk koneksi ini; beberapa tindakan mungkin ditolak.",
+  "notice.scheduleConflict": "Tugas diubah di tempat lain; daftar dimuat ulang. Coba lagi.",
+  "notice.scheduleGone": "Tugas tidak ada lagi.",
+  "hub.scheduleUnsupportedCreate": "Host ini (DSH < 0.2.2) tidak mendukung pembuatan tugas otomatisasi tingkat host.",
+  "hub.scheduleUnsupportedEdit": "Host ini (DSH < 0.2.2) tidak mendukung pengeditan tugas otomatisasi tingkat host.",
+  "hub.scheduleUnsupportedRun": "Host ini (DSH < 0.2.2) tidak mendukung menjalankan tugas otomatisasi segera.",
+  "hub.scheduleUnsupportedDeleteInactive": "Host ini (DSH < 0.2.2) tidak mendukung pembersihan massal tugas yang sudah selesai."
 }

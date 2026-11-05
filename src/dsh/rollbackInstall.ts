@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -72,6 +72,10 @@ function installInto(nodeModulesDir: string, bundledDir: string): { installed: b
       copyFileSync(join(bundledDir, "lib", file), join(targetDir, "lib", file));
     }
     copyFileSync(join(bundledDir, "package.json"), join(targetDir, "package.json"));
+    // 0.2.2 起插件管理器读取 icon.svg 与 locale/*.json 做富文本详情/本地化标题;
+    // 只复制 lib 会让已安装插件显示「Plugin metadata ... icon.svg ENOENT」。
+    if (existsSync(join(bundledDir, "icon.svg"))) copyFileSync(join(bundledDir, "icon.svg"), join(targetDir, "icon.svg"));
+    if (existsSync(join(bundledDir, "locale"))) cpSync(join(bundledDir, "locale"), join(targetDir, "locale"), { recursive: true });
     writeFileSync(join(targetDir, VERSION_FILE), bundledVersion || "0");
     return { installed: true, changed: true };
   } catch (error) {

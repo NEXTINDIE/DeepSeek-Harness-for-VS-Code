@@ -199,5 +199,11 @@
   "perm.desc.custom": "Combinaison personnalisée (à modifier dans les paramètres).",
   "commit.modelRestoreFailed": "Le message de commit a été généré, mais le modèle par défaut n'a pas pu être rétabli sur {model}. Veuillez le resélectionner dans la liste des modèles (l'enregistrement en arrière-plan a peut-être échoué).",
   "notice.openImageFailed": "Impossible d'ouvrir l'image : {error}",
-  "hub.remoteAccessLimited": "Cet hôte DSH n'a accordé qu'un accès limité à cette connexion ; certaines actions peuvent être refusées."
+  "hub.remoteAccessLimited": "Cet hôte DSH n'a accordé qu'un accès limité à cette connexion ; certaines actions peuvent être refusées.",
+  "notice.scheduleConflict": "La tâche a été modifiée ailleurs ; la liste a été actualisée. Réessayez.",
+  "notice.scheduleGone": "La tâche n'existe plus.",
+  "hub.scheduleUnsupportedCreate": "Cet hôte (DSH < 0.2.2) ne prend pas en charge la création de tâches d'automatisation au niveau de l'hôte.",
+  "hub.scheduleUnsupportedEdit": "Cet hôte (DSH < 0.2.2) ne prend pas en charge la modification de tâches d'automatisation au niveau de l'hôte.",
+  "hub.scheduleUnsupportedRun": "Cet hôte (DSH < 0.2.2) ne prend pas en charge l'exécution immédiate de tâches d'automatisation.",
+  "hub.scheduleUnsupportedDeleteInactive": "Cet hôte (DSH < 0.2.2) ne prend pas en charge l'effacement groupé des tâches terminées."
 }

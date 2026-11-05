@@ -6,7 +6,7 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.13.63
+[中文版](#chinese) | Publisher: Jager · Latest: 0.13.68
 
 Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية — follows the VS Code display language or switch manually).
 
@@ -43,8 +43,8 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Cross-project sessions**: per-folder @dsh sessions; multi-root follows the active editor; `dsh.participantSessionMode: global` to share one session.
 - **Workspace browser** (📁 button, web Workspaces parity): sessions grouped by workspace; add / rename / delete / reorder workspaces; per-group session ordering and archive; session content search (instant title matches + server content search with local fallback when the index is disabled); rows show waiting-for-approval / plan-review / question / running states.
 - **Background jobs panel** (⚙️ button): bash / pwsh / subagent jobs for the current session with status, timings, and detail, live from session/jobs frames.
-- **Automation tasks panel** (⏰ button, host-side `schedule/*`, DSH 0.1.7+): every retained reminder with its rule text, next scheduled time and countdown, enabled / ended status, search and status filter; open a task for its instruction, frequency, time zone, linked session (jump straight to it), last delivery and its **delivery records** (newest-first with paging) and delete it after an inline confirmation. The catalog refreshes itself from the host's `schedule/changed` event; when the host has the schedule plugin disabled (the 0.1.7 default) the panel says so instead of erroring.
-- **Automation tasks panel** (⏰ button, host-side `schedule/*`, DSH 0.1.7+): every retained reminder with its rule text, next scheduled time and countdown, enabled / ended status, search and status filter; open a task for its instruction, frequency, time zone, linked session (jump straight to it), last delivery and its **delivery records** (newest-first with paging) and delete it after an inline confirmation. The catalog refreshes itself from the host's `schedule/changed` event; when the host has the schedule plugin disabled (the 0.1.7 default) the panel says so instead of erroring.
+- **Automation tasks panel** (⏰ button, host-side `schedule/*`, DSH 0.1.7+; full host-level task management on DSH 0.2.2+): every retained task with its rule text, next scheduled time and countdown, status (active / paused / ended), delivery target and search/status filters. On 0.2.2+ you can **create** tasks (name, prompt, one-shot delay / absolute time / fixed interval / daily / weekly / cron / RRULE timing, and a target session, a session created on first delivery, or a new session per run), **edit** them, **pause / resume**, **run now**, **delete** with optimistic-concurrency protection (`updatedAt` CAS — a concurrent edit refreshes the list instead of overwriting it), and **clear all ended tasks**. Open a task for its instruction, timing, time zone, target session (jump straight to it), last delivery and its **delivery records** (newest-first with paging, retention and "earlier records unavailable" facts). The catalog refreshes itself from the host's `schedule/changed` event; on 0.1.7–0.2.1 the panel stays read-only (delete + history) and says so instead of erroring.
+- **Session menu** (⋯): fork / rename / copy session ID / **copy the full conversation as Markdown** (0.2.2 parity — session ID, working directory, export time, then the user and assistant text, ready to paste into an issue or a doc) / archive.
 - **Trajectory view** (🧭 button, web Trajectory parity): turn-aware event ledger (seq · time · type · summary · token usage), click to expand the full event JSON, type filter. The header toolbar is all line icons (workspace / background jobs / automation tasks / trajectory / settings / subagent catalog) drawn at 15px; the Cordis plugin button keeps its 🧩 emoji, and the Activity Bar / Secondary Side Bar container and the chat view use a line-robot mark (media/robot.svg, masked to the theme icon colour by VS Code) in the theme's icon colour.
 - **Settings panel** (⚙️ button, web Settings parity): general settings (schema-driven forms for every namespace, restart badges, per-namespace reset), models & providers (provider route directory + model catalog + endpoint model discovery), credential management (API key set/clear), agent preset authoring on hosts that still expose it — DSH 0.1.7 removed the preset authoring endpoints, so the copy / open-directory / delete buttons only appear when `settings/canOpenAgentPresetDirectory` reports support and presets are otherwise read-only composition text.
 
@@ -112,7 +112,7 @@ Prerequisites: VS Code ≥ 1.90 (built-in chat ≥ 1.95; secondary sidebar conta
 - Service worker error in the webview → VS Code 1.100.x platform bug: update VS Code or clear `%APPDATA%\Code\Service Worker\CacheStorage`.
 - "agent preset is fixed" → started sessions cannot switch presets; the preset pill only shows for new sessions.
 - Not connected → run `DSH: Start Server`; check `dsh.url`.
-- Server version: this build targets **DSH 0.1.5-rc.1** and negotiates the changed attachment parameter names, so a 0.1.2-rc.1 server keeps working (commands, subagent prompts, streaming); upgrading the server to 0.1.5 additionally brings live streaming frames, V3 session logs, and the context breakdown projection.
+- Server version: this build targets **DSH 0.2.2-rc.1** and still speaks the wire protocol of 0.2.1-rc.x / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1. On 0.2.2 the automation-task panel upgrades to host-level create / edit / pause / resume / run-now / clear-ended; on older hosts it stays read-only and keeps working. `session/page` remains a supported alias, and the new optional endpoints (worktrees/forge, liveshare, plugin details, action cards) are left untouched when a deployment does not compose them.
 - Server does not auto-start → the extension retries every 15 s and connects as soon as the server is up; see the `[server]` log in the "DeepSeek Harness" output channel. If the error mentions `0xC0000142`/`EPERM`, VS Code was launched from a DSH session or a restricted terminal (child process creation blocked) — launch VS Code normally, or set that session's permission to `danger-full-access`.
 
 ## Development
@@ -141,7 +141,7 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.13.63
+[English version](#) | 发布者:Jager · 最新版本:0.13.68
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية,跟随 VS Code 显示语言或手动切换)。
 
@@ -176,8 +176,8 @@ npm run package     # → Releases/
 - **跨项目会话**:每项目(工作区文件夹)独立 @dsh 会话;多根工作区跟随活动编辑器;`/session <ID>` 显式切换;`dsh.participantSessionMode: global` 可全局共用。
 - **工作区浏览器**(📁 按钮,网页端 Workspace 对齐):按工作区分组显示会话;添加 / 重命名 / 删除 / 上移下移工作区,组内会话排序与归档;会话内容搜索(标题即时匹配 + 服务器内容搜索,后端索引禁用时自动回退本地匹配);会话行显示 等待审批 / 计划待审 / 等待回答 / 运行中 状态。
 - **后台任务面板**(⚙️ 按钮):当前会话的 bash / pwsh / 子代理等后台任务清单(状态 · 起止时间 · 耗时 · 明细),随 session/jobs 帧实时刷新。
-- **自动化任务面板**(⏰ 按钮,宿主侧 `schedule/*`,需 DSH 0.1.7+):列出全部保留的提醒任务(规则文案 · 下次计划时间与倒计时 · 已开启/已结束),支持搜索与状态筛选;点开任务可看内容、提醒频率、时区、关联会话(一键跳转)、最近一次投递与其**运行记录**(新→旧分页),并可就地确认删除。目录随宿主 `schedule/changed` 事件自动刷新;宿主未启用定时任务插件(0.1.7 默认)时面板给出说明而不是报错。
-- **自动化任务面板**(⏰ 按钮,宿主侧 `schedule/*`,需 DSH 0.1.7+):列出全部保留的提醒任务(规则文案 · 下次计划时间与倒计时 · 已开启/已结束),支持搜索与状态筛选;点开任务可看内容、提醒频率、时区、关联会话(一键跳转)、最近一次投递与其**运行记录**(新→旧分页),并可就地确认删除。目录随宿主 `schedule/changed` 事件自动刷新;宿主未启用定时任务插件(0.1.7 默认)时面板给出说明而不是报错。
+- **自动化任务面板**(⏰ 按钮,宿主侧 `schedule/*`,需 DSH 0.1.7+;0.2.2+ 为完整宿主级任务管理):列出全部任务(规则文案 · 下次计划时间与倒计时 · 状态 已开启/已暂停/已结束 · 投递目标),支持搜索与状态筛选。0.2.2+ 可直接**新建**(名称、提示词、一次性延迟 / 指定时刻 / 固定间隔 / 每天 / 每周 / Cron / RRULE 规则,目标可选现有会话、首次投递时新建会话或每次运行新建会话)、**编辑**、**暂停/继续**、**立即运行**、**删除**(带 `updatedAt` CAS 乐观并发保护——别处已修改时刷新列表而不是覆盖)与**一次清除全部已结束任务**;点开任务可看提示词、规则、时区、目标会话(一键跳转)、最近一次投递及其**运行记录**(新→旧分页、保留策略与「更早记录不可用」)。目录随宿主 `schedule/changed` 事件自动刷新;0.1.7–0.2.1 老宿主保持只读(删除 + 历史)并给出说明,不会报错。
+- **会话菜单**(⋯):分叉 / 重命名 / 复制会话 ID / **复制完整会话为 Markdown**(0.2.2 同款:会话 ID、工作目录、导出时间,再按用户/助手导出正文,可直接贴进 issue 或文档)/ 归档。
 - **轨迹视图**(🧭 按钮,网页端 Trajectory 对齐):按回合组织的事件台账(序号 / 时间 / 类型 / 摘要 / token 用量),点击展开完整事件 JSON,支持类型筛选。头部工具栏统一为线条图标(工作区 / 后台任务 / 自动化任务 / 轨迹 / 设置 / 子代理目录),15px、跟随主题图标色;Cordis 插件按钮保留 🧩 emoji,活动栏 / 辅助侧栏容器与聊天视图改用线条机器人图标(media/robot.svg,由 VS Code 按主题图标色蒙版着色)。
 - **设置面板**(⚙️ 按钮,网页端 Settings 对齐):常规设置(schema 驱动表单,全部命名空间,含"需重启"标注与命名空间重置)、模型与供应商(供应商路由目录 + 模型目录 + 发现模型端点探测)、凭据管理(API Key 写入 / 清除)、Agent 预设管理(在仍提供作者端点的宿主上可 查看组合文本 / 复制新预设 / 打开预设目录编辑 cordis.yml / 删除用户预设——DSH 0.1.7 移除了预设作者端点,此时按钮隐藏,预设只能查看组合文本)。
 
@@ -267,7 +267,7 @@ npm run watch
 - **Webview 报 Service Worker 错误**:VS Code 1.100.x 平台缺陷,升级 VS Code 或清空 `%APPDATA%\Code\Service Worker\CacheStorage`。
 - **"agent preset is fixed"**:已开始的会话不可切换预设,预设胶囊只在新会话显示。
 - **未连接**:执行 `DSH: 启动服务器`;检查 `dsh.url` 端口。
-- **服务器版本**:本版本面向 **DSH 0.1.5-rc.1**,并会对改名的附件参数做协商,因此 0.1.2-rc.1 服务器同样可用(命令、子代理消息、流式输出);服务器升级到 0.1.5 后另有逐 token 流式帧、V3 会话日志与上下文构成投影。
+- **服务器版本**:本版本面向 **DSH 0.2.2-rc.1**,同时仍讲 0.2.1-rc.x / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的线协议。0.2.2 上自动化任务面板升级为宿主级「新建 / 编辑 / 暂停 / 继续 / 立即运行 / 清除已结束」;老宿主保持只读并继续可用。`session/page` 仍是受支持的兼容别名;部署未组合的新可选端点(变更请求/工作树、liveshare、插件详情、action cards)在扩展侧按「不可用」跳过,不影响核心聊天。
 - **启动时无法自动启动服务器**:扩展会在 VS Code 启动时自动启动 `dsh web`(失败后每 15 秒重探,服务器上线即自动连接);具体失败原因见输出通道 "DeepSeek Harness" 的 `[server]` 日志。若报错含 `0xC0000142`/`EPERM`,说明 VS Code 是从 DSH 会话或受限终端启动的(子进程创建被拦截)——改用普通方式启动 VS Code,或把该会话权限调为 `danger-full-access`。
 
 ## 开发

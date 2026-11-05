@@ -182,6 +182,9 @@ export class ChatChannel {
     };
     sink.webview.html = this.html(sink.webview);
     sink.webview.onDidReceiveMessage((msg) => void this.onMessage(msg), undefined, this.disposables);
+    // 0.2.2:宿主模型目录后台刷新 → 重推当前会话的模型胶囊(不打断正在进行的回合)
+    const stopModelWatch = this.hub.onModelCatalogChanged(() => this.refreshCurrentModels());
+    this.disposables.push({ dispose: stopModelWatch });
     // 平台 webview 预载守护:预载页的 Service Worker 注册失败(冷启动竞态,microsoft/vscode#125993)
     // 时内容帧不会被写入,前端永远收不到 "ready"。10 秒未就绪即调用宿主恢复钩子;
     // 正常机器上 bundle 是本地资源,ready 通常 1 秒内到达,不会误触。
@@ -840,10 +843,28 @@ export class ChatChannel {
    * 宿主未启用定时任务插件时网关返回 gateway/method-unavailable:此时推 available:false,
    * 面板显示「宿主未启用定时任务」而不是报错(0.1.7 起定时任务默认关闭)。
    */
-  private async pushScheduleCatalog(requestId?: unknown) {
+  /** 模型目录变更后重读当前会话(保留会话本地选择,只刷新列表/推理等级)。 */
+  private async refreshCurrentModels() {
+    const current = this.hub.store.currentSessionId;
+    if (!current) return;
     try {
+      const value = await this.hub.getSessionModels(current);
+      this.post({ kind: "models", sessionId: current, value });
+    } catch {
+      // 目录暂时不可用:保留界面上的旧选择,下一次打开菜单会重试
+    }
+  }
+
+  private async pushScheduleCatalog(requestId?: unknown) {    try {
       const entries = await this.hub.scheduleCatalog();
-      this.post({ kind: "schedule", requestId, available: true, entries });
+      this.post({
+        kind: "schedule",
+        requestId,
+        available: true,
+        api: this.hub.scheduleVersion ?? "v1",
+        entries,
+        ...(this.hub.scheduleDeliveryLimits ? { deliveryLimits: this.hub.scheduleDeliveryLimits } : {}),
+      });
     } catch (error) {
       const unavailable = error instanceof DshApiError && /method-unavailable|service-unavailable|namespace/i.test(error.code);
       this.post({ kind: "schedule", requestId, available: !unavailable, entries: null, error: String(error) });
@@ -884,6 +905,16 @@ export class ChatChannel {
    */
   private serializeEventsForWire(stored: StoredEvent[]): { event: any; view?: unknown }[] {
     const out: { event: any; view?: unknown }[] = [];
+    // 正在合并的 delta 组:文本用数组累积,组结束时 join 一次。
+    // 旧实现每来一个 delta 就把「已合并文本 + 新片段」拼成新字符串,长会话里一块可能上千个 delta,
+    // 等于反复复制整段文本(平方级);这也是打开超长对话会卡住的一个真实来源。
+    let pending: { event: any; parts: string[] } | null = null;
+    const flush = () => {
+      if (!pending) return;
+      const chunk = { ...pending.event.data.chunk, text: pending.parts.join("") };
+      out.push({ event: { ...pending.event, data: { ...pending.event.data, chunk } } });
+      pending = null;
+    };
     for (const item of stored) {
       const ev = item.event;
       if (ev.type === "assistant/chunk") {
@@ -891,24 +922,27 @@ export class ChatChannel {
         const kind = chunk.type;
         const key = `${ev.data?.turn ?? ""}|${ev.data?.step ?? ""}|${chunk.index ?? ""}`;
         if (kind === "text-delta" || kind === "reasoning-delta") {
-          const last = out.length > 0 ? out[out.length - 1] : undefined;
-          if (last && last.event?.type === "assistant/chunk") {
-            const lastChunk = last.event.data?.chunk ?? {};
-            if (lastChunk.type === kind && `${last.event.data?.turn ?? ""}|${last.event.data?.step ?? ""}|${lastChunk.index ?? ""}` === key) {
-              last.event = {
-                ...last.event,
-                seq: ev.seq,
-                data: { ...last.event.data, chunk: { ...lastChunk, text: (lastChunk.text ?? "") + (chunk.text ?? "") } },
-              };
-              continue;
-            }
+          if (
+            pending &&
+            pending.event.data?.chunk?.type === kind &&
+            `${pending.event.data?.turn ?? ""}|${pending.event.data?.step ?? ""}|${pending.event.data?.chunk?.index ?? ""}` === key
+          ) {
+            pending.parts.push(String(chunk.text ?? ""));
+            pending.event = { ...pending.event, seq: ev.seq };
+            continue;
           }
+          flush();
+          pending = { event: { ...ev, data: { ...(ev.data ?? {}), chunk: { ...chunk } } }, parts: [String(chunk.text ?? "")] };
+          continue;
         }
+        flush();
         out.push({ event: { ...ev, data: { ...(ev.data ?? {}), chunk: { ...chunk } } } });
         continue;
       }
+      flush();
       out.push({ event: ev, ...(item.view ? { view: item.view } : {}) });
     }
+    flush();
     return out;
   }
 
@@ -1210,30 +1244,116 @@ export class ChatChannel {
         break;
       }
       case "scheduleHistory": {
-        if (typeof msg.id === "string" && typeof msg.sessionId === "string") {
+        if (typeof msg.id === "string") {
+          const sessionId = typeof msg.sessionId === "string" ? msg.sessionId : "";
           try {
             const value = await this.hub.scheduleHistory({
-              sessionId: msg.sessionId,
+              sessionId,
               id: msg.id,
               limit: typeof msg.limit === "number" ? msg.limit : 20,
               ...(typeof msg.before === "string" ? { before: msg.before } : {}),
             });
-            this.post({ kind: "scheduleHistory", requestId: msg.requestId, id: msg.id, sessionId: msg.sessionId, value });
+            this.post({ kind: "scheduleHistory", requestId: msg.requestId, id: msg.id, sessionId, value });
           } catch (error) {
-            this.post({ kind: "scheduleHistory", requestId: msg.requestId, id: msg.id, sessionId: msg.sessionId, value: null, error: String(error) });
+            this.post({ kind: "scheduleHistory", requestId: msg.requestId, id: msg.id, sessionId, value: null, error: String(error) });
           }
         }
         break;
       }
       case "scheduleDelete": {
-        if (typeof msg.id === "string" && typeof msg.sessionId === "string") {
+        if (typeof msg.id === "string") {
           try {
-            const result = await this.hub.scheduleDelete(msg.sessionId, msg.id);
-            this.post({ kind: "scheduleDeleted", requestId: msg.requestId, id: msg.id, deleted: result.deleted !== false });
+            const result = await this.hub.scheduleDelete(
+              msg.id,
+              typeof msg.sessionId === "string" ? msg.sessionId : undefined,
+              typeof msg.expectedUpdatedAt === "string" ? msg.expectedUpdatedAt : undefined,
+            );
+            this.post({
+              kind: "scheduleDeleted",
+              requestId: msg.requestId,
+              id: msg.id,
+              deleted: result.deleted !== false,
+              ...(result.deleted === false ? { code: result.code } : {}),
+            });
             await this.pushScheduleCatalog();
           } catch (error) {
             this.post({ kind: "scheduleDeleted", requestId: msg.requestId, id: msg.id, deleted: false, error: String(error) });
           }
+        }
+        break;
+      }
+      // ---------- 定时任务 v2(0.2.2 宿主级任务创建 / 编辑 / 立即运行) ----------
+      case "scheduleCreate": {
+        const request = msg.request;
+        if (request && typeof request === "object") {
+          try {
+            const entry = await this.hub.scheduleCreate(request as Parameters<DshHub["scheduleCreate"]>[0]);
+            this.post({ kind: "scheduleSaved", requestId: msg.requestId, created: true, id: entry.id, entry });
+            await this.pushScheduleCatalog();
+          } catch (error) {
+            this.post({ kind: "scheduleSaved", requestId: msg.requestId, created: true, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "scheduleEdit": {
+        if (typeof msg.id === "string" && msg.patch && typeof msg.patch === "object") {
+          try {
+            const result = await this.hub.scheduleEdit({
+              id: msg.id,
+              action: "update",
+              patch: msg.patch,
+              ...(typeof msg.expectedUpdatedAt === "string" ? { expectedUpdatedAt: msg.expectedUpdatedAt } : {}),
+            } as Parameters<DshHub["scheduleEdit"]>[0]);
+            if ("code" in result) {
+              this.post({
+                kind: "scheduleSaved",
+                requestId: msg.requestId,
+                id: msg.id,
+                conflict: result.code === "schedule_conflict",
+                code: result.code,
+                error: result.code === "schedule_conflict" ? t("notice.scheduleConflict") : t("notice.scheduleGone"),
+              });
+              await this.pushScheduleCatalog();
+            } else {
+              this.post({ kind: "scheduleSaved", requestId: msg.requestId, id: msg.id, entry: result });
+              await this.pushScheduleCatalog();
+            }
+          } catch (error) {
+            this.post({ kind: "scheduleSaved", requestId: msg.requestId, id: msg.id, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "scheduleRun": {
+        if (typeof msg.id === "string") {
+          try {
+            const result = await this.hub.scheduleRun(msg.id);
+            if ("code" in result) {
+              this.post({
+                kind: "scheduleRan",
+                requestId: msg.requestId,
+                id: msg.id,
+                pending: result.code === "schedule_execution_pending",
+                error: result.code === "schedule_not_found" ? t("notice.scheduleGone") : undefined,
+              });
+            } else {
+              this.post({ kind: "scheduleRan", requestId: msg.requestId, id: msg.id, entry: result });
+            }
+            await this.pushScheduleCatalog();
+          } catch (error) {
+            this.post({ kind: "scheduleRan", requestId: msg.requestId, id: msg.id, error: String(error) });
+          }
+        }
+        break;
+      }
+      case "scheduleDeleteInactive": {
+        try {
+          const result = await this.hub.scheduleDeleteInactive();
+          this.post({ kind: "scheduleInactiveCleared", requestId: msg.requestId, deleted: result.deleted });
+          await this.pushScheduleCatalog();
+        } catch (error) {
+          this.post({ kind: "scheduleInactiveCleared", requestId: msg.requestId, error: String(error) });
         }
         break;
       }
@@ -1531,10 +1651,42 @@ export class ChatChannel {
       case "selectModel": {
         if (current && typeof msg.provider === "string" && typeof msg.model === "string") {
           try {
-            await this.hub.selectModel(current, msg.provider, msg.model, typeof msg.effort === "string" ? msg.effort : undefined);
-            const value = await this.hub.getSessionModels(current);
-            this.post({ kind: "models", sessionId: current, value });
-            void this.hub.updateCurrentModel(current);
+            // 宿主语义(0.2.1):session/selectModel = 「切换会话本地模型 + 后台保存默认值」;
+            // 响应里的 selected 是会话本地选择的权威值,而 session/modelCatalog 返回的是
+            // **部署默认值**(后台保存可能还没落地)。以前这里紧跟一次目录读取并用它覆盖界面,
+            // 于是第一次切换推理强度会被旧默认值回退成原值 —— 看起来像「点了没反应」;第二次才生效。
+            const requestedEffort = typeof msg.effort === "string" ? msg.effort : undefined;
+            type Selection = { selected?: { provider: string; model: string; reasoningEffort?: string } };
+            const call = async (): Promise<Selection> => this.hub.selectModel(current, msg.provider, msg.model, requestedEffort) as Promise<Selection>;
+            let result = await call();
+            let selected = result.selected;
+            // 宿主把请求的推理强度解析掉了(首次常因模型目录还在刷新):等一拍再试一次,
+            // 等价于用户手动点第二次,但由扩展替他完成。
+            if (requestedEffort !== undefined && selected?.reasoningEffort !== requestedEffort) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              const retry = await call();
+              if (retry?.selected?.reasoningEffort === requestedEffort) {
+                result = retry;
+                selected = retry.selected;
+              }
+            }
+            // 目录内容(groups/failures)仍以宿主为准,只把 current 固定成「会话本地选择」
+            type SessionModels = Awaited<ReturnType<DshHub["getSessionModels"]>>;
+            let value: SessionModels | undefined;
+            try {
+              value = await this.hub.getSessionModels(current);
+            } catch {
+              value = undefined;
+            }
+            if (value) {
+              const currentSel = selected ?? { provider: msg.provider, model: msg.model, ...(typeof msg.effort === "string" ? { reasoningEffort: msg.effort } : {}) };
+              value = { ...value, current: currentSel };
+              // 只在拿到目录时回推:拉取失败就保留界面上的乐观选择(不能把模型胶囊清成"模型")
+              this.post({ kind: "models", sessionId: current, value });
+            }
+            // 状态栏跟随会话本地选择,不等后台保存
+            const eff = selected?.reasoningEffort ?? (typeof msg.effort === "string" ? msg.effort : undefined);
+            this.hub.applyLocalModelSelection(current, selected?.provider ?? msg.provider, selected?.model ?? msg.model, eff);
             this.clearSessionLock(current);
           } catch (error) {
             if (this.reportSessionLock(error, current)) break;
@@ -1734,7 +1886,10 @@ export class ChatChannel {
             await this.hub.completeGoal(current, msg.ref);
             this.post({ kind: "notice", message: t("notice.goalComplete"), level: "info" });
           } catch (error) {
-            this.post({ kind: "notice", message: t("notice.goalCompleteFailed", { error: String(error) }), level: "error" });
+            if (isGoalGoneError(error)) this.post({ kind: "notice", message: t("notice.goalComplete"), level: "info" });
+            else this.post({ kind: "notice", message: t("notice.goalCompleteFailed", { error: String(error) }), level: "error" });
+          } finally {
+            await this.hub.refreshGoal(current);
           }
         }
         break;
@@ -1746,6 +1901,8 @@ export class ChatChannel {
             this.post({ kind: "notice", message: t("notice.goalEdit"), level: "info" });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.goalEditFailed", { error: String(error) }), level: "error" });
+          } finally {
+            await this.hub.refreshGoal(current);
           }
         }
         break;
@@ -1757,6 +1914,8 @@ export class ChatChannel {
             this.post({ kind: "notice", message: t("notice.goalResume"), level: "info" });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.goalResumeFailed", { error: String(error) }), level: "error" });
+          } finally {
+            await this.hub.refreshGoal(current);
           }
         }
         break;
@@ -1768,6 +1927,8 @@ export class ChatChannel {
             this.post({ kind: "notice", message: t("notice.goalPause"), level: "info" });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.goalPauseFailed", { error: String(error) }), level: "error" });
+          } finally {
+            await this.hub.refreshGoal(current);
           }
         }
         break;
@@ -1778,7 +1939,12 @@ export class ChatChannel {
             await this.hub.clearGoal(current, msg.ref);
             this.post({ kind: "notice", message: t("notice.goalClear"), level: "info" });
           } catch (error) {
-            this.post({ kind: "notice", message: t("notice.goalClearFailed", { error: String(error) }), level: "error" });
+            // 目标可能已经被宿主结束(达到最大轮数等):按"已结束"收敛,不再报错
+            if (isGoalGoneError(error)) this.post({ kind: "notice", message: t("notice.goalClear"), level: "info" });
+            else this.post({ kind: "notice", message: t("notice.goalClearFailed", { error: String(error) }), level: "error" });
+          } finally {
+            // 关键:无论成功失败都以服务端投影为准,否则芯片会停在旧的「已阻塞/进行中」红色状态
+            await this.hub.refreshGoal(current);
           }
         }
         break;
@@ -2822,6 +2988,16 @@ function isCommandLine(text: string): boolean {
 /** 是否为绝对路径(Windows 盘符 / UNC / POSIX 根)。 */
 function isAbsolutePath(p: string): boolean {
   return isAbsolute(p) || /^[a-zA-Z]:[\\/]/.test(p);
+}
+
+/**
+ * 目标类命令失败但"目标已不存在"的错误(宿主已结束/清空,或本地投影过期)。
+ * 这类失败按"已结束"处理并刷新投影,不要把红色错误抛给用户。
+ */
+function isGoalGoneError(error: unknown): boolean {
+  const code = error instanceof DshApiError ? error.code : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return /no current goal|goal[-_/\s]?not[-_\s]?found|no active goal|goal[-_/\s]?missing/i.test(`${code} ${message}`);
 }
 
 /** 正文内联图片支持的类型(按扩展名判定;data URL 的 mime 直接取自这里)。 */

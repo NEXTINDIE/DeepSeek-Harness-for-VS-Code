@@ -1,6 +1,6 @@
 {
   "displayName": "DeepSeek Harness untuk VS Code",
-  "description": "Gunakan DeepSeek Harness langsung di VS Code: panel obrolan bilah sisi sekunder, peserta obrolan bawaan @dsh (sebutan @ file/sesi/agen), lampiran gambar multimodal, kontrol model/preset/izin/kedalaman berpikir, subagen, persetujuan plugin Cordis, dan rollback Git tingkat giliran (urungkan giliran, pulihkan checkpoint).",
+  "description": "Gunakan DeepSeek Harness langsung di VS Code: panel obrolan bilah sisi sekunder, peserta obrolan bawaan @dsh (sebutan @ file/sesi/agen), lampiran gambar multimodal, kontrol model/preset/izin/kedalaman berpikir, subagen, persetujuan plugin Cordis, dan rollback Git tingkat giliran (urungkan giliran, pulihkan checkpoint), tugas otomatisasi tingkat host (buat/edit/jeda/jalankan) dan ekspor seluruh percakapan ke Markdown.",
   "cmd.openChat.title": "DSH: Buka Chat Bawaan (@dsh)",
   "cmd.openChatWindow.title": "DSH: Buka Jendela Chat Mandiri",
   "cmd.openSidebar.title": "DSH: Fokus pada Tampilan Chat Sidebar",

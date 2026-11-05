@@ -199,5 +199,11 @@
   "perm.desc.custom": "Custom combination (edit it in Settings).",
   "commit.modelRestoreFailed": "The commit message was generated, but the default model could not be restored to {model}. Please pick it again in the model dropdown (the host's background save may have failed).",
   "notice.openImageFailed": "Could not open the image: {error}",
-  "hub.remoteAccessLimited": "This DSH host granted only limited access to this connection, so some actions may be refused."
+  "hub.remoteAccessLimited": "This DSH host granted only limited access to this connection, so some actions may be refused.",
+  "notice.scheduleConflict": "The task changed elsewhere; the list was refreshed — try again.",
+  "notice.scheduleGone": "The task no longer exists.",
+  "hub.scheduleUnsupportedCreate": "This host (DSH < 0.2.2) does not support creating host-level automation tasks.",
+  "hub.scheduleUnsupportedEdit": "This host (DSH < 0.2.2) does not support editing host-level automation tasks.",
+  "hub.scheduleUnsupportedRun": "This host (DSH < 0.2.2) does not support running automation tasks immediately.",
+  "hub.scheduleUnsupportedDeleteInactive": "This host (DSH < 0.2.2) does not support clearing ended tasks in bulk."
 }

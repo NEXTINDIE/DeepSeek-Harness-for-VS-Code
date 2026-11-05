@@ -451,6 +451,7 @@ function setHtml(node: HTMLElement, text: string) {
   decorateImages(node);
 }
 
+
 /**
  * 行内代码里的文件路径(如 `includes/config.php`)变成可点击:点一下就在编辑器里打开。
  * 只处理「看起来就是路径」的片段(无空白、带扩展名或含目录分隔符),避免把普通标识符变成链接。
@@ -1644,6 +1645,90 @@ const EN_TEXT: Record<string, string> = {
   "全局": "global",
   "兼容 GitHub Copilot:扫描工作区与用户主目录(~/.github)下的 .github 文件(指令、智能体、提示词)": "Compatible with GitHub Copilot — scan .github (instructions, agents, prompts) in the workspace and your user home (~/.github)",
   "启用与各工具配置目录(工作区文件夹和用户主目录)的兼容;勾选后 DSH 即可读取对应模型/工具的用户目录配置。": "Enable compatibility with each tool's config directories (workspace folder and user home); when checked, DSH can read the corresponding model/tool user-directory config.",
+  // ---- 0.2.2:宿主级自动化任务 ----
+  "每次运行新建会话": "New session for each run",
+  "首次投递时新建会话": "Create a session on first delivery",
+  "投递到现有会话": "Deliver to an existing session",
+  "新建任务": "New task",
+  "创建宿主级自动化任务": "Create a host-level automation task",
+  "清除已结束": "Clear ended",
+  "一次清除全部已结束任务(保留进行中的任务)": "Clear every ended task at once (running tasks are kept)",
+  "清除已结束任务": "Clear ended tasks",
+  "确定清除全部 {n} 个已结束任务?": "Clear all {n} ended tasks?",
+  "当前宿主未提供定时任务能力:请在宿主设置中启用定时任务插件后重试(0.1.7 起需启用;0.2.2 起为 Web 内置能力)。": "This host does not provide scheduled tasks: enable the scheduled-task plugin in host settings and retry (required since 0.1.7; built into Web since 0.2.2).",
+  "还没有自动化任务,点击「新建任务」或在会话中让 agent 创建": "No automation tasks yet. Click \"New task\" or ask the agent to create one in a session.",
+  "下次投递不早于 {time}": "Next delivery no earlier than {time}",
+  "投递目标": "Delivery target",
+  "创建时间": "Created",
+  "最近修改": "Last modified",
+  "运行状态": "Run state",
+  "正在投递/运行": "Delivering / running",
+  "投递下限": "Delivery floor",
+  "暂停": "Pause",
+  "暂停后不再触发,可用「继续」恢复": "Pauses future runs; use Resume to continue",
+  "继续": "Resume",
+  "从下一个未来时刻恢复": "Resume from the next future occurrence",
+  "立即运行": "Run now",
+  "立即投递一次(不改变原计划)": "Deliver once now without changing the schedule",
+  "编辑任务": "Edit task",
+  "修改名称 / 提示词 / 时间规则 / 投递目标": "Change the name, prompt, timing, or delivery target",
+  "新建自动化任务": "New automation task",
+  "编辑自动化任务": "Edit automation task",
+  "例如:每日晨间汇总": "e.g. Daily morning summary",
+  "任务名称": "Task name",
+  "到点后发送给新会话/目标会话的提示词": "Prompt sent to the target session when due",
+  "提示词": "Prompt",
+  "一次性 · 延迟": "One-shot · delay",
+  "一次性 · 指定时刻": "One-shot · specific time",
+  "固定间隔": "Fixed interval",
+  "每天": "Daily",
+  "每周": "Weekly",
+  "Cron 表达式": "Cron expression",
+  "RRULE": "RRULE",
+  "时间规则": "Timing",
+  "延迟(秒)": "Delay (seconds)",
+  "间隔(秒)": "Interval (seconds)",
+  "日期": "Date",
+  "时间": "Time",
+  "星期": "Weekdays",
+  "五字段:分 时 日 月 周": "Five fields: minute hour day-of-month month day-of-week",
+  "RRULE 规则": "RRULE rule",
+  "一行 DTSTART + 一行 RRULE": "One DTSTART line + one RRULE line",
+  "IANA 时区,例如 Asia/Shanghai": "IANA time zone, e.g. Asia/Shanghai",
+  "两次新会话投递至少间隔 {n} 秒": "New sessions are delivered at least {n} seconds apart",
+  "会话 ID": "Session ID",
+  "目标会话 ID": "Target session ID",
+  "保存中…": "Saving…",
+  "保存任务": "Save task",
+  "放弃本次编辑": "Discard this edit",
+  "请填写任务名称": "Enter a task name",
+  "请填写提示词": "Enter a prompt",
+  "延迟必须是正整数秒": "Delay must be a positive whole number of seconds",
+  "间隔必须是至少 60 秒的整数": "Interval must be a whole number of at least 60 seconds",
+  "请选择日期": "Pick a date",
+  "时间格式应为 HH:mm": "Time must be HH:mm",
+  "RRULE 需要 DTSTART 与 RRULE 两行": "RRULE requires one DTSTART line and one RRULE line",
+  "请填写 IANA 时区": "Enter an IANA time zone",
+  "请至少选择一天": "Select at least one weekday",
+  "请填写 Cron 表达式": "Enter a cron expression",
+  "请填写目标会话 ID": "Enter a target session ID",
+  "任务已删除": "Task deleted",
+  "任务已创建": "Task created",
+  "任务已更新": "Task updated",
+  "该任务已有一次运行在进行中,请稍后再试": "This task already has a run in progress; try again later",
+  "已请求立即运行,投递结果见任务运行记录": "Run requested; delivery results appear in the task history",
+  "已清除 {n} 个已结束任务": "Cleared {n} ended tasks",
+  "无法删除任务:任务可能已不存在": "Could not delete the task — it may no longer exist",
+  "任务已在别处修改,已刷新列表": "The task changed elsewhere; the list was refreshed",
+  "任务已不存在,已刷新列表": "The task no longer exists; the list was refreshed",
+  "更早的运行记录不可用": "Earlier run records are unavailable",
+  "RRULE {expr}": "RRULE {expr}",
+  // ---- 0.2.2:复制完整会话为 Markdown ----
+  "复制完整会话(Markdown)": "Copy full conversation (Markdown)",
+  "用户": "User",
+  "助手": "Assistant",
+  "导出时间": "Exported",
+  "(没有可复制的对话内容)": "(No conversation content to copy)",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
@@ -1761,8 +1846,10 @@ const menuRename = sessionMenuItem(ICONS.edit, t("重命名会话"));
 const menuFork = sessionMenuItem(ICONS.branch, t("分叉会话"));
 // 0.2.1:会话菜单支持复制会话 ID(网页端同款;排查 / 报告问题时可直接粘贴)
 const menuCopyId = sessionMenuItem(ICONS.copy, t("复制会话 ID"));
+// 0.2.2:完整会话导出为 Markdown(网页端同款能力;含原始会话 ID / 工作目录,便于归档或贴进 issue)
+const menuCopyConversation = sessionMenuItem(ICONS.ledger, t("复制完整会话(Markdown)"));
 const menuArchive = sessionMenuItem(ICONS.box, t("归档会话"));
-sessionMenu.append(menuRename, menuFork, menuCopyId, menuArchive);
+sessionMenu.append(menuRename, menuFork, menuCopyId, menuCopyConversation, menuArchive);
 const moreAnchor = el("div", "session-menu-anchor");
 moreAnchor.append(btnMore, sessionMenu);
 
@@ -3480,6 +3567,15 @@ menuCopyId.addEventListener("click", () => {
   vscode.postMessage({ kind: "copyText", text: state.current });
   showToast(t("已复制会话 ID"), "info");
 });
+menuCopyConversation.addEventListener("click", () => {
+  sessionMenu.hidden = true;
+  const text = buildConversationMarkdown();
+  if (!text) {
+    showToast(t("(没有可复制的对话内容)"), "warning");
+    return;
+  }
+  void copyTextToClipboard(text);
+});
 menuArchive.addEventListener("click", async () => {
   sessionMenu.hidden = true;
   const ok = await showDialog({
@@ -3960,10 +4056,14 @@ function applyUserQuestionsProjection() {
  */
 let currentEventSeq: number | undefined;
 
+/** 重放历史期间用的离屏容器(不在文档里,构建完再一次性挂载)。 */
+let replaySink: HTMLElement | null = null;
+
 function appendNode(node: NodeState) {
   if (node.anchorSeq === undefined && currentEventSeq !== undefined) node.anchorSeq = currentEventSeq;
   node.el = renderNode(node);
-  messages.appendChild(node.el);
+  // 重放历史时先挂到离屏容器:几千个节点逐条插进活文档会让浏览器反复排版,长会话打开就卡死
+  (replaySink ?? messages).appendChild(node.el);
   state.nodes.push(node);
   scrollToBottom();
 }
@@ -5089,6 +5189,8 @@ function reasoningPreview(text: string): string {
  * - 会话运行中:历史回合默认隐藏,仅在 hover / 获得焦点时淡入 —— 避免"还在思考就出现操作栏与用量"。
  */
 function refreshActionsReveal() {
+  // 重放历史时每个回合都会调用一次,而这里要遍历全部节点 —— 等重放结束统一算一次
+  if (state.replaying) return;
   const latest = [...state.nodes].reverse().find((n) => n.kind === "assistant" && typeof n.turn === "number");
   for (const node of state.nodes) {
     if (node.kind !== "assistant" || !node.el) continue;
@@ -5658,8 +5760,10 @@ function handleEvent(wire: WireEvent) {
       state.streamBlock = null;
       state.streamKey = null;
       const content: any[] = data?.message?.content ?? [];
-      const turn = data?.turn ?? 0;
-      const step = data?.step ?? 0;
+      // 宿主(0.2.x)会在 assistant/message 上带 turn;缺失时(旧日志/裁剪过的记录)按当前回合兜底。
+      // 若这里退回 0,所有消息都会并进同一个 assistant 节点:每来一条就把整块重渲染一次,长会话打开会退化成平方级。
+      const turn = typeof data?.turn === "number" ? data.turn : (state.currentStreamTurn ?? 0);
+      const step = typeof data?.step === "number" ? data.step : 0;
       // 网页版布局:定位到该回合的 assistant 节点;找不到则新建
       let assistant: NodeState | undefined;
       for (let i = state.nodes.length - 1; i >= 0; i--) {
@@ -5897,6 +6001,9 @@ function handleEvent(wire: WireEvent) {
       // 「下一条消息到来时收起」:新回合开始即收起之前各回合的过程段
       if (stepCollapseMode === "next") collapseGroupsOfFinishedTurns();
       state.running = true;
+      // 记录当前回合:assistant/message 若缺 turn(旧日志/裁剪记录),按它归并到本回合,
+      // 否则会全部并进 turn=0 的同一节点,每来一条就把整块重渲染一次(平方级,长会话直接卡死)。
+      if (typeof data.turn === "number") state.currentStreamTurn = data.turn;
       state.currentTurnTools = [];
       state.turnToolGroup = null;
       state.turnStarts.push(ev.seq);
@@ -6109,15 +6216,24 @@ function closeActivePopover() {
 /**
  * 在锚点下方打开一个固定定位弹层(挂载到根节点,不受芯片重渲染影响)。
  * onClose 在关闭(点击外部 / 被新弹层替换)时回调,用于复位触发按钮的展开态。
+ * align="right" 时弹层右边缘对齐锚点右边缘(卡片"/…"按钮这类靠右触发的场景,避免弹层甩到左边)。
  */
-function openAnchoredMenu(anchor: HTMLElement, build: (menu: HTMLElement) => void, onClose?: () => void): HTMLElement {
+function openAnchoredMenu(
+  anchor: HTMLElement,
+  build: (menu: HTMLElement) => void,
+  onClose?: () => void,
+  options?: { align?: "left" | "right" },
+): HTMLElement {
   closeActivePopover();
   const menu = el("div", "msg-popover anchored-popover");
   build(menu);
   root.append(menu);
   const rect = anchor.getBoundingClientRect();
   menu.style.position = "fixed";
-  menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 240))}px`;
+  // 用实测宽度钳制:硬编码宽度会让靠右的弹层在窄面板里溢出
+  const width = menu.offsetWidth;
+  const preferredLeft = options?.align === "right" ? rect.right - width : rect.left;
+  menu.style.left = `${Math.max(8, Math.min(preferredLeft, window.innerWidth - width - 8))}px`;
   menu.style.zIndex = "300";
   // 先临时定位再按实测高度钳制,保证整块菜单始终在视口内(高度上限由 CSS max-height 控制)
   menu.style.top = `${rect.bottom + 6}px`;
@@ -6163,36 +6279,46 @@ function openAnchoredMenu(anchor: HTMLElement, build: (menu: HTMLElement) => voi
   return menu;
 }
 
-/** 目标管理菜单(修改 / 完成 / 清除),芯片与顶部目标卡共用。 */
+/** 目标管理菜单(修改 / 暂停 / 完成 / 取消),芯片与顶部目标卡共用。 */
 function openGoalMenu(anchor: HTMLElement) {
   const inner = state.goal?.goal;
   if (!inner || inner.phase !== "active") return;
-  openAnchoredMenu(anchor, (menu) => {
-    const add = (icon: string, label: string, action: () => void) => {
-      const row = el("button", "plus-menu-item", `${icon} ${label}`);
-      row.addEventListener("click", () => {
-        closeActivePopover();
-        action();
+  openAnchoredMenu(
+    anchor,
+    (menu) => {
+      const add = (icon: string, label: string, action: () => void) => {
+        const row = el("button", "plus-menu-item");
+        const iconPaths = (ICONS as Record<string, string>)[icon];
+        // 线描图标 + 纯文案:不能把 icon key(edit/pause/check/trash)当文字打出来
+        if (iconPaths) row.append(lineIcon(iconPaths, 14), el("span", "menu-item-label", label));
+        else row.append(el("span", "plus-menu-icon", stripLeadingEmoji(icon)), el("span", "menu-item-label", label));
+        row.addEventListener("click", () => {
+          closeActivePopover();
+          action();
+        });
+        menu.append(row);
+      };
+      const ref = { id: inner.id, revision: inner.revision };
+      add("edit", t("修改目标"), async () => {
+        const objective = await showDialog({
+          title: t("修改目标"),
+          text: t("修改目标描述(已填入当前目标):"),
+          input: true,
+          multiline: true,
+          confirmLabel: t("保存"),
+          value: inner.objective ?? "",
+        });
+        if (objective && objective.trim() && objective.trim() !== inner.objective) {
+          vscode.postMessage({ kind: "goalEdit", ref, objective: objective.trim() });
+        }
       });
-      menu.append(row);
-    };
-    const ref = { id: inner.id, revision: inner.revision };
-    add("edit", t("修改目标"), async () => {
-      const objective = await showDialog({
-        title: t("修改目标"),
-        text: t("修改目标描述(已填入当前目标):"),
-        input: true,
-        confirmLabel: t("保存"),
-        value: inner.objective ?? "",
-      });
-      if (objective && objective.trim() && objective.trim() !== inner.objective) {
-        vscode.postMessage({ kind: "goalEdit", ref, objective: objective.trim() });
-      }
-    });
-    add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
-    add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
-    add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
-  });
+      add("pause", t("暂停目标"), () => vscode.postMessage({ kind: "goalPause", ref }));
+      add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
+      add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
+    },
+    undefined,
+    { align: "right" },
+  );
 }
 
 /** 芯片渲染签名:仅当关键状态变化时才重建,避免投影更新打断打开的菜单。 */
@@ -6258,6 +6384,7 @@ chip.prepend(lineIcon(ICONS.target, 12));
             title: t("修改目标"),
             text: t("修改目标描述(已填入当前目标):"),
             input: true,
+            multiline: true,
             confirmLabel: t("保存"),
             value: inner.objective ?? "",
           });
@@ -6269,7 +6396,7 @@ chip.prepend(lineIcon(ICONS.target, 12));
           add("check", t("完成目标"), () => vscode.postMessage({ kind: "goalComplete", ref }));
         }
         add("trash", t("取消目标"), () => vscode.postMessage({ kind: "goalClear", ref }));
-      });
+      }, undefined, { align: "right" });
     });
     modeChips.append(chip);
   } else if (!inner) {
@@ -6291,6 +6418,7 @@ async function createGoalDialog() {
     title: t("设置目标"),
     text: t("目标描述(agent 将自动多轮推进直至完成):"),
     input: true,
+    multiline: true,
     confirmLabel: t("创建"),
   });
   if (!objective || !objective.trim()) return;
@@ -6338,7 +6466,8 @@ function renderGoal() {
     more.append(lineIcon(ICONS.more, 13));
     more.addEventListener("click", (e) => {
       e.stopPropagation();
-      openGoalMenu(card);
+      // 锚到按钮本身而不是整张卡:菜单才会贴着右上角的「…」出现,不会甩到卡片左下方
+      openGoalMenu(more);
     });
     head.append(more);
   }
@@ -7823,6 +7952,41 @@ async function copyTextToClipboard(text: string) {
   showToast(t("已复制"), "info");
 }
 
+/**
+ * 0.2.2:把当前会话的完整对话导出为 Markdown。
+ * 只导出用户发言与助手正文(思考/工具执行过程不进入归档),
+ * 头部带会话 ID / 工作目录 / 导出时间,便于贴进 issue 或提交到文档仓库。
+ */
+function buildConversationMarkdown(): string {
+  const session = state.sessions.find((s) => s.sessionId === state.current);
+  const title = session?.title?.trim() || state.current || t("会话");
+  const cwd = state.workingDirectory ?? session?.cwd;
+  const head = [
+    `# ${title}`,
+    "",
+    `- ${t("会话 ID")}: \`${state.current ?? ""}\``,
+    ...(cwd ? [`- ${t("工作目录")}: \`${cwd}\``] : []),
+    `- ${t("导出时间")}: ${new Date().toISOString()}`,
+    "",
+  ];
+  const body: string[] = [];
+  for (const node of state.nodes) {
+    if (node.kind === "user") {
+      const text = (node.text ?? node.blocks?.map((block) => block.text).join("\n") ?? "").trim();
+      if (!text) continue;
+      body.push(`## ${t("用户")}`, "", text, "");
+      continue;
+    }
+    if (node.kind === "assistant") {
+      const text = (node.plainText ?? node.blocks?.filter((block) => block.type !== "reasoning").map((block) => block.text).join("\n") ?? "").trim();
+      if (!text) continue;
+      body.push(`## ${t("助手")}`, "", text, "");
+    }
+  }
+  if (body.length === 0) return "";
+  return [...head, ...body].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
 document.addEventListener("selectionchange", () => {
   if (selectionFlushTimer !== null) return;
   selectionFlushTimer = window.setTimeout(() => {
@@ -8469,6 +8633,7 @@ function applyStaticLabels() {
   (menuRename.querySelector(".session-menu-label") as HTMLElement).textContent = t("重命名会话");
   (menuFork.querySelector(".session-menu-label") as HTMLElement).textContent = t("分叉会话");
   (menuCopyId.querySelector(".session-menu-label") as HTMLElement).textContent = t("复制会话 ID");
+  (menuCopyConversation.querySelector(".session-menu-label") as HTMLElement).textContent = t("复制完整会话(Markdown)");
   (menuArchive.querySelector(".session-menu-label") as HTMLElement).textContent = t("归档会话");
   (btnNew.querySelector(".btn-new-label") as HTMLElement).textContent = t("新建对话");
   dialogCancel.textContent = t("取消");
@@ -8609,9 +8774,24 @@ function handleMessage(msg: any) {
       messages.innerHTML = "";
       state.replaying = true;
       eventsSessionId = state.current ?? undefined;
-      for (const wire of msg.events ?? []) handleEvent(wire);
+      // 重放期把节点建在离屏容器里,结束后一次性挂载(避免逐条插入活文档触发反复排版)
+      replaySink = document.createElement("div");
+      replaySink.className = messages.className;
+      try {
+        for (const wire of msg.events ?? []) handleEvent(wire);
+      } finally {
+        const sink = replaySink;
+        replaySink = null;
+        if (sink && sink.childElementCount > 0) {
+          const fragment = document.createDocumentFragment();
+          while (sink.firstChild) fragment.appendChild(sink.firstChild);
+          messages.appendChild(fragment);
+        }
+      }
       applyQueueItems(msg.queue ?? []);
       state.replaying = false;
+      // 重放期间跳过的"操作条显示策略"在这里统一算一次
+      refreshActionsReveal();
       renderLoadMoreButton();
       for (const approval of msg.approvals ?? []) state.approvals.set(approval.approvalId, approval);
       for (const question of msg.questions ?? []) state.questions.set(question.frameRpcId, question);
@@ -9102,6 +9282,18 @@ function handleMessage(msg: any) {
     }
     case "scheduleDeleted": {
       panels.scheduleDeleted(msg);
+      break;
+    }
+    case "scheduleSaved": {
+      panels.scheduleSaved(msg);
+      break;
+    }
+    case "scheduleRan": {
+      panels.scheduleRan(msg);
+      break;
+    }
+    case "scheduleInactiveCleared": {
+      panels.scheduleInactiveCleared(msg);
       break;
     }
     case "scheduleChanged": {

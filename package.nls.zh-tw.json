@@ -1,6 +1,6 @@
 {
   "displayName": "DeepSeek Harness for VS Code",
-  "description": "在 VS Code 中直接使用 DeepSeek Harness:輔助側欄聊天面板 + 內建聊天參與者 @dsh(支援 @ 檔案/工作階段/智慧體提及)+ 多模態圖片附件 + 模型/預設/權限/思考深度切換 + 子代理 + Cordis 外掛程式審批 + 回合級 Git 回退(撤銷單回合改動、還原檢查點)。",
+  "description": "在 VS Code 中直接使用 DeepSeek Harness:輔助側欄聊天面板 + 內建聊天參與者 @dsh(支援 @ 檔案/工作階段/智慧體提及)+ 多模態圖片附件 + 模型/預設/權限/思考深度切換 + 子代理 + Cordis 外掛程式審批 + 回合級 Git 回退(撤銷單回合改動、還原檢查點),宿主層級自動化任務(建立/編輯/暫停/立即執行)與完整工作階段 Markdown 匯出。",
   "cmd.openChat.title": "DSH: 開啟內建聊天 (@dsh)",
   "cmd.openChatWindow.title": "DSH: 開啟獨立聊天視窗",
   "cmd.openSidebar.title": "DSH: 聚焦側邊欄聊天檢視",

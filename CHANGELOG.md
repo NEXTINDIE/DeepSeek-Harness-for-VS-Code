@@ -1,6 +1,63 @@
 # Changelog
 
 
+## 0.13.68
+- **All new 0.2.2 UI is localized.** The host-level automation-task panel (buttons, statuses, form labels, validation and notices), the Markdown-export menu entry and its user/assistant headings are now translated in every webview dictionary: Traditional Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Thai, Indonesian, Turkish, Russian and Arabic. Nothing falls back to English for these surfaces any more.
+- **The extension description is localized too.** All 13 `package.nls` bundles now mention host-level automation tasks (create/edit/pause/run) and full-conversation Markdown export alongside the existing feature list.
+- **Language switching now refreshes the new session-menu item.** The Markdown-export entry is created with the other session-menu buttons before `init`; `applyStaticLabels` now relabels it, so a Japanese/Chinese/German/… UI no longer keeps the pre-init Chinese label.
+- **Verified**: a new localized render check boots the real bundle in all 12 languages and asserts the automation panel, its detail actions, the session-menu entry and the exported Markdown headings; 12/12 pass. The existing 21/21 automation regression, `tsc --noEmit` and the production build also pass.
+- **0.2.2 新界面全部本地化**。宿主级自动化任务面板(按钮、状态、表单字段、校验与提示)、Markdown 导出菜单项及其「用户 / 助手」标题,现已在全部 webview 词典中翻译:繁体中文、日语、韩语、德语、法语、西班牙语、葡萄牙语、泰语、印尼语、土耳其语、俄语、阿拉伯语。这些界面不再回退英文。
+- **扩展描述同步本地化**。全部 13 份 `package.nls` 现在都在原有功能列表之外,写入了宿主级自动化任务(新建/编辑/暂停/立即运行)与完整会话 Markdown 导出。
+- **语言切换会刷新新增的会话菜单项**。Markdown 导出项与其他会话菜单按钮一样在 `init` 之前创建;`applyStaticLabels` 现在会重新标注它,日语/中文/德语等界面不会再残留初始化前的中文。
+- **验证**:新增的本地化渲染测试用真实构建产物在 12 种语言下启动,断言自动化面板、详情操作、会话菜单项与导出 Markdown 的标题;12/12 通过。既有 21/21 自动化回归、`tsc --noEmit` 与生产构建同样通过。
+
+
+## 0.13.67
+- **Adapted to dsh v0.2.2-rc.1.** A mechanical diff of the published packages plus a live run against a real rc.1 server: endpoints **173 → 224** (53 added, 2 removed, 2 changed), forwarded events **23 → 25**, session projections **21 → 25**, and the **60 session-event types are identical**. The removed endpoints are `schedule/delete` and `schedule/update`; the changed ones are `schedule/list` (array → page object) and `session/page` (its result gains a top-level `cursor` and is now an alias of the new `session/events`). `modelSelection` moved package declaration but keeps its key. The other new endpoints (forge/worktrees, liveshare, plugin details, action cards, session observation/wait, tool-result watch) belong to optional compositions and are skipped when absent.
+- **Automation tasks became host-level tasks (0.2.2) without breaking older hosts.** The ⏰ panel can now **create** a task (name, prompt, one-shot delay / absolute time / fixed interval / daily / weekly / cron / RRULE, and a target session, a session created on first delivery, or a new session per run), **edit** it, **pause / resume**, **run now**, **delete**, and **clear all ended tasks**; list/detail show `active | paused | ended`, the delivery target, running state, delivery floor, created/updated times and the new history facts (retention, earlier records unavailable). Edits and deletes send the entry's `updatedAt` as a CAS token, and a conflict refreshes the list instead of overwriting a concurrent edit. On 0.1.7–0.2.1 the panel stays read-only (delete + history) and reports the older API. This also fixes the old `schedule/delete` / `schedule/history` envelope: both take a `request` wrapper, which the previous flat payload never satisfied.
+- **Copy the full conversation as Markdown.** The session ⋯ menu gains the 0.2.2 export: session ID, working directory, export time, then the user and assistant text in order — ready to paste into an issue or a doc.
+- **Live model-catalog refresh.** `llm/models-updated` now re-reads the current session's model catalog and re-pushes the model pills without interrupting a running turn.
+- **Bundled `dsh-git-rollback` 0.1.13.** The auto-installer now copies `icon.svg` and `locale/*.json` as well, because the 0.2.2 plugin manager reads them for rich detail/localized titles; previously it only copied `lib` and `package.json`, so the loaded plugin logged `Plugin metadata ... icon.svg ENOENT`. The plugin's own host APIs (`session/event`, `commands.register`, `workingDirectory.get`, `webServer.register`) are unchanged in 0.2.2; it loads and reports `fiberPhase: active` on a real rc.1 host.
+- **Verified**: 17/17 contract probes and 8/8 hub probes against a live 0.2.2-rc.1 server (auth, session API, schedule create/view/pause/resume/run/history/delete/CAS conflict), 4/4 fallback probes against 0.2.1-rc.2 (v1 detection, read-only delete/history envelopes), 21/21 webview regression checks (v2/v1 panel, create/edit/pause/resume/run/history, validation, Markdown export), plus `tsc --noEmit` and the production build.
+- **适配 dsh v0.2.2-rc.1**。对已发布包机械 diff,并用真实 rc.1 服务器实机核对:端点 **173 → 224**(新增 53、移除 2、变化 2),转发事件 **23 → 25**,会话投影 **21 → 25**,**60 条会话事件词表完全一致**。移除的是 `schedule/delete` 与 `schedule/update`;变化的是 `schedule/list`(数组 → 分页对象)与 `session/page`(结果增加顶层 `cursor`,成为新 `session/events` 的兼容别名)。`modelSelection` 只是换了声明包,键仍在。其余新端点(变更请求/工作树、liveshare、插件详情、action cards、会话观察/wait、toolResults/watch)属于可选组合包,未组合时扩展按「不可用」跳过。
+- **自动化任务升级为宿主级任务(0.2.2),同时不破坏老宿主**。⏰ 面板现在可**新建**(名称、提示词、一次性延迟 / 指定时刻 / 固定间隔 / 每天 / 每周 / Cron / RRULE,目标可选现有会话、首次投递时新建会话、每次运行新建会话)、**编辑**、**暂停/继续**、**立即运行**、**删除**、**一次清除全部已结束任务**;列表/详情显示 `active | paused | ended`、投递目标、运行状态、投递下限、创建/修改时间,以及新的历史事实(保留策略、更早记录不可用)。编辑与删除会把条目的 `updatedAt` 作为 CAS 令牌,冲突时刷新列表而不是覆盖别人的并发修改。0.1.7–0.2.1 老宿主保持只读(删除 + 历史)并说明原因。同时修复了旧 `schedule/delete` / `schedule/history` 的请求信封:两者都要求 `request` 包装,旧的扁平载荷从未满足。
+- **完整会话导出为 Markdown**。会话 ⋯ 菜单新增 0.2.2 同款导出:会话 ID、工作目录、导出时间,再按顺序导出用户与助手正文,可直接贴进 issue 或文档。
+- **模型目录实时刷新**。`llm/models-updated` 会重读当前会话的模型目录并重推模型胶囊,不打断正在进行的回合。
+- **随包分发的 `dsh-git-rollback` 0.1.13**。自动安装器现在同时复制 `icon.svg` 与 `locale/*.json`——0.2.2 插件管理器会读取它们做富文本详情与本地化标题;此前只复制 `lib` 与 `package.json`,已加载的插件会报 `Plugin metadata ... icon.svg ENOENT`。插件使用的宿主 API(`session/event`、`commands.register`、`workingDirectory.get`、`webServer.register`)在 0.2.2 未变;真实 rc.1 宿主上已确认加载且 `fiberPhase: active`。
+- **验证**:真实 0.2.2-rc.1 服务器 17/17 契约探针 + 8/8 hub 探针(认证、会话 API、任务 新建/查看/暂停/继续/运行/历史/删除/CAS 冲突),0.2.1-rc.2 上 4/4 回退探针(v1 识别、只读删除/历史信封),webview 回归 21/21(v2/v1 面板、新建/编辑/暂停/继续/运行/历史、校验、Markdown 导出),外加 `tsc --noEmit` 与生产构建。
+
+
+## 0.13.66
+- **Adapted to dsh v0.2.1-rc.3.** A mechanical diff of the published packages shows a **zero-change wire contract** — 173 Typert endpoints, 23 forwarded events, 21 session projections, the session-event vocabulary and the three mux constants are all identical, which matches the release notes (all three rc.3 items are web-only: the sidebar/conversation/right-rail "More" menus, the lost-draft fix, and the API-key adapter refreshing its model list like account sign-in). Nothing was needed at the protocol layer; the corridor plus the two client-facing implications are now recorded in the wire type header.
+- **Fixed: the first reasoning-effort (or model) switch appeared to do nothing.** `session/selectModel` changes the **session-local** selection and saves the profile default in the background, while `session/modelCatalog` reports the **deployment default**. The old code re-read the catalog right after the switch and wrote it back over the UI, so the first click was immediately reverted by a stale default and only the second click seemed to work. The UI now trusts the `selected` value returned by `selectModel`, uses the catalog only for the model list, never overwrites with a failed catalog read, and retries once after 300 ms when the host resolved the requested effort away — performing the "second click" on the user's behalf.
+- **Long conversations no longer freeze when opened.** The root cause was quadratic: replaying `assistant/message` looked up its turn from the event, and whenever `turn` was missing (older or trimmed history records) every message merged into one `turn=0` node that was re-rendered in full for each new message. Assistant messages now fall back to the current turn and `turn/start` records it. Measured in headless Chromium with the real bundle: **300 turns 6.35 s → 0.24 s**, and a proper 4 000-turn session opens in **3.2 s** (linear, ~0.8 ms/turn).
+- Also included: history replay builds the DOM in a detached container and attaches it once, `refreshActionsReveal` runs once after replay instead of per turn, `.msg` carries `content-visibility: auto` with an intrinsic size so off-screen messages skip layout and paint, and the init payload's delta merge accumulates parts before a single join.
+- **适配 dsh v0.2.1-rc.3**。对已发布包机械 diff:**线协议零变化** —— 173 个 Typert 端点、23 条转发事件、21 个会话投影、会话事件词表与三条 mux 流常量全部一致;与发布说明吻合,rc.3 的三项都在网页端:左/中/右栏「更多」菜单、丢失草稿修复、API Key 适配器的模型列表改为与账号登录一致地刷新。协议层无需改动,已在 wire 类型头注释里补上该走廊与两条对客户端的含义。
+- **修复:第一次切换推理强度(或模型)像没生效**。`session/selectModel` 只保证**会话本地**立即生效,默认值是**后台保存**的;而 `session/modelCatalog` 返回的是**部署默认值**。旧代码切换后立刻重读目录并回写界面,第一次点击马上被滞后的默认值覆盖,只有第二次点才"成功"。现在界面以 `selectModel` 响应里的 `selected` 为准,目录只用于模型清单,目录读取失败不再回推;当宿主把请求的推理强度解析掉时,自动等 300 ms 重试一次 —— 相当于替用户完成"第二次点击"。
+- **打开超长对话不再卡死**。根因是平方级:重放 `assistant/message` 时按事件里的 `turn` 归并,一旦 `turn` 缺失(旧日志或裁剪过的历史记录),所有消息会并进同一个 `turn=0` 节点,每来一条就整块重渲染一次。现在缺 `turn` 时回退到当前回合,并由 `turn/start` 记录当前回合。真实包在无头 Chromium 实测:**300 轮 6.35 s → 0.24 s**,正常 4000 轮会话 **3.2 s** 打开(线性,约 0.8 ms/轮)。
+- 同版本还包含:重放期离屏构建 DOM 后一次性挂载、`refreshActionsReveal` 改为重放后一次、`.msg` 加 `content-visibility: auto`(视口外消息跳过排版/绘制)、init 载荷的 delta 合并改为数组累积后一次 join。
+
+
+## 0.13.65
+- **Cancelling a goal no longer leaves a stale red chip.** When the host had already ended the goal (for example the round budget ran out), `goals/clear` failed with `no current goal`, the error was toasted, and the chip stayed in its blocked/red state. Goal commands (create / edit / pause / resume / complete / clear) now re-read the `goal` projection afterwards, whatever the outcome, so the UI converges on the host's state.
+- "Goal is already gone" replies are treated as success instead of an error toast.
+- Typecheck plus the goal / copy / inline-image / plan suites pass.
+- **取消目标后不再残留红色芯片**。宿主已经把这个目标结束掉时(例如轮数用尽),`goals/clear` 会返回 `no current goal`,界面弹出红色错误、芯片继续停在「已阻塞」状态。现在每条目标命令(新建/修改/暂停/继续/完成/取消)结束后,无论成功失败都会重新读取 `goal` 投影,界面收敛到宿主真实状态。
+- 「目标已不存在」这类回复按成功处理,不再弹红色错误。
+- typecheck 与目标菜单 / 复制 / 正文图片 / 计划模式四套夹具通过。
+
+
+## 0.13.64
+- **The goal card's "…" menu now opens under that button.** It was anchored to the whole card, so it dropped to the card's bottom-left corner on top of the transcript; it now hugs the "…" button, right-aligned, and is clamped to the viewport using its measured width instead of a fixed 240 px.
+- **Goal menu rows show their icons again.** The rows were assembled from the raw icon key, so they read `edit 修改目标` / `pause 暂停目标`; they now render the line icon plus the localized label only.
+- **A goal objective is now a multi-line field.** Creating a goal and editing an existing one (from the chip or the card) use the resizable textarea — Enter inserts a newline, Ctrl/Cmd+Shift+Enter saves — which suits objectives that run for several lines.
+- Typecheck plus the goal / copy / inline-image / plan suites pass.
+- **目标卡的「…」菜单改为贴着按钮弹出**。此前锚定的是整张卡片,菜单会掉到卡片左下角、压在对话正文上;现在锚定「…」按钮本身,右边缘对齐,并按实测宽度做视口钳制(不再写死 240px)。
+- **目标菜单行恢复图标**。之前是拿图标 key 直接拼文字,显示成 `edit 修改目标` / `pause 暂停目标`;现在渲染线描图标 + 本地化文案。
+- **目标描述改为多行输入**。新建目标与修改目标(芯片/卡片两条入口)都改用可拖拽高度的多行框:Enter 换行、Ctrl/Cmd+Shift+Enter 保存,长目标不再挤在一行里。
+- typecheck 与目标菜单 / 复制 / 正文图片 / 计划模式四套夹具通过。
+
+
 ## 0.13.63
 - **Copying from the transcript now uses the current selection.** Ctrl+C and the webview's right-click Copy are handled explicitly: the selected text is written to the clipboard, so pasting no longer returns the previous clipboard content (the old path copied whatever element had focus — usually the empty composer). If focus has already moved away, a short-lived snapshot of the last transcript selection is used, and copying inside the composer or other panels keeps its native behaviour.
 - **Images in the answer body render again.** The webview CSP only admits `data:` URLs and extension resources, so relative / absolute / `file:` image sources were blocked and showed a broken-image icon. Local images are now read by the host and inlined as data URLs; relative paths resolve against the session's effective working directory (worktrees included), with an 8 MB cap and a visible "missing" state whose tooltip names the reason.

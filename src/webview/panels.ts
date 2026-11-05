@@ -51,10 +51,10 @@ export interface PanelPreset {
   broken?: string;
 }
 
-/** 定时任务(0.1.7 schedule/catalog 条目:记录 + 绑定会话 + 状态)。 */
+/** 定时任务(0.1.7 schedule/catalog 条目;0.2.2 起为宿主级任务 target/status:paused|ended)。 */
 export interface PanelScheduleEntry {
   id: string;
-  kind: "after" | "at" | "every" | "daily" | "weekly" | "cron";
+  kind: "after" | "at" | "every" | "daily" | "weekly" | "cron" | "rrule";
   title: string;
   prompt: string;
   scheduledAt: string;
@@ -64,9 +64,16 @@ export interface PanelScheduleEntry {
   timeZone?: string;
   weekdays?: number[];
   expression?: string;
+  rrule?: string;
   sessionId: string;
-  status: "active" | "inactive";
-  lastDelivery?: { scheduledAt: string; deliveredAt: string; messageId: string };
+  involvedSessionIds?: string[];
+  target?: { kind: "session" | "new_once" | "new"; sessionId?: string; create?: { cwd?: string; agentPreset?: string } };
+  status: "active" | "paused" | "ended";
+  createdAt?: string;
+  updatedAt?: string;
+  executionActive?: true;
+  deliveryFloorEndsAt?: string;
+  lastDelivery?: { scheduledAt: string; deliveredAt: string; messageId: string; targetSessionId?: string };
 }
 
 /** 任务运行记录(schedule/history)。 */
@@ -555,20 +562,147 @@ export function createPanels(ctx: PanelsContext) {
     if (jobsPanel && !jobsPanel.overlay.hidden) renderJobsBody();
   }
 
-  // ---------- 2b. 定时任务面板(0.1.7 schedule/*;网页端「自动化任务」页) ----------
+  // ---------- 2b. 定时任务面板(0.1.7 schedule/*;0.2.2 升级为宿主级自动化任务) ----------
 
   let schedulePanel: ReturnType<typeof makePanel> | undefined;
   /** 目录读写状态:null = 尚未读取(加载中)。 */
   let scheduleEntries: PanelScheduleEntry[] | null = null;
-  /** 宿主是否提供定时任务能力(0.1.7 起默认关闭,未启用时面板给出说明)。 */
+  /** 宿主是否提供定时任务能力(0.1.7 起需启用插件;0.2.2 起为 Web 内置能力)。 */
   let scheduleAvailable = true;
+  /** 宿主协议:0.2.2+ 为 v2(可创建/编辑/立即运行),老宿主为 v1。 */
+  let scheduleApi: "v1" | "v2" = "v1";
+  /** v2 新会话投递的最小间隔(秒);undefined = 未知。 */
+  let scheduleDeliveryLimits: number | undefined;
   let scheduleError: string | undefined;
   let scheduleFilter = "";
-  let scheduleStatus: "all" | "active" | "inactive" = "all";
+  let scheduleStatus: "all" | "active" | "paused" | "ended" = "all";
   let scheduleOpenId: string | undefined;
   let scheduleHistory: PanelScheduleHistory | undefined;
   let scheduleHistoryLoading = false;
   let schedulePendingDelete: string | undefined;
+  /** 面板顶部的一次性操作提示(成功/失败)。 */
+  let scheduleNotice: { text: string; error?: boolean } | undefined;
+  /** 正在编辑/新建的表单(undefined = 不在表单模式)。 */
+  let scheduleForm: ScheduleFormState | undefined;
+  let scheduleSaving = false;
+
+  type ScheduleTimingKind = "after" | "at" | "every" | "daily" | "weekly" | "cron" | "rrule";
+
+  interface ScheduleFormState {
+    mode: "create" | "edit";
+    id?: string;
+    /** 编辑时的 CAS 版本(目录条目的 updatedAt)。 */
+    originalUpdatedAt?: string;
+    /** 编辑时的原始目标类型,用来判断 target 是否需要随 patch 提交。 */
+    originalTargetKind?: "session" | "new_once" | "new";
+    title: string;
+    prompt: string;
+    timingKind: ScheduleTimingKind;
+    afterSeconds: string;
+    everySeconds: string;
+    atDate: string;
+    atTime: string;
+    time: string;
+    timeZone: string;
+    weekdays: number[];
+    expression: string;
+    rrule: string;
+    targetKind: "session" | "new_once" | "new";
+    targetSessionId: string;
+    targetDirty: boolean;
+    error?: string;
+  }
+
+  function browserTimeZone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  }
+
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  function localDateValue(ms: number): string {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  function localTimeValue(ms: number): string {
+    const d = new Date(ms);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  /** 接受 HH:mm / H:mm / HH:mm:ss(.SSS);统一成 HH:mm:ss 形式,非法返回 undefined。 */
+  function normalizeScheduleClock(value: string): string | undefined {
+    const m = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(value.trim());
+    if (!m) return undefined;
+    const hour = Number(m[1]);
+    const minute = Number(m[2]);
+    const second = m[3] === undefined ? 0 : Number(m[3]);
+    if (hour > 23 || minute > 59 || second > 59) return undefined;
+    return `${pad2(hour)}:${pad2(minute)}:${pad2(second)}${m[4] !== undefined ? `.${m[4].padEnd(3, "0")}` : ""}`;
+  }
+
+  function scheduleStatusText(status: PanelScheduleEntry["status"]): string {
+    if (status === "active") return t("已开启");
+    if (status === "paused") return t("已暂停");
+    return t("已结束");
+  }
+
+  function scheduleTargetKindText(entry: PanelScheduleEntry): string {
+    const kind = entry.target?.kind ?? "session";
+    if (kind === "new") return t("每次运行新建会话");
+    if (kind === "new_once") return t("首次投递时新建会话");
+    return t("投递到现有会话");
+  }
+
+  function newScheduleForm(): ScheduleFormState {
+    const now = Date.now();
+    return {
+      mode: "create",
+      title: "",
+      prompt: "",
+      timingKind: "after",
+      afterSeconds: "300",
+      everySeconds: "3600",
+      atDate: localDateValue(now + 60 * 60 * 1000),
+      atTime: localTimeValue(now + 60 * 60 * 1000),
+      time: "09:00",
+      timeZone: browserTimeZone(),
+      weekdays: [1, 2, 3, 4, 5],
+      expression: "*/15 9-17 * * 1-5",
+      rrule: "",
+      targetKind: "session",
+      targetSessionId: ctx.state.current ?? "",
+      targetDirty: true,
+    };
+  }
+
+  function editScheduleForm(entry: PanelScheduleEntry): ScheduleFormState {
+    const scheduled = Date.parse(entry.scheduledAt);
+    const at = Number.isFinite(scheduled) ? scheduled : Date.now() + 60 * 60 * 1000;
+    const targetKind = entry.target?.kind ?? "session";
+    return {
+      mode: "edit",
+      id: entry.id,
+      originalUpdatedAt: entry.updatedAt,
+      originalTargetKind: targetKind,
+      title: entry.title,
+      prompt: entry.prompt,
+      timingKind: entry.kind,
+      afterSeconds: String(entry.afterSeconds ?? 300),
+      everySeconds: String(entry.everySeconds ?? 3600),
+      atDate: localDateValue(at),
+      atTime: localTimeValue(at),
+      time: (entry.time ?? "09:00").slice(0, 5),
+      timeZone: entry.timeZone ?? browserTimeZone(),
+      weekdays: entry.weekdays && entry.weekdays.length > 0 ? [...entry.weekdays] : [1, 2, 3, 4, 5],
+      expression: entry.expression ?? "*/15 9-17 * * 1-5",
+      rrule: entry.rrule ?? "",
+      targetKind,
+      targetSessionId: entry.sessionId || ctx.state.current || "",
+      targetDirty: false,
+    };
+  }
 
   function openSchedule() {
     if (!schedulePanel) {
@@ -605,6 +739,8 @@ export function createPanels(ctx: PanelsContext) {
       }
       case "cron":
         return t("Cron {expr}", { expr: entry.expression ?? "" });
+      case "rrule":
+        return t("RRULE {expr}", { expr: entry.rrule ?? "" });
       default:
         return entry.kind;
     }
@@ -637,7 +773,8 @@ export function createPanels(ctx: PanelsContext) {
     const body = schedulePanel.body;
     body.innerHTML = "";
 
-    // 工具条:搜索 + 状态过滤 + 刷新
+    // 工具条:搜索 + 状态过滤 + 新建 / 清除已结束 / 刷新
+    let list: HTMLElement | undefined;
     const bar = ctx.el("div", "sched-bar");
     const search = ctx.el("input", "sched-search") as HTMLInputElement;
     search.type = "search";
@@ -645,10 +782,15 @@ export function createPanels(ctx: PanelsContext) {
     search.value = scheduleFilter;
     search.addEventListener("input", () => {
       scheduleFilter = search.value;
-      renderScheduleList(list);
+      if (list) renderScheduleList(list);
     });
     const filter = ctx.el("select", "sched-filter") as HTMLSelectElement;
-    for (const [value, label] of [["all", t("全部")], ["active", t("已开启")], ["inactive", t("已结束")]] as const) {
+    for (const [value, label] of [
+      ["all", t("全部")],
+      ["active", t("已开启")],
+      ["paused", t("已暂停")],
+      ["ended", t("已结束")],
+    ] as const) {
       const option = ctx.el("option", undefined, label) as HTMLOptionElement;
       option.value = value;
       if (scheduleStatus === value) option.selected = true;
@@ -656,15 +798,41 @@ export function createPanels(ctx: PanelsContext) {
     }
     filter.addEventListener("change", () => {
       scheduleStatus = filter.value as typeof scheduleStatus;
-      renderScheduleList(list);
+      if (list) renderScheduleList(list);
     });
+    bar.append(search, filter);
+    if (scheduleApi === "v2") {
+      const add = textBtn(ctx, t("新建任务"), t("创建宿主级自动化任务"), () => {
+        scheduleForm = newScheduleForm();
+        scheduleNotice = undefined;
+        renderScheduleBody();
+      }, "mini-btn");
+      bar.append(add);
+      const ended = (scheduleEntries ?? []).filter((entry) => entry.status === "ended").length;
+      if (ended > 0) {
+        const clear = textBtn(ctx, t("清除已结束"), t("一次清除全部已结束任务(保留进行中的任务)"), () => {
+          void ctx.showDialog({ title: t("清除已结束任务"), text: t("确定清除全部 {n} 个已结束任务?", { n: ended }) }).then((ok) => {
+            if (ok === null) return;
+            post({ kind: "scheduleDeleteInactive", requestId: nextRequestId() });
+          });
+        }, "mini-btn");
+        bar.append(clear);
+      }
+    }
     const refresh = textBtn(ctx, t("刷新"), t("重新读取任务列表"), () => {
       scheduleEntries = null;
+      scheduleForm = undefined;
+      scheduleNotice = undefined;
       renderScheduleBody();
       post({ kind: "scheduleRefresh", requestId: nextRequestId() });
     }, "mini-btn");
-    bar.append(search, filter, refresh);
+    bar.append(refresh);
     body.append(bar);
+
+    if (scheduleNotice) {
+      body.append(ctx.el("div", scheduleNotice.error ? "ws-note ws-note-error" : "ws-note", scheduleNotice.text));
+    }
+    if (scheduleForm) body.append(renderScheduleForm());
 
     if (scheduleEntries === null && scheduleError === undefined) {
       body.append(ctx.el("div", "ws-note", t("正在加载任务…")));
@@ -675,7 +843,7 @@ export function createPanels(ctx: PanelsContext) {
         ctx.el(
           "div",
           "ws-note",
-          t("当前宿主未提供定时任务能力:请在宿主设置中启用定时任务插件后重试(0.1.7 起默认为关闭)。"),
+          t("当前宿主未提供定时任务能力:请在宿主设置中启用定时任务插件后重试(0.1.7 起需启用;0.2.2 起为 Web 内置能力)。"),
         ),
       );
       if (scheduleError) body.append(ctx.el("div", "ws-note ws-note-error", scheduleError));
@@ -685,7 +853,7 @@ export function createPanels(ctx: PanelsContext) {
       body.append(ctx.el("div", "ws-note ws-note-error", t("无法加载任务:{error}", { error: scheduleError })));
       return;
     }
-    const list = ctx.el("div", "sched-list");
+    list = ctx.el("div", "sched-list");
     body.append(list);
     renderScheduleList(list);
   }
@@ -698,18 +866,19 @@ export function createPanels(ctx: PanelsContext) {
     const filtered = all.filter((entry) => {
       if (scheduleStatus !== "all" && entry.status !== scheduleStatus) return false;
       if (!needle) return true;
-      return `${entry.title} ${entry.prompt} ${entry.id} ${entry.sessionId}`.toLowerCase().includes(needle);
+      return `${entry.title} ${entry.prompt} ${entry.id} ${entry.sessionId} ${entry.involvedSessionIds?.join(" ") ?? ""}`.toLowerCase().includes(needle);
     });
     if (all.length === 0) {
-      list.append(ctx.el("div", "ws-note", t("还没有自动化任务,在会话中创建的任务会显示在这里")));
+      list.append(ctx.el("div", "ws-note", t("还没有自动化任务,点击「新建任务」或在会话中让 agent 创建")));
       return;
     }
     if (filtered.length === 0) {
       list.append(ctx.el("div", "ws-note", t("没有匹配的自动化任务")));
       return;
     }
+    const rank = (status: PanelScheduleEntry["status"]) => (status === "active" ? 0 : status === "paused" ? 1 : 2);
     const ordered = [...filtered].sort((a, b) => {
-      if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+      if (rank(a.status) !== rank(b.status)) return rank(a.status) - rank(b.status);
       return Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt);
     });
     for (const entry of ordered) {
@@ -721,21 +890,41 @@ export function createPanels(ctx: PanelsContext) {
   function scheduleRow(entry: PanelScheduleEntry): HTMLElement {
     const row = ctx.el("div", "sched-row");
     if (scheduleOpenId === entry.id) row.classList.add("sched-row-open");
-    const dot = ctx.el("span", entry.status === "active" ? "job-status job-running" : "job-status job-done", entry.status === "active" ? "●" : "✓");
-    dot.title = entry.status === "active" ? t("已开启") : t("已结束");
+    const dot = ctx.el(
+      "span",
+      entry.status === "active" ? "job-status job-running" : entry.status === "paused" ? "job-status sched-paused" : "job-status job-done",
+      entry.status === "active" ? "●" : entry.status === "paused" ? "Ⅱ" : "✓",
+    );
+    dot.title = scheduleStatusText(entry.status);
     const main = ctx.el("div", "sched-main");
-    const title = ctx.el("div", "sched-title", entry.title || entry.id.slice(0, 8));
-    const meta = ctx.el("div", "sched-meta", `${scheduleFrequencyText(entry)} · ${t("下次计划时间:")} ${scheduleNextText(entry)}`);
+    const titleLine = ctx.el("div", "sched-title-line");
+    const title = ctx.el("span", "sched-title", entry.title || entry.id.slice(0, 8));
+    titleLine.append(title);
+    if (entry.executionActive) titleLine.append(ctx.el("span", "sched-badge", t("运行中")));
+    const meta = ctx.el(
+      "div",
+      "sched-meta",
+      `${scheduleFrequencyText(entry)} · ${t("下次计划时间:")} ${scheduleNextText(entry)} · ${scheduleTargetKindText(entry)}`,
+    );
     meta.title = entry.prompt;
-    main.append(title, meta);
-    const session = ctx.el("button", "sched-session", t("关联会话"));
-    session.title = entry.sessionId;
-    session.addEventListener("click", (e) => {
-      e.stopPropagation();
-      ctx.selectSession(entry.sessionId);
-      schedulePanel?.close();
-    });
-    row.append(dot, main, session);
+    main.append(titleLine, meta);
+    if (entry.target?.kind === "new") {
+      main.append(ctx.el("div", "sched-target", scheduleTargetKindText(entry)));
+    } else {
+      const session = ctx.el("button", "sched-session", t("关联会话"));
+      session.title = entry.sessionId;
+      session.addEventListener("click", (e) => {
+        e.stopPropagation();
+        ctx.selectSession(entry.sessionId);
+        schedulePanel?.close();
+      });
+      row.append(session);
+    }
+    if (entry.deliveryFloorEndsAt) {
+      const floor = Date.parse(entry.deliveryFloorEndsAt);
+      if (Number.isFinite(floor) && floor > Date.now()) main.append(ctx.el("div", "sched-target", t("下次投递不早于 {time}", { time: formatScheduleClock(floor) })));
+    }
+    row.prepend(dot, main);
     row.addEventListener("click", () => {
       scheduleOpenId = scheduleOpenId === entry.id ? undefined : entry.id;
       scheduleHistory = undefined;
@@ -756,16 +945,42 @@ export function createPanels(ctx: PanelsContext) {
       line.append(ctx.el("span", "sched-fact-label", label), ctx.el("span", "sched-fact-value", value));
       facts.append(line);
     };
-    addFact(t("状态"), entry.status === "active" ? t("已开启") : t("已结束"));
+    addFact(t("状态"), scheduleStatusText(entry.status));
     addFact(t("下次计划时间"), scheduleNextText(entry));
     addFact(t("提醒频率"), scheduleFrequencyText(entry));
     if (entry.timeZone) addFact(t("时区"), entry.timeZone);
+    addFact(t("投递目标"), entry.target?.kind === "new" ? scheduleTargetKindText(entry) : `${scheduleTargetKindText(entry)} · ${entry.sessionId}`);
+    if (entry.createdAt) addFact(t("创建时间"), formatScheduleClock(Date.parse(entry.createdAt)));
+    if (entry.updatedAt) addFact(t("最近修改"), formatScheduleClock(Date.parse(entry.updatedAt)));
+    if (entry.executionActive) addFact(t("运行状态"), t("正在投递/运行"));
+    if (entry.deliveryFloorEndsAt) addFact(t("投递下限"), formatScheduleClock(Date.parse(entry.deliveryFloorEndsAt)));
     if (entry.lastDelivery) addFact(t("最近一次投递"), formatScheduleClock(Date.parse(entry.lastDelivery.deliveredAt)));
     addFact(t("任务 ID"), entry.id);
     addFact(t("关联会话"), entry.sessionId);
     detail.append(facts);
 
     const actions = ctx.el("div", "sched-actions");
+    if (scheduleApi === "v2") {
+      if (entry.status === "active") {
+        actions.append(
+          textBtn(ctx, t("暂停"), t("暂停后不再触发,可用「继续」恢复"), () => postSchedulePatch(entry, { active: false }), "mini-btn"),
+        );
+      } else if (entry.status === "paused") {
+        actions.append(textBtn(ctx, t("继续"), t("从下一个未来时刻恢复"), () => postSchedulePatch(entry, { active: true }), "mini-btn"));
+      }
+      actions.append(
+        textBtn(ctx, t("立即运行"), t("立即投递一次(不改变原计划)"), () => {
+          post({ kind: "scheduleRun", id: entry.id, requestId: nextRequestId() });
+        }, "mini-btn"),
+      );
+      actions.append(
+        textBtn(ctx, t("编辑任务"), t("修改名称 / 提示词 / 时间规则 / 投递目标"), () => {
+          scheduleForm = editScheduleForm(entry);
+          scheduleNotice = undefined;
+          renderScheduleBody();
+        }, "mini-btn"),
+      );
+    }
     const del = textBtn(
       ctx,
       schedulePendingDelete === entry.id ? t("确认删除") : t("删除任务"),
@@ -777,7 +992,7 @@ export function createPanels(ctx: PanelsContext) {
           return;
         }
         schedulePendingDelete = undefined;
-        post({ kind: "scheduleDelete", sessionId: entry.sessionId, id: entry.id, requestId: nextRequestId() });
+        post({ kind: "scheduleDelete", sessionId: entry.sessionId, id: entry.id, expectedUpdatedAt: entry.updatedAt, requestId: nextRequestId() });
       },
       schedulePendingDelete === entry.id ? "mini-btn danger" : "mini-btn",
     );
@@ -802,6 +1017,7 @@ export function createPanels(ctx: PanelsContext) {
       records.append(ctx.el("div", "ws-note", t("暂无任务运行记录")));
     } else {
       if (scheduleHistory.earlierRecordsPruned) records.append(ctx.el("div", "ws-note", t("更早的运行记录已清理")));
+      else if (scheduleHistory.earlierRecordsUnavailable) records.append(ctx.el("div", "ws-note", t("更早的运行记录不可用")));
       for (const record of scheduleHistory.records) {
         const line = ctx.el("div", "sched-record");
         line.append(ctx.el("span", "sched-record-time", formatScheduleClock(Date.parse(record.deliveredAt))));
@@ -816,6 +1032,282 @@ export function createPanels(ctx: PanelsContext) {
     }
     detail.append(records);
     return detail;
+  }
+
+  /** 暂停/继续等单字段编辑:直接提交 patch,CAS 版本取目录里的 updatedAt。 */
+  function postSchedulePatch(entry: PanelScheduleEntry, patch: Record<string, unknown>) {
+    scheduleNotice = undefined;
+    post({
+      kind: "scheduleEdit",
+      id: entry.id,
+      patch,
+      ...(entry.updatedAt ? { expectedUpdatedAt: entry.updatedAt } : {}),
+      requestId: nextRequestId(),
+    });
+  }
+
+  function renderScheduleForm(): HTMLElement {
+    const form = scheduleForm!;
+    const wrap = ctx.el("div", "sched-form");
+    wrap.append(ctx.el("div", "sched-form-title", form.mode === "create" ? t("新建自动化任务") : t("编辑自动化任务")));
+
+    const field = (label: string, control: HTMLElement, hint?: string) => {
+      const box = ctx.el("div", "sched-form-field");
+      box.append(ctx.el("label", "sched-form-label", label), control);
+      if (hint) box.append(ctx.el("div", "sched-form-hint", hint));
+      return box;
+    };
+    const input = (value: string, type = "text", placeholder = "") => {
+      const node = ctx.el("input", "settings-input") as HTMLInputElement;
+      node.type = type;
+      node.value = value;
+      if (placeholder) node.placeholder = placeholder;
+      return node;
+    };
+
+    const title = input(form.title, "text", t("例如:每日晨间汇总"));
+    title.addEventListener("input", () => {
+      form.title = title.value;
+    });
+    wrap.append(field(t("任务名称"), title));
+
+    const prompt = ctx.el("textarea", "settings-textarea") as HTMLTextAreaElement;
+    prompt.rows = 3;
+    prompt.value = form.prompt;
+    prompt.placeholder = t("到点后发送给新会话/目标会话的提示词");
+    prompt.addEventListener("input", () => {
+      form.prompt = prompt.value;
+    });
+    wrap.append(field(t("提示词"), prompt));
+
+    const timing = ctx.el("select", "settings-input") as HTMLSelectElement;
+    for (const [value, label] of [
+      ["after", t("一次性 · 延迟")],
+      ["at", t("一次性 · 指定时刻")],
+      ["every", t("固定间隔")],
+      ["daily", t("每天")],
+      ["weekly", t("每周")],
+      ["cron", t("Cron 表达式")],
+      ["rrule", t("RRULE")],
+    ] as const) {
+      const option = ctx.el("option", undefined, label) as HTMLOptionElement;
+      option.value = value;
+      if (form.timingKind === value) option.selected = true;
+      timing.append(option);
+    }
+    timing.addEventListener("change", () => {
+      form.timingKind = timing.value as ScheduleTimingKind;
+      renderScheduleBody();
+    });
+    wrap.append(field(t("时间规则"), timing));
+
+    const timeRow = ctx.el("div", "sched-form-grid");
+    if (form.timingKind === "after" || form.timingKind === "every") {
+      const seconds = input(form.timingKind === "after" ? form.afterSeconds : form.everySeconds, "number");
+      seconds.min = "1";
+      seconds.addEventListener("input", () => {
+        if (form.timingKind === "after") form.afterSeconds = seconds.value;
+        else form.everySeconds = seconds.value;
+      });
+      timeRow.append(field(form.timingKind === "after" ? t("延迟(秒)") : t("间隔(秒)"), seconds));
+    } else if (form.timingKind === "at") {
+      const date = input(form.atDate, "date");
+      date.addEventListener("input", () => {
+        form.atDate = date.value;
+      });
+      const clock = input(form.atTime, "time");
+      clock.addEventListener("input", () => {
+        form.atTime = clock.value;
+      });
+      timeRow.append(field(t("日期"), date), field(t("时间"), clock));
+    } else if (form.timingKind === "daily" || form.timingKind === "weekly") {
+      const clock = input(form.time, "time");
+      clock.addEventListener("input", () => {
+        form.time = clock.value;
+      });
+      timeRow.append(field(t("时间"), clock));
+      if (form.timingKind === "weekly") {
+        const days = ctx.el("div", "sched-weekdays");
+        const names = t("周一,周二,周三,周四,周五,周六,周日").split(",");
+        for (let day = 1; day <= 7; day += 1) {
+          const label = ctx.el("label", "sched-weekday") as HTMLLabelElement;
+          const checkbox = ctx.el("input") as HTMLInputElement;
+          checkbox.type = "checkbox";
+          checkbox.checked = form.weekdays.includes(day);
+          checkbox.addEventListener("change", () => {
+            const set = new Set(form.weekdays);
+            if (checkbox.checked) set.add(day);
+            else set.delete(day);
+            form.weekdays = [...set].sort((a, b) => a - b);
+          });
+          label.append(checkbox, ctx.el("span", undefined, names[day - 1] ?? String(day)));
+          days.append(label);
+        }
+        timeRow.append(field(t("星期"), days));
+      }
+    } else if (form.timingKind === "cron") {
+      const expr = input(form.expression, "text", "*/15 9-17 * * 1-5");
+      expr.addEventListener("input", () => {
+        form.expression = expr.value;
+      });
+      timeRow.append(field(t("Cron 表达式"), expr, t("五字段:分 时 日 月 周")));
+    } else if (form.timingKind === "rrule") {
+      const rrule = ctx.el("textarea", "settings-textarea") as HTMLTextAreaElement;
+      rrule.rows = 3;
+      rrule.value = form.rrule;
+      rrule.placeholder = "DTSTART;TZID=Asia/Shanghai:20260101T090000\nRRULE:FREQ=DAILY;COUNT=10";
+      rrule.addEventListener("input", () => {
+        form.rrule = rrule.value;
+      });
+      timeRow.append(field(t("RRULE 规则"), rrule, t("一行 DTSTART + 一行 RRULE")));
+    }
+    if (timeRow.childElementCount > 0) wrap.append(timeRow);
+
+    if (form.timingKind !== "after" && form.timingKind !== "every" && form.timingKind !== "rrule") {
+      const zone = input(form.timeZone, "text", "Asia/Shanghai");
+      zone.addEventListener("input", () => {
+        form.timeZone = zone.value;
+      });
+      wrap.append(field(t("时区"), zone, t("IANA 时区,例如 Asia/Shanghai")));
+    }
+
+    const target = ctx.el("select", "settings-input") as HTMLSelectElement;
+    for (const [value, label] of [
+      ["session", t("投递到现有会话")],
+      ["new_once", t("首次投递时新建会话")],
+      ["new", t("每次运行新建会话")],
+    ] as const) {
+      const option = ctx.el("option", undefined, label) as HTMLOptionElement;
+      option.value = value;
+      if (form.targetKind === value) option.selected = true;
+      target.append(option);
+    }
+    target.addEventListener("change", () => {
+      form.targetKind = target.value as typeof form.targetKind;
+      form.targetDirty = true;
+      if (form.targetKind === "session" && !form.targetSessionId) form.targetSessionId = ctx.state.current ?? "";
+      renderScheduleBody();
+    });
+    wrap.append(field(t("投递目标"), target, form.targetKind === "new" && scheduleDeliveryLimits ? t("两次新会话投递至少间隔 {n} 秒", { n: scheduleDeliveryLimits }) : undefined));
+
+    if (form.targetKind === "session") {
+      const sid = input(form.targetSessionId, "text", t("会话 ID"));
+      sid.addEventListener("input", () => {
+        form.targetSessionId = sid.value.trim();
+        form.targetDirty = true;
+      });
+      wrap.append(field(t("目标会话 ID"), sid));
+    }
+
+    if (form.error) wrap.append(ctx.el("div", "ws-note ws-note-error", form.error));
+
+    const actions = ctx.el("div", "sched-form-actions");
+    const save = textBtn(ctx, t("保存"), t("保存任务"), () => submitScheduleForm(), "mini-btn");
+    if (scheduleSaving) {
+      save.setAttribute("disabled", "disabled");
+      save.textContent = t("保存中…");
+    }
+    const cancel = textBtn(ctx, t("取消"), t("放弃本次编辑"), () => {
+      scheduleForm = undefined;
+      scheduleSaving = false;
+      renderScheduleBody();
+    }, "mini-btn");
+    actions.append(save, cancel);
+    wrap.append(actions);
+    return wrap;
+  }
+
+  function submitScheduleForm() {
+    const form = scheduleForm;
+    if (!form || scheduleSaving) return;
+    const title = form.title.trim();
+    const prompt = form.prompt.trim();
+    if (!title) {
+      form.error = t("请填写任务名称");
+      renderScheduleBody();
+      return;
+    }
+    if (!prompt) {
+      form.error = t("请填写提示词");
+      renderScheduleBody();
+      return;
+    }
+    const timing = buildScheduleTiming(form);
+    if ("error" in timing) {
+      form.error = timing.error;
+      renderScheduleBody();
+      return;
+    }
+    const target = buildScheduleTarget(form);
+    if ("error" in target) {
+      form.error = target.error;
+      renderScheduleBody();
+      return;
+    }
+    scheduleSaving = true;
+    form.error = undefined;
+    renderScheduleBody();
+    if (form.mode === "create") {
+      post({
+        kind: "scheduleCreate",
+        request: { title, prompt, timing: timing.value, target: target.value },
+        requestId: nextRequestId(),
+      });
+      return;
+    }
+    const patch: Record<string, unknown> = { title, prompt, timing: timing.value };
+    if (form.targetDirty || form.originalTargetKind !== form.targetKind) patch.target = target.value;
+    post({
+      kind: "scheduleEdit",
+      id: form.id,
+      patch,
+      ...(form.originalUpdatedAt ? { expectedUpdatedAt: form.originalUpdatedAt } : {}),
+      requestId: nextRequestId(),
+    });
+  }
+
+  function buildScheduleTiming(form: ScheduleFormState): { value: Record<string, unknown> } | { error: string } {
+    if (form.timingKind === "after") {
+      const seconds = Number(form.afterSeconds);
+      if (!Number.isInteger(seconds) || seconds <= 0) return { error: t("延迟必须是正整数秒") };
+      return { value: { kind: "after", after_seconds: seconds } };
+    }
+    if (form.timingKind === "every") {
+      const seconds = Number(form.everySeconds);
+      if (!Number.isInteger(seconds) || seconds < 60) return { error: t("间隔必须是至少 60 秒的整数") };
+      return { value: { kind: "every", every_seconds: seconds } };
+    }
+    if (form.timingKind === "at") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(form.atDate)) return { error: t("请选择日期") };
+      const clock = normalizeScheduleClock(form.atTime);
+      if (!clock) return { error: t("时间格式应为 HH:mm") };
+      return { value: { kind: "at", at: { date: form.atDate, time: clock, time_zone: form.timeZone.trim() || browserTimeZone() } } };
+    }
+    if (form.timingKind === "rrule") {
+      const raw = form.rrule.trim();
+      if (!/DTSTART/i.test(raw) || !/RRULE/i.test(raw)) return { error: t("RRULE 需要 DTSTART 与 RRULE 两行") };
+      return { value: { kind: "rrule", rrule: raw } };
+    }
+    const zone = form.timeZone.trim();
+    if (!zone) return { error: t("请填写 IANA 时区") };
+    const clock = normalizeScheduleClock(form.time);
+    if (!clock) return { error: t("时间格式应为 HH:mm") };
+    if (form.timingKind === "daily") return { value: { kind: "daily", daily: { time: clock, time_zone: zone } } };
+    if (form.timingKind === "weekly") {
+      if (form.weekdays.length === 0) return { error: t("请至少选择一天") };
+      return { value: { kind: "weekly", weekly: { time: clock, time_zone: zone, weekdays: [...form.weekdays].sort((a, b) => a - b) } } };
+    }
+    const expression = form.expression.trim();
+    if (!expression) return { error: t("请填写 Cron 表达式") };
+    return { value: { kind: "cron", cron: { expression, time_zone: zone } } };
+  }
+
+  function buildScheduleTarget(form: ScheduleFormState): { value: Record<string, unknown> } | { error: string } {
+    if (form.targetKind === "new") return { value: { kind: "new" } };
+    if (form.targetKind === "new_once") return { value: { kind: "new_once" } };
+    const sessionId = form.targetSessionId.trim();
+    if (!sessionId) return { error: t("请填写目标会话 ID") };
+    return { value: { kind: "session", sessionId } };
   }
 
   function loadScheduleHistory(entry: PanelScheduleEntry, refresh = false, before?: string) {
@@ -834,16 +1326,24 @@ export function createPanels(ctx: PanelsContext) {
   }
 
   /** 目录读取结果(宿主推送;available=false 表示宿主未启用定时任务能力)。 */
-  function scheduleResult(msg: { available?: boolean; entries?: PanelScheduleEntry[] | null; error?: string }) {
+  function scheduleResult(msg: {
+    available?: boolean;
+    api?: "v1" | "v2";
+    entries?: PanelScheduleEntry[] | null;
+    error?: string;
+    deliveryLimits?: { newSessionIntervalSeconds: number };
+  }) {
     scheduleAvailable = msg.available !== false;
+    scheduleApi = msg.api === "v2" ? "v2" : "v1";
+    scheduleDeliveryLimits = msg.deliveryLimits?.newSessionIntervalSeconds;
     scheduleError = msg.error;
     scheduleEntries = Array.isArray(msg.entries) ? msg.entries : [];
     if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
   }
 
-  /** schedule/changed 失效通知:目录打开时自动重读。 */
+  /** schedule/changed 失效通知:目录打开时自动重读(编辑表单打开时不打断输入)。 */
   function scheduleChanged() {
-    if (schedulePanel && !schedulePanel.overlay.hidden) {
+    if (schedulePanel && !schedulePanel.overlay.hidden && !scheduleForm) {
       post({ kind: "scheduleRefresh", requestId: nextRequestId() });
     }
   }
@@ -861,15 +1361,58 @@ export function createPanels(ctx: PanelsContext) {
     if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
   }
 
-  function scheduleDeleted(msg: { id: string; deleted?: boolean; error?: string }) {
+  function scheduleDeleted(msg: { id: string; deleted?: boolean; error?: string; code?: string }) {
     if (msg.deleted === false) {
-      void ctx.showDialog({ title: t("无法删除任务"), text: msg.error ?? t("任务可能已不存在") });
+      const text =
+        msg.code === "schedule_conflict"
+          ? t("任务已在别处修改,已刷新列表")
+          : msg.code === "schedule_not_found"
+            ? t("任务已不存在,已刷新列表")
+            : (msg.error ?? t("无法删除任务:任务可能已不存在"));
+      scheduleNotice = { text, error: msg.code === undefined };
+      if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
       return;
     }
     scheduleEntries = (scheduleEntries ?? []).filter((entry) => entry.id !== msg.id);
     if (scheduleOpenId === msg.id) scheduleOpenId = undefined;
+    scheduleNotice = { text: t("任务已删除") };
     if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
   }
+
+  function scheduleSaved(msg: {
+    id?: string;
+    created?: boolean;
+    entry?: PanelScheduleEntry;
+    conflict?: boolean;
+    code?: string;
+    error?: string;
+  }) {
+    scheduleSaving = false;
+    if (msg.error) {
+      if (scheduleForm) scheduleForm.error = msg.error;
+      scheduleNotice = { text: msg.error, error: true };
+      if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
+      return;
+    }
+    scheduleForm = undefined;
+    scheduleNotice = { text: msg.created ? t("任务已创建") : t("任务已更新") };
+    if (msg.entry) scheduleOpenId = msg.entry.id;
+    if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
+  }
+
+  function scheduleRan(msg: { id: string; pending?: boolean; entry?: PanelScheduleEntry; error?: string }) {
+    if (msg.error) scheduleNotice = { text: msg.error, error: true };
+    else if (msg.pending) scheduleNotice = { text: t("该任务已有一次运行在进行中,请稍后再试") };
+    else scheduleNotice = { text: t("已请求立即运行,投递结果见任务运行记录") };
+    if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
+  }
+
+  function scheduleInactiveCleared(msg: { deleted?: number; error?: string }) {
+    if (msg.error) scheduleNotice = { text: msg.error, error: true };
+    else scheduleNotice = { text: t("已清除 {n} 个已结束任务", { n: msg.deleted ?? 0 }) };
+    if (schedulePanel && !schedulePanel.overlay.hidden) renderScheduleBody();
+  }
+
 
   // ---------- 3. 轨迹视图 ----------
 
@@ -2445,6 +2988,9 @@ export function createPanels(ctx: PanelsContext) {
     scheduleChanged,
     scheduleHistoryResult,
     scheduleDeleted,
+    scheduleSaved,
+    scheduleRan,
+    scheduleInactiveCleared,
     openTrajectory,
     openSettings,
     refreshSettings,

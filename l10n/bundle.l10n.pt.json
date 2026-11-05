@@ -199,5 +199,11 @@
   "perm.desc.custom": "Combinação personalizada (edite nas Configurações).",
   "commit.modelRestoreFailed": "A mensagem de commit foi gerada, mas o modelo padrão não pôde ser restaurado para {model}. Selecione-o novamente na lista de modelos (o salvamento em segundo plano pode ter falhado).",
   "notice.openImageFailed": "Não foi possível abrir a imagem: {error}",
-  "hub.remoteAccessLimited": "Este host DSH concedeu apenas acesso limitado a esta conexão; algumas ações podem ser recusadas."
+  "hub.remoteAccessLimited": "Este host DSH concedeu apenas acesso limitado a esta conexão; algumas ações podem ser recusadas.",
+  "notice.scheduleConflict": "A tarefa foi alterada em outro lugar; a lista foi atualizada. Tente novamente.",
+  "notice.scheduleGone": "A tarefa não existe mais.",
+  "hub.scheduleUnsupportedCreate": "Este host (DSH < 0.2.2) não oferece suporte à criação de tarefas de automação no nível do host.",
+  "hub.scheduleUnsupportedEdit": "Este host (DSH < 0.2.2) não oferece suporte à edição de tarefas de automação no nível do host.",
+  "hub.scheduleUnsupportedRun": "Este host (DSH < 0.2.2) não oferece suporte à execução imediata de tarefas de automação.",
+  "hub.scheduleUnsupportedDeleteInactive": "Este host (DSH < 0.2.2) não oferece suporte à limpeza em massa de tarefas concluídas."
 }
