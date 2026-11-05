@@ -1,6 +1,17 @@
 # Changelog
 
 
+## 0.13.69
+- **Fixed: every conversation showed the same model and thinking depth.** `session/modelCatalog` only returns the deployment default; each Session's own choice lives in the `modelSelection` projection (`next` = the selection the next request uses, `lastUsed` = the selection the latest request actually used). The extension used `catalog.default` as `current`, so switching Sessions always overwrote the model pill and reasoning segments with the deployment default. `getSessionModels` now reads `session/projections` (with a default fallback for old hosts/new Sessions) and returns the Session's own `provider / model / reasoningEffort`; the status bar follows the same value.
+- **Switching Sessions now restores that Session's choice, not the previous one.** Opening a remembered Session, creating a Session on startup, and selecting any Session all refresh the current model/effort from that Session before the UI is pushed. Creating a Session now applies the configured default thinking depth `await`ed before the first state push (previously it raced the push, so the pill briefly or permanently showed the deployment default).
+- **A model without reasoning no longer keeps the previous Session's effort.** `updateCurrentModel` and `applyLocalModelSelection` now clear `reasoningEffort` when the Session/model has none, instead of leaving a stale "high"/"max" chip.
+- **Verified**: against a live 0.2.2-rc.1 server, Session A selected `off`, Session B selected `max`; both `getSessionModels` and the status bar returned the matching effort, and an unselected Session fell back to the catalog default — 5/5. A new offline regression covers `next` priority, `lastUsed` fallback, missing projection, projection failure, status sync and effort clearing — 7/7. Typecheck and the production build pass.
+- **修复:所有对话显示成同一个模型和思考深度**。`session/modelCatalog` 只返回部署默认值;每个会话自己的选择记录在 `modelSelection` 投影里(`next` = 下一次请求将使用的选择,`lastUsed` = 最近一次请求实际使用的选择)。扩展此前把 `catalog.default` 当成 `current`,所以切换会话时模型胶囊和推理等级总被部署默认值覆盖。现在 `getSessionModels` 会读取 `session/projections`(老宿主/新会话回退默认值),返回该会话自己的 `provider / model / reasoningEffort`;状态栏同步同一个值。
+- **切换会话会恢复该会话自己的选择,而不是上一个会话的**。恢复上次会话、启动时新建会话、手动选择会话,都会在推送界面前先从该会话刷新模型/思考深度。新建会话时配置的默认思考深度现在会 `await` 落地后再推状态(此前与推送并发,胶囊会短暂或一直显示部署默认值)。
+- **不支持推理的模型不会再残留上一个会话的思考深度**。`updateCurrentModel` 与 `applyLocalModelSelection` 在会话/模型没有 `reasoningEffort` 时会清空该值,不再留下过期的「高 / 最高」胶囊。
+- **验证**:真实 0.2.2-rc.1 服务器上会话 A 选 `off`、会话 B 选 `max`,`getSessionModels` 与状态栏均返回对应值,未选择的新会话回退目录默认值 —— 5/5。新增离线回归覆盖 `next` 优先、`lastUsed` 回退、无投影、投影失败、状态同步与 effort 清空 —— 7/7。typecheck 与生产构建通过。
+
+
 ## 0.13.68
 - **All new 0.2.2 UI is localized.** The host-level automation-task panel (buttons, statuses, form labels, validation and notices), the Markdown-export menu entry and its user/assistant headings are now translated in every webview dictionary: Traditional Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Thai, Indonesian, Turkish, Russian and Arabic. Nothing falls back to English for these surfaces any more.
 - **The extension description is localized too.** All 13 `package.nls` bundles now mention host-level automation tasks (create/edit/pause/run) and full-conversation Markdown export alongside the existing feature list.

@@ -285,7 +285,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
     const sessionId = await hub.createSession(cwd, nextPreset);
     nextPreset = undefined;
     await setParticipantSession(ctx, sessionId);
-    void hub.applyDefaultReasoningEffort(sessionId);
+    await hub.applyDefaultReasoningEffort(sessionId);
     return sessionId;
   }
 
@@ -294,7 +294,7 @@ export function registerChatParticipant(hub: DshHub, ctx: vscode.ExtensionContex
     const sessionId = await hub.createSession(cwd, nextPreset);
     nextPreset = undefined;
     await setParticipantSession(ctx, sessionId);
-    void hub.applyDefaultReasoningEffort(sessionId);
+    await hub.applyDefaultReasoningEffort(sessionId);
     return sessionId;
   }
 

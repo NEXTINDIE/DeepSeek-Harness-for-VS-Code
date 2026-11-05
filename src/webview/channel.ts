@@ -501,7 +501,7 @@ export class ChatChannel {
       return;
     }
     const current = this.hub.store.currentSessionId;
-    if (current) void this.hub.updateCurrentModel(current);
+    if (current) await this.hub.updateCurrentModel(current);
     await this.pushFullState();
   }
 
@@ -608,6 +608,8 @@ export class ChatChannel {
       if (usable) {
         try {
           await this.hub.openSession(remembered);
+          // 恢复的是该会话自己的模型/思考深度,不是部署默认值
+          await this.hub.updateCurrentModel(remembered);
           return true;
         } catch {
           // 该会话已不可用(被删/被占用)→ 落到自动新建
@@ -619,6 +621,8 @@ export class ChatChannel {
       const created = await this.hub.createSession();
       if (created) {
         await this.hub.openSession(created);
+        await this.hub.applyDefaultReasoningEffort(created);
+        await this.hub.updateCurrentModel(created);
         await this.hub.refreshSessions();
         return true;
       }
@@ -1615,7 +1619,7 @@ export class ChatChannel {
         if (typeof msg.sessionId === "string") {
           await this.hub.openSession(msg.sessionId);
           this.rememberLastSession(msg.sessionId);
-          void this.hub.updateCurrentModel(msg.sessionId);
+          await this.hub.updateCurrentModel(msg.sessionId);
           await this.pushFullState();
           // 重新打开该会话的计划文本(上次会话的计划可继续查看/修改)
           const planPath = this.planFiles.get(msg.sessionId);
@@ -1629,8 +1633,10 @@ export class ChatChannel {
           this.rememberLastSession(sessionId);
           // 0.1.2:会话事件只随 session/follow 流推送,新建后立即跟随
           void this.hub.openSession(sessionId);
-          void this.hub.applyDefaultReasoningEffort(sessionId);
-          void this.hub.updateCurrentModel(sessionId);
+          // 默认思考深度要先落到会话,再读该会话的模型状态;否则会先推一次部署默认值,
+          // 让界面短暂显示错误模型/思考深度。
+          await this.hub.applyDefaultReasoningEffort(sessionId);
+          await this.hub.updateCurrentModel(sessionId);
           await this.pushFullState();
         } catch (error) {
           this.post({ kind: "notice", message: t("notice.newSessionFailed", { error: String(error) }), level: "error" });

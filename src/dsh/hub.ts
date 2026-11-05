@@ -4,6 +4,7 @@ import { SessionStore, type StoredSession } from "./sessionStore";
 import type {
   CommandExecutionView,
   MessageFeedbackRating,
+  ModelSelection,
   PermissionCatalog,
   PromptContentPart,
   ScheduleCatalogEntry,
@@ -18,6 +19,7 @@ import type {
   ScheduleRunResultV2,
   ScheduleTaskEntry,
   SessionFollowFrame,
+  SessionModelsValue,
 } from "./types";
 import type {
   CordisPluginRow,
@@ -862,17 +864,45 @@ export class DshHub {
 
   // ---------- 模型 / 预设 / 思考深度 ----------
 
-  /** 模型目录(0.1.2:session/modelCatalog,全局目录)。 */
-  getSessionModels(_sessionId: string) {
-    return this.client.sessionModels("");
+  /**
+   * 会话模型目录 + **该会话自己的**当前选择。
+   *
+   * session/modelCatalog 只返回部署默认值(catalog.default);每个会话真正使用的
+   * provider/model/推理强度记录在会话投影 modelSelection 里(`next` = 下一次请求
+   * 将使用的选择,`lastUsed` = 最近一次请求实际使用的选择)。旧实现把 catalog.default
+   * 当成 current,导致切换会话后所有会话的模型/思考深度都显示成同一个默认值。
+   */
+  async getSessionModels(sessionId: string): Promise<SessionModelsValue> {
+    const catalog = await this.client.sessionModels(sessionId);
+    let current: ModelSelection = catalog.current;
+    try {
+      const projection = await this.client.sessionProjections(sessionId);
+      const selection = projection?.values?.modelSelection as
+        | { lastUsed?: ModelSelection | null; next?: ModelSelection | null }
+        | undefined;
+      const chosen = selection?.next ?? selection?.lastUsed;
+      if (chosen && typeof chosen.provider === "string" && typeof chosen.model === "string") {
+        current = {
+          provider: chosen.provider,
+          model: chosen.model,
+          ...(typeof chosen.reasoningEffort === "string" ? { reasoningEffort: chosen.reasoningEffort } : {}),
+        };
+      }
+    } catch {
+      // 旧宿主没有 session/projections:回退到部署默认值
+    }
+    return { ...catalog, current };
   }
 
-  /** 读取目录默认模型并同步到状态栏。 */
+  /** 读取会话自己的模型/思考深度并同步到状态栏。 */
   async updateCurrentModel(sessionId: string) {
     try {
-      const catalog = await this.client.sessionModels(sessionId);
-      this.statusState.model = catalog.current?.model;
-      this.statusState.provider = catalog.current?.provider;
+      const models = await this.getSessionModels(sessionId);
+      this.statusState.model = models.current.model;
+      this.statusState.provider = models.current.provider;
+      // 必须连同 reasoningEffort 一起覆盖:从 high 切到不支持推理的模型时,
+      // 旧值残留会让状态栏显示一个并不存在的思考深度。
+      this.statusState.reasoningEffort = models.current.reasoningEffort;
       this.emitStatus();
     } catch {
       // 忽略:状态栏保持原值
@@ -891,7 +921,8 @@ export class DshHub {
   applyLocalModelSelection(_sessionId: string, provider: string, model: string, reasoningEffort?: string) {
     this.statusState.model = model;
     this.statusState.provider = provider;
-    if (reasoningEffort !== undefined) this.statusState.reasoningEffort = reasoningEffort;
+    // 响应里没有 effort = 宿主解析为「无显式推理强度」,要清掉旧值而不是保留。
+    this.statusState.reasoningEffort = reasoningEffort;
     this.emitStatus();
   }
 
