@@ -205,5 +205,6 @@
   "hub.scheduleUnsupportedCreate": "Dieser Host (DSH < 0.2.2) unterstützt das Erstellen von Automatisierungsaufgaben auf Host-Ebene nicht.",
   "hub.scheduleUnsupportedEdit": "Dieser Host (DSH < 0.2.2) unterstützt das Bearbeiten von Automatisierungsaufgaben auf Host-Ebene nicht.",
   "hub.scheduleUnsupportedRun": "Dieser Host (DSH < 0.2.2) unterstützt das sofortige Ausführen von Automatisierungsaufgaben nicht.",
-  "hub.scheduleUnsupportedDeleteInactive": "Dieser Host (DSH < 0.2.2) unterstützt das massenhafte Löschen beendeter Aufgaben nicht."
+  "hub.scheduleUnsupportedDeleteInactive": "Dieser Host (DSH < 0.2.2) unterstützt das massenhafte Löschen beendeter Aufgaben nicht.",
+  "notice.continueGenerationFailed": "Fortsetzen der Generierung fehlgeschlagen: {error}"
 }

@@ -805,5 +805,8 @@
   "导出时间": "Dışa aktarıldı",
   "(没有可复制的对话内容)": "(Kopyalanacak konuşma içeriği yok)",
   "任务已在别处修改,已刷新列表": "Görev başka bir yerde değiştirildi; liste yenilendi",
-  "任务已不存在,已刷新列表": "Görev artık mevcut değil; liste yenilendi"
+  "任务已不存在,已刷新列表": "Görev artık mevcut değil; liste yenilendi",
+  "继续生成": "Üretmeye devam et",
+  "继续上一次未完成的回答(无需重新输入)": "Önceki tamamlanmamış yanıtı sürdür (yeniden yazmaya gerek yok)",
+  "正在准备登录页,稍后会自动打开浏览器": "Giriş sayfası hazırlanıyor; tarayıcı birazdan otomatik açılacak"
 }

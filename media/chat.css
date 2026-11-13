@@ -4876,6 +4876,29 @@ img.inline-image-missing {
 }
 
 /* ---------- 状态行(输入框上方):回合活动指示 + 计划模式/目标 芯片同行 ---------- */
+.continuation-area {
+  display: flex;
+  justify-content: center;
+  padding: 0 12px 6px;
+  flex-shrink: 0;
+}
+
+.continuation-area[hidden] { display: none; }
+
+.continuation-btn {
+  font-size: 11.5px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  color: var(--vscode-button-foreground, #fff);
+  background: var(--vscode-button-background, #0e639c);
+  border: 1px solid var(--vscode-button-border, transparent);
+  cursor: pointer;
+}
+
+.continuation-btn:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
 .status-row {
   flex-shrink: 0;
   display: flex;

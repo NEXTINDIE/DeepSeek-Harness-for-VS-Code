@@ -205,5 +205,6 @@
   "hub.scheduleUnsupportedCreate": "当前宿主(DSH < 0.2.2)不支持创建宿主级自动化任务。",
   "hub.scheduleUnsupportedEdit": "当前宿主(DSH < 0.2.2)不支持编辑宿主级自动化任务。",
   "hub.scheduleUnsupportedRun": "当前宿主(DSH < 0.2.2)不支持立即运行自动化任务。",
-  "hub.scheduleUnsupportedDeleteInactive": "当前宿主(DSH < 0.2.2)不支持批量清除已结束任务。"
+  "hub.scheduleUnsupportedDeleteInactive": "当前宿主(DSH < 0.2.2)不支持批量清除已结束任务。",
+  "notice.continueGenerationFailed": "继续生成失败:{error}"
 }

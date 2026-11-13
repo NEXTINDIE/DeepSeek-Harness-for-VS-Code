@@ -1,6 +1,27 @@
 /**
- * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.2-rc.1 的 Typert Remote 契约,
- * 同时兼容 0.2.1-rc.5 | rc.4 | rc.3 | rc.2 | rc.1 / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ * DSH Web API 的 wire 类型(对齐 @deepseek-ai/dsh 0.2.2-rc.3 的 Typert Remote 契约,
+ * 同时兼容 0.2.2-rc.1 | rc.2 / 0.2.1-rc.5 | rc.4 | rc.3 | rc.2 | rc.1 / 0.2.0-rc.2 / 0.1.7-rc.2 / 0.1.5-rc.1 / 0.1.2-rc.1 的参数名与端点差异)。
+ *
+ * 0.2.2-rc.1 → 0.2.2-rc.3(已按已发布包机械 diff + 真实 rc.3 服务器逐项实机验证):
+ * - 端点 224 → 256:新增 37、移除 5、签名变化 2。本扩展用到的端点里:
+ *   **移除 subagents/interruptByParent**,改为 subagents/interruptByUser(childSessionId);
+ *   subagents/prompt 的请求体移除 parentSessionId / mode(只留 requestId / childSessionId /
+ *   delivery / content);旧宿主按 gateway/input-invalid 回退旧形状;
+ *   account/watch 的帧从裸 AccountView 变为 AccountUpdate {type,state}(已兼容解包);
+ *   account/startSignIn 显式要求 client 元数据 + loopback callbackOrigin + loginSource,
+ *   cancelSignIn 要 attemptId,signOut 要 client;旧实现的空参数调用已修正;
+ * - 新增 account/getNotifications|getNotificationContent|reportNotificationEvent(产品公告等
+ *   账号通知)、web/listProviders 与 $events 的 web/providers-changed、workspaceFiles/search、
+ *   mcpManager/probe|restart|watch、terminal/watch、cuaAccess/*、forgePanel 审阅类端点、
+ *   以及 rc.3 的实验性 deepseekChatImport/limits;这些属可选组合包,未组合时 404;
+ * - 会话投影 25 → 27:新增 conversationContinuation(可继续的失败回合 seq)与 worktree
+ *   (Host 记录的会话工作树),agentTeam 改为 dsh-agent-team 声明但键仍在;
+ * - 会话事件新增 team/mode(具名/多层 AgentTeam),team/member 作为历史事件保留;
+ * - session/prompt 的 content 允许空数组:这是 rc.2「继续生成」的语义(仅当
+ *   conversationContinuation 非 null 时宿主接受),扩展已提供「继续生成」按钮;
+ * - 0.2.2-rc.3 本身只新增实验性 DeepSeek 会话导入插件与 Windows 桌面更新修复,
+ *   不改变本扩展使用的核心契约;rc.2 的 Web 搜索默认提供方、模型重试设置、
+ *   AgentTeam、补丁回执、终端、OfficeKit 等均为 Web/可选插件侧改动。
  *
  * 0.2.1-rc.3 → 0.2.2-rc.1(已按已发布包机械 diff + 真实 rc.1 服务器逐项实机验证):
  * - 端点 173 → 224:新增 53、移除 2、签名变化 2。本扩展用到的端点除 schedule 外零变化;

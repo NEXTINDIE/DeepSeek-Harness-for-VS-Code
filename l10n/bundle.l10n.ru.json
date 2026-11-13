@@ -205,5 +205,6 @@
   "hub.scheduleUnsupportedCreate": "Этот хост (DSH < 0.2.2) не поддерживает создание задач автоматизации на уровне хоста.",
   "hub.scheduleUnsupportedEdit": "Этот хост (DSH < 0.2.2) не поддерживает редактирование задач автоматизации на уровне хоста.",
   "hub.scheduleUnsupportedRun": "Этот хост (DSH < 0.2.2) не поддерживает немедленный запуск задач автоматизации.",
-  "hub.scheduleUnsupportedDeleteInactive": "Этот хост (DSH < 0.2.2) не поддерживает массовую очистку завершённых задач."
+  "hub.scheduleUnsupportedDeleteInactive": "Этот хост (DSH < 0.2.2) не поддерживает массовую очистку завершённых задач.",
+  "notice.continueGenerationFailed": "Не удалось продолжить генерацию: {error}"
 }

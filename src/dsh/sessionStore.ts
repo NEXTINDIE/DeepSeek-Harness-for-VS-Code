@@ -115,7 +115,9 @@ export class SessionStore {
    * 直接子代理目录(subagentCatalog 投影;0.1.7 起取代已移除的 subagents/list 端点)。
    * 只含直接子级:id / createdAt / mode / label(与网页端 header 目录同源)。
    */
-  readonly subagentCatalog = new Map<string, { id: string; createdAt?: number; mode?: string; label?: string }[]>();
+  readonly subagentCatalog = new Map<string, { id: string; createdAt?: number; mode?: string; label?: string; name?: string }[]>();
+  /** 0.2.2-rc.2「继续生成」投影:可继续的失败回合 seq,null = 不可继续。 */
+  readonly continuations = new Map<string, number | null>();
   /**
    * 逐消息反馈(sessionId → messageId → 当前值)。
    * 来源:0.1.7 的 feedback/message-put|delete 会话事件(仅入日志,不入模型历史)
@@ -158,6 +160,7 @@ export class SessionStore {
   on(name: "stats", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "todos", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "subagentCatalog", fn: (sessionId: string) => void): () => void;
+  on(name: "continuation", fn: (sessionId: string, seq: number | null) => void): () => void;
   on(name: "workingDirectory", fn: (sessionId: string, cwd: string | null) => void): () => void;
   on(name: "userQuestions", fn: (sessionId: string, value: UserQuestionProjection) => void): () => void;
   on(name: "plan", fn: (sessionId: string, value: PlanProjection) => void): () => void;
@@ -636,14 +639,22 @@ export class SessionStore {
     }
     // 0.1.7 子代理目录投影(取代已移除的 subagents/list 端点)
     if (key === "subagentCatalog") {
-      const rows = Array.isArray(value) ? (value as { id?: string; createdAt?: number; mode?: string; label?: string }[]) : [];
+      const rows = Array.isArray(value) ? (value as { id?: string; createdAt?: number; mode?: string; label?: string; name?: string }[]) : [];
       this.subagentCatalog.set(
         sessionId,
         rows
           .filter((row) => typeof row?.id === "string")
-          .map((row) => ({ id: row.id as string, createdAt: row.createdAt, mode: row.mode, label: row.label })),
+          .map((row) => ({ id: row.id as string, createdAt: row.createdAt, mode: row.mode, label: row.label, name: row.name })),
       );
       this.emit("subagentCatalog", sessionId);
+      return;
+    }
+    // 0.2.2-rc.2:失败回合的「继续生成」资格(seq 或 null)
+    if (key === "conversationContinuation") {
+      const seq = typeof value === "number" ? value : null;
+      this.continuations.set(sessionId, seq);
+      this.emit("continuation", sessionId, seq);
+      return;
     }
   }
 

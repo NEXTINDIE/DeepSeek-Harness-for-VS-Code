@@ -896,30 +896,71 @@ export class DshApiClient {
   }
   /**
    * 给可继续对话的子代理补发消息。
-   * 0.1.5-rc.1 起 delivery 为必填(队列/插话语义);旧版服务器没有该字段,
-   * 若网关按描述符拒绝则去掉 delivey 重试一次。
+   *
+   * 0.2.2-rc.2 起请求体移除了 parentSessionId / mode(父会话与模式由子会话
+   * 地址/目录推导)。先按新形状发送;老宿主返回 arguments-invalid 时回退到
+   * 旧形状,再回退到旧形状去掉 delivery(0.1.5 之前)。
    */
   async subagentPrompt(parentSessionId: string, childSessionId: string, text: string, delivery: "queue" | "steer" = "queue") {
-    const payload = {
+    const base = {
       requestId: randomUUID(),
-      parentSessionId,
       childSessionId,
-      mode: "continuable" as const,
       content: [{ type: "text" as const, text }],
     };
     try {
-      return await this.request<SubagentPromptReceipt>("subagents/prompt", { request: { ...payload, delivery } });
+      return await this.request<SubagentPromptReceipt>("subagents/prompt", {
+        request: { ...base, delivery },
+      });
     } catch (error) {
-      if (!this.isArgumentNameMismatch(error)) throw error;
-      console.warn("[dsh] subagents/prompt rejected delivery, retrying without it (pre-0.1.5 server):", error);
-      return this.request<SubagentPromptReceipt>("subagents/prompt", { request: payload });
+      // 老宿主对新形状(缺少 parentSessionId/mode)返回 gateway/input-invalid,
+      // 而不是 arguments-invalid;两种都按形状不匹配处理。
+      const shapeMismatch =
+        this.isArgumentNameMismatch(error) || (error instanceof DshApiError && error.code === "gateway/input-invalid");
+      if (!shapeMismatch) throw error;
+      const legacy = { ...base, parentSessionId, mode: "continuable" as const };
+      try {
+        return await this.request<SubagentPromptReceipt>("subagents/prompt", {
+          request: { ...legacy, delivery },
+        });
+      } catch (legacyError) {
+        const legacyShapeMismatch =
+          this.isArgumentNameMismatch(legacyError) || (legacyError instanceof DshApiError && legacyError.code === "gateway/input-invalid");
+        if (!legacyShapeMismatch) throw legacyError;
+        console.warn("[dsh] subagents/prompt rejected delivery, retrying without it (pre-0.1.5 server):", legacyError);
+        return this.request<SubagentPromptReceipt>("subagents/prompt", { request: legacy });
+      }
     }
   }
-  subagentInterrupt(parentSessionId: string, childSessionId: string) {
-    return this.request<{ accepted: true }>("subagents/interruptByParent", {
-      childSessionId,
-      parentSessionId,
-      mode: "continuable",
+  /**
+   * 中断可继续子代理。
+   * 0.2.2-rc.2 起 interruptByParent 移除,改为 interruptByUser(childSessionId);
+   * 老宿主没有新端点时回退旧端点。
+   */
+  async subagentInterrupt(parentSessionId: string, childSessionId: string) {
+    try {
+      return await this.request<{ accepted: true }>("subagents/interruptByUser", { childSessionId });
+    } catch (error) {
+      const removable =
+        error instanceof DshApiError &&
+        (/method-unavailable|not-found|unknown-endpoint/i.test(error.code) || /未提供端点|not found|404/i.test(error.message));
+      if (!removable) throw error;
+      return this.request<{ accepted: true }>("subagents/interruptByParent", {
+        childSessionId,
+        parentSessionId,
+        mode: "continuable",
+      });
+    }
+  }
+
+  /** 0.2.2-rc.2+「继续生成」:空内容 prompt 续跑最近一次可继续的失败回合。 */
+  continueGeneration(sessionId: string) {
+    return this.request<SessionPromptValue>("session/prompt", {
+      request: {
+        requestId: randomUUID(),
+        sessionId,
+        mode: "queue",
+        content: [],
+      },
     });
   }
 
@@ -1047,7 +1088,8 @@ export class DshApiClient {
   // ---------- DeepSeek 账号(0.2.1 accountController) ----------
   /**
    * 账号状态流(account/watch):初始快照 + 后续变化(登录完成 / 退出 / 授权过期)。
-   * 只推状态,不含资料与余额 —— 那两项仍由 account/getProfile|getBalance 拉取。
+   * 0.2.2-rc.2 起每帧是 {type:"snapshot"|"credentials-changed", state: AccountView},
+   * 旧宿主直接推 AccountView;两种都兼容。
    */
   openAccountWatch(
     onItem: (view: {
@@ -1059,7 +1101,13 @@ export class DshApiClient {
   ) {
     return this.openStream("account/watch", {}, {
       onItem: (value) => {
-        const view = value as { status?: unknown; links?: unknown; attempt?: unknown } | undefined;
+        const frame = value as
+          | { type?: unknown; state?: unknown; status?: unknown; links?: unknown; attempt?: unknown }
+          | undefined;
+        // 新宿主:AccountUpdate { type, state };老宿主:裸 AccountView。
+        const view = (frame && typeof frame.state === "object" && frame.state !== null ? frame.state : frame) as
+          | { status?: unknown; links?: unknown; attempt?: unknown }
+          | undefined;
         if (!view || typeof view !== "object") return;
         if (view.status !== "signed-out" && view.status !== "credential-stored") return;
         onItem(view as never);
@@ -1100,14 +1148,26 @@ export class DshApiClient {
       | { status: "failed" }
     >("account/getBalance", { client: meta }, 20_000);
   }
-  accountStartSignIn() {
-    return this.request<{ attemptId?: string; authorizeUrl?: string }>("account/startSignIn", {}, 30_000);
+  /**
+   * 开始/加入登录。宿主要求显式客户端元数据与浏览器可回跳的 loopback origin
+   * (0.2.2 起登录尝试按来源区分 web/desktop)。返回值里的 attempt 才带 authorizeUrl。
+   */
+  accountStartSignIn(
+    client: { version: string; locale: string; timezoneOffsetSeconds: number },
+    callbackOrigin: string,
+    loginSource: "web" | "desktop" = "web",
+  ) {
+    return this.request<{
+      status: "signed-out" | "credential-stored";
+      links: { usageUrl: string; topUpUrl: string };
+      attempt: null | { id: string; phase: string; authorizeUrl?: string; expiresAt?: number; errorCode?: string };
+    }>("account/startSignIn", { client, callbackOrigin, loginSource }, 30_000);
   }
-  accountCancelSignIn() {
-    return this.request<unknown>("account/cancelSignIn", {}, 20_000);
+  accountCancelSignIn(attemptId: string) {
+    return this.request<unknown>("account/cancelSignIn", { attemptId }, 20_000);
   }
-  accountSignOut() {
-    return this.request<unknown>("account/signOut", {}, 20_000);
+  accountSignOut(client: { version: string; locale: string; timezoneOffsetSeconds: number }) {
+    return this.request<unknown>("account/signOut", { client }, 20_000);
   }
 
   settingsDescribe() {

@@ -805,5 +805,8 @@
   "导出时间": "Diekspor",
   "(没有可复制的对话内容)": "(Tidak ada isi percakapan untuk disalin)",
   "任务已在别处修改,已刷新列表": "Tugas diubah di tempat lain; daftar dimuat ulang",
-  "任务已不存在,已刷新列表": "Tugas sudah tidak ada; daftar dimuat ulang"
+  "任务已不存在,已刷新列表": "Tugas sudah tidak ada; daftar dimuat ulang",
+  "继续生成": "Lanjutkan pembuatan",
+  "继续上一次未完成的回答(无需重新输入)": "Lanjutkan jawaban sebelumnya yang belum selesai (tanpa mengetik ulang)",
+  "正在准备登录页,稍后会自动打开浏览器": "Halaman masuk sedang disiapkan; browser akan segera terbuka otomatis"
 }

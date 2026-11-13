@@ -304,7 +304,7 @@ const state = {
   autoAttachActive: true,
   activeFile: null as { path: string; label: string; languageId?: string } | null,
   skills: null as { name: string; description: string; whenToUse?: string; modelInvocable: boolean; source?: string }[] | null,
-  subagents: null as { kind: string; id: string; mode?: string; activity?: string; label?: string }[] | null,
+  subagents: null as { kind: string; id: string; mode?: string; activity?: string; label?: string; name?: string }[] | null,
   /** 会话统计(sessionStats / tokenUsage 投影) */
   stats: undefined as { sessionStats?: any; tokenUsage?: any } | undefined,
   /** 待办事项(todos 投影) */
@@ -314,6 +314,8 @@ const state = {
    * 与会话头 cwd 不同:后者是创建时的项目目录,这里是 working_directory 工具切换后的基准。
    */
   workingDirectory: undefined as string | null | undefined,
+  /** 0.2.2-rc.2 继续生成:可继续失败回合的 seq(null = 不可继续)。 */
+  continuationSeq: null as number | null,
   /** 限时提问投影(0.2.x userQuestions:active 仍可作答,settled 已结算) */
   userQuestions: undefined as { active: { callId: string; questions: any[]; state?: string }[]; settled: { callId: string; answers: any[] }[] } | undefined,
   /** 逐消息反馈(0.1.7 messageFeedback;messageId → 当前值) */
@@ -1729,6 +1731,10 @@ const EN_TEXT: Record<string, string> = {
   "助手": "Assistant",
   "导出时间": "Exported",
   "(没有可复制的对话内容)": "(No conversation content to copy)",
+  // ---- 0.2.2-rc.2:继续生成 ----
+  "继续生成": "Continue generating",
+  "继续上一次未完成的回答(无需重新输入)": "Continue the previous unfinished answer (no need to retype it)",
+  "正在准备登录页,稍后会自动打开浏览器": "Preparing the sign-in page; the browser will open automatically in a moment",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
@@ -2623,7 +2629,27 @@ const plusMenu = el("div", "plus-menu");
 plusMenu.hidden = true;
 composer.append(plusMenu);
 
-root.append(header, worktreeArea, goalArea, messages, conversationBottom, pendingArea, statusRow, composer, statsLine);
+// 0.2.2-rc.2「继续生成」:失败回合结束后显示一次,点击发送空内容 prompt
+const continuationArea = el("div", "continuation-area");
+continuationArea.hidden = true;
+const continuationBtn = el("button", "continuation-btn") as HTMLButtonElement;
+continuationBtn.type = "button";
+continuationBtn.addEventListener("click", () => {
+  if (!state.current) return;
+  state.continuationSeq = null;
+  renderContinuation();
+  vscode.postMessage({ kind: "continueGeneration" });
+});
+continuationArea.append(continuationBtn);
+function renderContinuation() {
+  const available = state.continuationSeq !== null && state.continuationSeq !== undefined && !state.running;
+  continuationArea.hidden = !available;
+  if (!available) return;
+  continuationBtn.textContent = t("继续生成");
+  continuationBtn.title = t("继续上一次未完成的回答(无需重新输入)");
+}
+
+root.append(header, worktreeArea, goalArea, messages, conversationBottom, pendingArea, continuationArea, statusRow, composer, statsLine);
 app.append(root);
 
 // ---------- 事件 ----------
@@ -7676,7 +7702,8 @@ function openSubagentCatalog() {
       list.append(el("div", "subagent-catalog-empty", t("(暂无子代理)")));
     } else {
       for (const entry of entries) {
-        const label = entry.label ?? entry.id.slice(0, 12);
+        // 0.2.2-rc.2 起具名子代理:name 优先于创建标签
+        const label = entry.name ?? entry.label ?? entry.id.slice(0, 12);
         const running = entry.activity === "running";
         const row = el("button", "plus-menu-item");
         // 子代理行同样不用 emoji:运行中是脉冲圆点,其余是静态圆点
@@ -7766,6 +7793,7 @@ function updateRunning() {
   updateSendButton();
   refreshSteerButtons();
   refreshActionsReveal();
+  renderContinuation();
 }
 
 /** 🧩 按钮徽标:待审批的 Cordis 插件数(网页端 Cordis 面板 approvals 计数同款)。 */
@@ -8735,6 +8763,7 @@ function handleMessage(msg: any) {
       cotTranslationAvailable = msg.cotTranslation?.available === true;
       state.userQuestions = msg.userQuestions;
       state.plan = msg.plan;
+      state.continuationSeq = typeof msg.continuation === "number" ? msg.continuation : null;
       state.planReview = undefined;
       if (msg.plan) state.planMode = msg.plan.active === true;
       state.lang = msg.lang ?? "zh-cn";
@@ -9135,6 +9164,12 @@ function handleMessage(msg: any) {
       renderWorkingDirectoryChip();
       break;
     }
+    case "continuation": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      state.continuationSeq = typeof msg.seq === "number" ? msg.seq : null;
+      renderContinuation();
+      break;
+    }
     case "userQuestions": {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       // 0.2.x 限时提问投影:刷新/切换会话后由投影还原待答卡片(在线期间仍由 waterfall 帧即时补)
@@ -9316,6 +9351,7 @@ function handleMessage(msg: any) {
       break;
     case "accountSignInStarted":
       if (msg.ok && msg.opened) showToast(t("已在浏览器中打开登录页,完成后回到这里即可"), "info");
+      else if (msg.ok && msg.pending) showToast(t("正在准备登录页,稍后会自动打开浏览器"), "info");
       else if (msg.ok) showToast(t("登录流程已取消"), "info");
       else showToast(msg.error ? String(msg.error) : t("无法开始登录"), "warning");
       break;

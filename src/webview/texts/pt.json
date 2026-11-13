@@ -805,5 +805,8 @@
   "导出时间": "Exportado",
   "(没有可复制的对话内容)": "(Nenhum conteúdo de conversa para copiar)",
   "任务已在别处修改,已刷新列表": "A tarefa foi alterada em outro lugar; a lista foi atualizada",
-  "任务已不存在,已刷新列表": "A tarefa não existe mais; a lista foi atualizada"
+  "任务已不存在,已刷新列表": "A tarefa não existe mais; a lista foi atualizada",
+  "继续生成": "Continuar gerando",
+  "继续上一次未完成的回答(无需重新输入)": "Continuar a resposta anterior incompleta (sem digitar novamente)",
+  "正在准备登录页,稍后会自动打开浏览器": "A página de login está sendo preparada; o navegador abrirá automaticamente"
 }

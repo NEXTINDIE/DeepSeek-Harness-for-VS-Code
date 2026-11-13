@@ -205,5 +205,6 @@
   "hub.scheduleUnsupportedCreate": "Cet hôte (DSH < 0.2.2) ne prend pas en charge la création de tâches d'automatisation au niveau de l'hôte.",
   "hub.scheduleUnsupportedEdit": "Cet hôte (DSH < 0.2.2) ne prend pas en charge la modification de tâches d'automatisation au niveau de l'hôte.",
   "hub.scheduleUnsupportedRun": "Cet hôte (DSH < 0.2.2) ne prend pas en charge l'exécution immédiate de tâches d'automatisation.",
-  "hub.scheduleUnsupportedDeleteInactive": "Cet hôte (DSH < 0.2.2) ne prend pas en charge l'effacement groupé des tâches terminées."
+  "hub.scheduleUnsupportedDeleteInactive": "Cet hôte (DSH < 0.2.2) ne prend pas en charge l'effacement groupé des tâches terminées.",
+  "notice.continueGenerationFailed": "Échec de la reprise de la génération : {error}"
 }

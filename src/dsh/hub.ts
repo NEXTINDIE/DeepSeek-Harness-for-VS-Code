@@ -1042,6 +1042,11 @@ export class DshHub {
     return this.client.subagentInterrupt(parentSessionId, childSessionId);
   }
 
+  /** 0.2.2-rc.2「继续生成」:空内容 prompt 续跑最近一次可继续的失败回合。 */
+  continueGeneration(sessionId: string) {
+    return this.client.continueGeneration(sessionId);
+  }
+
   // ---------- 定时任务(0.1.7 schedule/*;0.2.2 升级为宿主级任务) ----------
 
   /**

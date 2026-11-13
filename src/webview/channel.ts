@@ -443,6 +443,13 @@ export class ChatChannel {
         }),
       },
       {
+        // 0.2.2-rc.2 继续生成资格(conversationContinuation)
+        dispose: store.on("continuation", (sid: string, seq: number | null) => {
+          if (sid !== store.currentSessionId) return;
+          this.post({ kind: "continuation", sessionId: sid, seq });
+        }),
+      },
+      {
         // 0.1.7 逐消息反馈:会话就绪后拉一次 messageFeedback/list(老宿主无此端点时静默跳过)
         dispose: this.hub.onFollowReady((sid: string) => {
           // 权限目录(进程级)+ 投影基线:下拉选项来自目录,当前值来自投影
@@ -542,6 +549,24 @@ export class ChatChannel {
     this.post({ kind: "cotTranslation", available: cot.available, targetLanguage: cot.targetLanguage });
   }
 
+  /** 账号接口要求的客户端元数据(版本 / 语言 / 时区)。 */
+  private accountMeta() {
+    return {
+      version: this.ctx.extension.packageJSON.version as string,
+      locale: effectiveLanguage(),
+      timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+    };
+  }
+
+  /** 登录回跳 origin:宿主只接受带显式端口的 loopback HTTP origin。 */
+  private accountCallbackOrigin(): string {
+    const url = new URL(this.hub.client.baseUrl);
+    return `${url.protocol}//${url.host}`;
+  }
+
+  /** 已用系统浏览器打开过的登录尝试(防止 watch 重复弹窗)。 */
+  private readonly openedSignInAttempts = new Set<string>();
+
   /**
    * 账号状态变化(account/watch):只推状态字段,资料与余额仍由 accountGet 拉取。
    * 界面收到后按「登录态变化」合并并自动补拉余额 —— 用户不用再点刷新。
@@ -553,6 +578,15 @@ export class ChatChannel {
   }): void {
     const current = view ?? this.hub.accountView;
     if (!current) return;
+    // startSignIn 先返回 initializing,authorizeUrl 往往随下一帧 watch 才到:
+    // 谁先带来 URL 就由谁打开,且同一 attempt 只打开一次。
+    const attempt = current.attempt;
+    if (attempt?.authorizeUrl && attempt.id && !this.openedSignInAttempts.has(attempt.id)) {
+      this.openedSignInAttempts.add(attempt.id);
+      void vscode.env.openExternal(vscode.Uri.parse(attempt.authorizeUrl)).then(undefined, (error) => {
+        this.log(`[account] openExternal failed: ${String(error)}`);
+      });
+    }
     this.post({
       kind: "accountState",
       available: true,
@@ -829,6 +863,7 @@ export class ChatChannel {
       mode: row.mode === "one-shot" ? "one-shot" : "continuable",
       activity: this.hub.store.sessions.get(row.id)?.running === true ? "running" : "inactive",
       ...(row.label ? { label: row.label } : {}),
+      ...(row.name ? { name: row.name } : {}),
     }));
   }
 
@@ -984,6 +1019,8 @@ export class ChatChannel {
       userQuestions: current ? store.userQuestions.get(current) : undefined,
       // 0.2.x:计划模式投影(有效态 = pending ? !active : active)
       plan: current ? store.plans.get(current) : undefined,
+      // 0.2.2-rc.2:失败回合的继续生成资格
+      continuation: current ? (store.continuations.get(current) ?? null) : null,
       feedback: current ? [...(store.feedback.get(current)?.values() ?? [])] : undefined,
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
       planFile: current ? this.planFiles.get(current) : undefined,
@@ -1615,6 +1652,17 @@ export class ChatChannel {
       case "stop":
         if (current) await this.hub.cancel(current);
         break;
+      case "continueGeneration": {
+        if (current) {
+          try {
+            await this.hub.continueGeneration(current);
+            this.post({ kind: "continuation", sessionId: current, seq: null });
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.continueGenerationFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
       case "select":
         if (typeof msg.sessionId === "string") {
           await this.hub.openSession(msg.sessionId);
@@ -2389,7 +2437,7 @@ export class ChatChannel {
         // DeepSeek 账号:状态 + 资料 + 余额(0.2.1 accountController;老宿主 404 → available:false)
         try {
           const st = await this.hub.client.accountState();
-          const meta = { version: this.ctx.extension.packageJSON.version as string, locale: effectiveLanguage(), timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 };
+          const meta = this.accountMeta();
           const signedIn = st.status === "credential-stored";
           const [profile, balance] = signedIn
             ? await Promise.all([
@@ -2418,10 +2466,15 @@ export class ChatChannel {
       case "accountSignIn": {
         // 登录:宿主给出 authorizeUrl,扩展用系统浏览器打开,用户完成后再拉一次状态
         try {
-          const started = await this.hub.client.accountStartSignIn();
-          const url = typeof started?.authorizeUrl === "string" ? started.authorizeUrl : undefined;
-          if (url) await vscode.env.openExternal(vscode.Uri.parse(url));
-          this.post({ kind: "accountSignInStarted", ok: true, opened: !!url });
+          const started = await this.hub.client.accountStartSignIn(this.accountMeta(), this.accountCallbackOrigin(), "web");
+          const url = typeof started?.attempt?.authorizeUrl === "string" ? started.attempt.authorizeUrl : undefined;
+          if (url && started?.attempt?.id) {
+            this.openedSignInAttempts.add(started.attempt.id);
+            await vscode.env.openExternal(vscode.Uri.parse(url));
+          }
+          // 宿主常先返回 initializing;authorizeUrl 随后由 account/watch 带来并由
+          // postAccountState 打开,这里不要误报「已取消」。
+          this.post({ kind: "accountSignInStarted", ok: true, opened: !!url, pending: !url });
         } catch (error) {
           this.post({ kind: "accountSignInStarted", ok: false, error: String(error) });
         }
@@ -2429,7 +2482,8 @@ export class ChatChannel {
       }
       case "accountCancelSignIn": {
         try {
-          await this.hub.client.accountCancelSignIn();
+          const st = await this.hub.client.accountState();
+          if (st.attempt?.id) await this.hub.client.accountCancelSignIn(st.attempt.id);
         } catch {
           /* 取消失败无需打扰用户 */
         }
@@ -2438,7 +2492,7 @@ export class ChatChannel {
       }
       case "accountSignOut": {
         try {
-          await this.hub.client.accountSignOut();
+          await this.hub.client.accountSignOut(this.accountMeta());
         } catch (error) {
           this.post({ kind: "notice", message: t("notice.accountSignOutFailed"), level: "warning" });
           this.log(`[account] signOut failed: ${String(error)}`);
