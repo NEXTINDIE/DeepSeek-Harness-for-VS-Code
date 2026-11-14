@@ -808,5 +808,15 @@
   "任务已不存在,已刷新列表": "Görev artık mevcut değil; liste yenilendi",
   "继续生成": "Üretmeye devam et",
   "继续上一次未完成的回答(无需重新输入)": "Önceki tamamlanmamış yanıtı sürdür (yeniden yazmaya gerek yok)",
-  "正在准备登录页,稍后会自动打开浏览器": "Giriş sayfası hazırlanıyor; tarayıcı birazdan otomatik açılacak"
+  "正在准备登录页,稍后会自动打开浏览器": "Giriş sayfası hazırlanıyor; tarayıcı birazdan otomatik açılacak",
+  "启用智能体团队协作": "Ajan ekibi işbirliğini etkinleştir",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Birden çok adlandırılmış alt ajan ekip oluşturup görev panosunu paylaşabilir (oturum başına)",
+  "点击启用智能体团队协作": "Ajan ekibi işbirliğini etkinleştirmek için tıklayın",
+  "点击关闭智能体团队协作": "Devre dışı bırakmak için tıklayın",
+  "任务板": "Görev panosu",
+  "共享任务": "Paylaşılan görevler",
+  "负责人": "Sahip",
+  "未分配": "Atanmamış",
+  "被依赖阻塞": "Bağımlılıklar nedeniyle bloke",
+  "任务记录无效:{message}": "Kaydedilen görev kaydı geçersiz: {message}"
 }

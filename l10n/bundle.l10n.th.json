@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "โฮสต์นี้ (DSH < 0.2.2) ไม่รองรับการแก้ไขงานอัตโนมัติระดับโฮสต์",
   "hub.scheduleUnsupportedRun": "โฮสต์นี้ (DSH < 0.2.2) ไม่รองรับการทำงานอัตโนมัติทันที",
   "hub.scheduleUnsupportedDeleteInactive": "โฮสต์นี้ (DSH < 0.2.2) ไม่รองรับการล้างงานที่สิ้นสุดแบบเป็นกลุ่ม",
-  "notice.continueGenerationFailed": "เริ่มสร้างต่อไม่สำเร็จ: {error}"
+  "notice.continueGenerationFailed": "เริ่มสร้างต่อไม่สำเร็จ: {error}",
+  "notice.agentTeamToggleFailed": "สลับการทำงานร่วมกันเป็นทีมไม่สำเร็จ: {error}"
 }

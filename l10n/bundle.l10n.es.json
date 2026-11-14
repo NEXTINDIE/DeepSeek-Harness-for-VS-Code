@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "Este host (DSH < 0.2.2) no admite la edición de tareas de automatización a nivel del host.",
   "hub.scheduleUnsupportedRun": "Este host (DSH < 0.2.2) no admite ejecutar tareas de automatización de inmediato.",
   "hub.scheduleUnsupportedDeleteInactive": "Este host (DSH < 0.2.2) no admite borrar tareas terminadas en bloque.",
-  "notice.continueGenerationFailed": "Error al continuar la generación: {error}"
+  "notice.continueGenerationFailed": "Error al continuar la generación: {error}",
+  "notice.agentTeamToggleFailed": "Error al cambiar la colaboración de equipo de agentes: {error}"
 }

@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "現在のホスト(DSH < 0.2.2)はホストレベルの自動化タスク編集に対応していません。",
   "hub.scheduleUnsupportedRun": "現在のホスト(DSH < 0.2.2)は自動化タスクの即時実行に対応していません。",
   "hub.scheduleUnsupportedDeleteInactive": "現在のホスト(DSH < 0.2.2)は終了したタスクの一括クリアに対応していません。",
-  "notice.continueGenerationFailed": "生成の継続に失敗しました: {error}"
+  "notice.continueGenerationFailed": "生成の継続に失敗しました: {error}",
+  "notice.agentTeamToggleFailed": "エージェントチーム連携の切り替えに失敗しました: {error}"
 }

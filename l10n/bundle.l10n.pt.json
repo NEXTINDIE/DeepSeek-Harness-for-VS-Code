@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "Este host (DSH < 0.2.2) não oferece suporte à edição de tarefas de automação no nível do host.",
   "hub.scheduleUnsupportedRun": "Este host (DSH < 0.2.2) não oferece suporte à execução imediata de tarefas de automação.",
   "hub.scheduleUnsupportedDeleteInactive": "Este host (DSH < 0.2.2) não oferece suporte à limpeza em massa de tarefas concluídas.",
-  "notice.continueGenerationFailed": "Falha ao continuar a geração: {error}"
+  "notice.continueGenerationFailed": "Falha ao continuar a geração: {error}",
+  "notice.agentTeamToggleFailed": "Falha ao alternar a colaboração de equipe de agentes: {error}"
 }

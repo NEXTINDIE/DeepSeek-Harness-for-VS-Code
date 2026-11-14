@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "This host (DSH < 0.2.2) does not support editing host-level automation tasks.",
   "hub.scheduleUnsupportedRun": "This host (DSH < 0.2.2) does not support running automation tasks immediately.",
   "hub.scheduleUnsupportedDeleteInactive": "This host (DSH < 0.2.2) does not support clearing ended tasks in bulk.",
-  "notice.continueGenerationFailed": "Continue generation failed: {error}"
+  "notice.continueGenerationFailed": "Continue generation failed: {error}",
+  "notice.agentTeamToggleFailed": "Failed to toggle agent team collaboration: {error}"
 }

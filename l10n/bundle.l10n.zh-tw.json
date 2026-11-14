@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "目前宿主(DSH < 0.2.2)不支援編輯宿主層級自動化任務。",
   "hub.scheduleUnsupportedRun": "目前宿主(DSH < 0.2.2)不支援立即執行自動化任務。",
   "hub.scheduleUnsupportedDeleteInactive": "目前宿主(DSH < 0.2.2)不支援批次清除已結束任務。",
-  "notice.continueGenerationFailed": "繼續產生失敗:{error}"
+  "notice.continueGenerationFailed": "繼續產生失敗:{error}",
+  "notice.agentTeamToggleFailed": "切換智慧體團隊協作失敗:{error}"
 }

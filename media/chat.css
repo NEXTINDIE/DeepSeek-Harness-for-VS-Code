@@ -2331,6 +2331,72 @@ img.inline-image-missing {
   color: var(--dsh-muted);
 }
 
+/* AgentTeam 按会话开关(网页端模型设置同款) */
+.mpp-team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 8px 5px 4px;
+  border-top: 1px solid var(--dsh-border);
+}
+
+.mpp-team[hidden] { display: none; }
+
+.mpp-team-label-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mpp-team-label {
+  font-size: 11.5px;
+  color: var(--dsh-fg);
+}
+
+.mpp-team-info {
+  font-size: 11px;
+  color: var(--dsh-muted);
+  cursor: help;
+}
+
+.mpp-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--dsh-border);
+  border-radius: 999px;
+  background: var(--vscode-input-background, rgba(128, 128, 128, 0.25));
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mpp-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--vscode-foreground, #ccc);
+  transition: transform 0.15s ease;
+}
+
+.mpp-switch.on {
+  background: var(--dsh-accent);
+  border-color: var(--dsh-accent);
+}
+
+.mpp-switch.on::after {
+  transform: translateX(16px);
+  background: var(--dsh-btn-fg, #fff);
+}
+
 .think-seg {
   display: flex;
   gap: 4px;
@@ -2506,6 +2572,119 @@ img.inline-image-missing {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
   padding: 6px 10px;
+}
+
+/* AgentTeam 共享任务板(子代理目录底部,与网页 TeamBoard 同源) */
+.team-board {
+  flex: none;
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--dsh-border);
+  padding: 7px 9px 6px;
+}
+
+.team-board-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dsh-muted);
+  font-size: 10.5px;
+  margin-bottom: 4px;
+}
+
+.team-board-title {
+  color: var(--dsh-fg);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.team-board-progress {
+  color: var(--dsh-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.team-board-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.team-board-task { min-width: 0; }
+
+.team-board-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--dsh-fg);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.team-board-row:hover { background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12)); }
+.team-board-row:focus-visible { outline: 1px solid var(--vscode-focusBorder, #3794ff); outline-offset: -1px; }
+
+.team-board-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-board-row.open .team-board-subject { white-space: normal; overflow-wrap: anywhere; }
+.team-board-row.open .team-board-chevron { transform: rotate(180deg); }
+
+.team-board-chevron {
+  flex: none;
+  color: var(--dsh-muted);
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.team-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsh-muted);
+}
+
+.team-dot.done { background: var(--vscode-testing-iconPassed, #3fb950); }
+.team-dot.active { background: var(--dsh-accent); }
+.team-dot.blocked { background: var(--vscode-editorWarning-foreground, #cca700); }
+.team-dot.pending { background: var(--vscode-descriptionForeground, #888); opacity: 0.6; }
+
+.team-board-details {
+  padding: 2px 5px 6px 18px;
+  color: var(--dsh-muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.team-board-details[hidden] { display: none; }
+.team-board-desc { white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 4px; }
+.team-board-owner { display: flex; gap: 4px; min-width: 0; }
+.team-board-owner-label { flex: none; }
+.team-board-owner-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-board-failure {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 10.5px;
+  line-height: 1.5;
+  margin-bottom: 4px;
 }
 
 /* ---------- 会话统计行(上下文条上方) ---------- */

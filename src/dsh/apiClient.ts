@@ -952,6 +952,11 @@ export class DshApiClient {
     }
   }
 
+  /** 0.2.2-rc.2+ AgentTeam 按会话开启/关闭。 */
+  agentTeamsSetEnabled(agentId: string, enabled: boolean) {
+    return this.request<void>("agentTeams/setEnabled", { agentId, enabled });
+  }
+
   /** 0.2.2-rc.2+「继续生成」:空内容 prompt 续跑最近一次可继续的失败回合。 */
   continueGeneration(sessionId: string) {
     return this.request<SessionPromptValue>("session/prompt", {

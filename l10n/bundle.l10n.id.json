@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "Host ini (DSH < 0.2.2) tidak mendukung pengeditan tugas otomatisasi tingkat host.",
   "hub.scheduleUnsupportedRun": "Host ini (DSH < 0.2.2) tidak mendukung menjalankan tugas otomatisasi segera.",
   "hub.scheduleUnsupportedDeleteInactive": "Host ini (DSH < 0.2.2) tidak mendukung pembersihan massal tugas yang sudah selesai.",
-  "notice.continueGenerationFailed": "Gagal melanjutkan pembuatan: {error}"
+  "notice.continueGenerationFailed": "Gagal melanjutkan pembuatan: {error}",
+  "notice.agentTeamToggleFailed": "Gagal mengalihkan kolaborasi tim agen: {error}"
 }

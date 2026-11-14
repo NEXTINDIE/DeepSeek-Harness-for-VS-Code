@@ -1047,6 +1047,11 @@ export class DshHub {
     return this.client.continueGeneration(sessionId);
   }
 
+  /** 0.2.2-rc.2+ 按会话开启/关闭 AgentTeam。 */
+  setAgentTeam(sessionId: string, enabled: boolean) {
+    return this.client.agentTeamsSetEnabled(sessionId, enabled);
+  }
+
   // ---------- 定时任务(0.1.7 schedule/*;0.2.2 升级为宿主级任务) ----------
 
   /**

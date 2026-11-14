@@ -252,6 +252,21 @@ interface NodeState {
 
 // ---------- 状态 ----------
 
+/** AgentTeam 任务(agentTeam 投影的 TeamTaskView 子集)。 */
+interface AgentTeamTask {
+  id: string;
+  revision: number;
+  subject: string;
+  description: string;
+  status: "pending" | "in_progress" | "completed" | "deleted";
+  blockedBy: string[];
+  writeScopes: string[];
+  ownerId?: string;
+  ownerName?: string;
+  ready: boolean;
+  writeScopeWarnings: string[];
+}
+
 const state = {
   sessions: [] as StoredSession[],
   current: null as string | null,
@@ -316,6 +331,8 @@ const state = {
   workingDirectory: undefined as string | null | undefined,
   /** 0.2.2-rc.2 继续生成:可继续失败回合的 seq(null = 不可继续)。 */
   continuationSeq: null as number | null,
+  /** 0.2.2-rc.2+ AgentTeam 开关(undefined = 宿主未组合该插件)。 */
+  agentTeam: undefined as { enabled: boolean; tasks?: AgentTeamTask[]; failure?: string } | undefined,
   /** 限时提问投影(0.2.x userQuestions:active 仍可作答,settled 已结算) */
   userQuestions: undefined as { active: { callId: string; questions: any[]; state?: string }[]; settled: { callId: string; answers: any[] }[] } | undefined,
   /** 逐消息反馈(0.1.7 messageFeedback;messageId → 当前值) */
@@ -1735,6 +1752,18 @@ const EN_TEXT: Record<string, string> = {
   "继续生成": "Continue generating",
   "继续上一次未完成的回答(无需重新输入)": "Continue the previous unfinished answer (no need to retype it)",
   "正在准备登录页,稍后会自动打开浏览器": "Preparing the sign-in page; the browser will open automatically in a moment",
+  // ---- 0.2.2-rc.2:AgentTeam 开关 ----
+  "启用智能体团队协作": "Enable agent team collaboration",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Let named subagents form a team and share a task board; toggled per session",
+  "点击启用智能体团队协作": "Click to enable agent team collaboration",
+  "点击关闭智能体团队协作": "Click to disable agent team collaboration",
+  // ---- 0.2.2-rc.2:AgentTeam 共享任务板 ----
+  "任务板": "Task board",
+  "共享任务": "Shared tasks",
+  "负责人": "Owner",
+  "未分配": "Unassigned",
+  "被依赖阻塞": "Blocked by dependencies",
+  "任务记录无效:{message}": "Invalid persisted task record: {message}",
 };
 
 /** 多语言词典:简体中文为源语言;缺失的条目按 当前语言 → 英文 → 中文 依次回退。 */
@@ -2480,6 +2509,27 @@ const thinkSeg = el("div", "think-seg");
 thinkSeg.title = t("思考深度(推理强度)");
 mppThink.append(mppThinkLabel, thinkSeg);
 modelPillPop.append(mppThink);
+// 弹层第 3 节:AgentTeam 按会话开关(网页端模型设置同款)
+const mppTeam = el("div", "mpp-team");
+mppTeam.hidden = true;
+const mppTeamLabelWrap = el("div", "mpp-team-label-wrap");
+const mppTeamLabel = el("span", "mpp-team-label", t("启用智能体团队协作"));
+const mppTeamInfo = el("span", "mpp-team-info", "ⓘ");
+mppTeamInfo.title = t("允许多个具名子代理组队协作、共享任务板;按会话开启");
+mppTeamLabelWrap.append(mppTeamLabel, mppTeamInfo);
+const mppTeamToggle = el("button", "mpp-switch") as HTMLButtonElement;
+mppTeamToggle.type = "button";
+mppTeamToggle.setAttribute("role", "switch");
+mppTeamToggle.setAttribute("aria-checked", "false");
+mppTeamToggle.addEventListener("click", () => {
+  if (!state.agentTeam) return;
+  const next = state.agentTeam.enabled !== true;
+  state.agentTeam = { ...state.agentTeam, enabled: next };
+  renderAgentTeamToggle();
+  vscode.postMessage({ kind: "setAgentTeam", enabled: next });
+});
+mppTeam.append(mppTeamLabelWrap, mppTeamToggle);
+modelPillPop.append(mppTeam);
 modelPill.append(modelPillHead, modelPillPop);
 
 const inputWrap = el("div", "input-wrap");
@@ -6800,6 +6850,16 @@ function setLocalModelEffort(effort: string | undefined) {
   renderModelPill();
 }
 
+/** AgentTeam 开关:仅当宿主投影存在时显示;开关状态以投影为准。 */
+function renderAgentTeamToggle() {
+  const team = state.agentTeam;
+  mppTeam.hidden = !team;
+  if (!team) return;
+  mppTeamToggle.classList.toggle("on", team.enabled === true);
+  mppTeamToggle.setAttribute("aria-checked", String(team.enabled === true));
+  mppTeamToggle.title = team.enabled === true ? t("点击关闭智能体团队协作") : t("点击启用智能体团队协作");
+}
+
 /** 弹层内的推理等级分段按钮(默认 + 每个强度一个选项;点击即切换,面板保持打开以便连选模型与强度)。 */
 function renderThinkingSeg() {
   thinkSeg.innerHTML = "";
@@ -6807,6 +6867,7 @@ function renderThinkingSeg() {
   const modelInfo = m ? findModel(m.provider, m.model) : undefined;
   const efforts = modelInfo?.reasoning?.efforts ?? [];
   mppThink.hidden = efforts.length === 0;
+  renderAgentTeamToggle();
   if (efforts.length === 0) return;
   const make = (label: string, effort: string | undefined) => {
     const active = effort ? m?.reasoningEffort === effort : !m?.reasoningEffort;
@@ -7679,9 +7740,13 @@ function updateSubagentButton() {
 }
 
 /** 打开子代理目录弹层(网页端 header catalog 的扁平版):头部右上角「刷新」,列表限高滚动。 */
+/** 当前打开的子代理目录弹层(用于 AgentTeam 投影变化时原位刷新任务板)。 */
+let activeTeamBoardMenu: HTMLElement | undefined;
+
 function openSubagentCatalog() {
   const entries = state.subagents ?? [];
   openAnchoredMenu(btnSubagents, (menu) => {
+    activeTeamBoardMenu = menu;
     menu.classList.add("subagent-catalog");
     // 头部:标题 + 右上角刷新按钮(固定在列表之外,滚动时保持可见)
     const head = el("div", "subagent-catalog-head");
@@ -7720,7 +7785,70 @@ function openSubagentCatalog() {
       }
     }
     menu.append(list);
+    appendAgentTeamBoard(menu);
   });
+}
+
+/** 子代理目录底部:AgentTeam 共享任务板(与网页端 TeamBoard 同源数据)。 */
+function appendAgentTeamBoard(menu: HTMLElement) {
+  const team = state.agentTeam;
+  if (!team?.enabled) return;
+  const tasks = (team.tasks ?? []).filter((task) => task.status !== "deleted");
+  if (tasks.length === 0 && !team.failure) return;
+  const completed = tasks.filter((task) => task.status === "completed").length;
+  const active = tasks.filter((task) => task.status === "in_progress").length;
+  const pending = tasks.length - completed - active;
+
+  const board = el("section", "team-board");
+  board.setAttribute("aria-label", t("任务板"));
+  const head = el("div", "team-board-head");
+  head.append(lineIcon(ICONS.checklist ?? ICONS.ledger, 14), el("span", "team-board-title", t("共享任务")));
+  const progress = [
+    completed > 0 ? t("{n} 已完成", { n: completed }) : "",
+    active > 0 ? t("{n} 进行中", { n: active }) : "",
+    pending > 0 ? t("{n} 待处理", { n: pending }) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  if (progress) head.append(el("span", "team-board-progress", progress));
+  board.append(head);
+
+  if (team.failure) {
+    const failure = el("div", "team-board-failure");
+    failure.append(el("span", "team-dot blocked"), el("span", undefined, t("任务记录无效:{message}", { message: team.failure })));
+    board.append(failure);
+  }
+
+  const list = el("ul", "team-board-list");
+  for (const task of tasks) {
+    const item = el("li", "team-board-task");
+    item.dataset.status = task.status;
+    const row = el("button", "team-board-row") as HTMLButtonElement;
+    row.type = "button";
+    row.setAttribute("aria-expanded", "false");
+    const blocked = task.status === "pending" && task.ready !== true;
+    row.title = blocked ? t("被依赖阻塞") : task.subject;
+    const dotClass =
+      task.status === "completed" ? "done" : task.status === "in_progress" ? "active" : blocked ? "blocked" : "pending";
+    row.append(el("span", `team-dot ${dotClass}`), el("span", "team-board-subject", task.subject), el("span", "team-board-chevron", "▾"));
+    const details = el("div", "team-board-details");
+    details.hidden = true;
+    if (task.description) details.append(el("div", "team-board-desc", task.description));
+    const owner = task.ownerName ?? task.ownerId ?? t("未分配");
+    const ownerLine = el("div", "team-board-owner");
+    ownerLine.append(el("span", "team-board-owner-label", `${t("负责人")}:`), el("span", "team-board-owner-value", owner));
+    details.append(ownerLine);
+    row.addEventListener("click", () => {
+      const next = details.hidden;
+      details.hidden = !next;
+      row.setAttribute("aria-expanded", String(next));
+      row.classList.toggle("open", next);
+    });
+    item.append(row, details);
+    list.append(item);
+  }
+  if (tasks.length > 0) board.append(list);
+  menu.append(board);
 }
 
 // ---------- 回合活动指示(输入框上方:深度思考中… 12分50秒) ----------
@@ -8652,6 +8780,9 @@ function applyStaticLabels() {
   modelPillHead.title = t("模型与思考(推理强度)");
   thinkSeg.title = t("思考深度(推理强度)");
   mppThinkLabel.textContent = t("思考深度(推理强度)");
+  mppTeamLabel.textContent = t("启用智能体团队协作");
+  mppTeamInfo.title = t("允许多个具名子代理组队协作、共享任务板;按会话开启");
+  renderAgentTeamToggle();
   presetPillHead.title = t("Agent 预设");
   ppPresetTitle.textContent = t("选择 Agent 预设(新会话生效)");
   permissionPillHead.title = t("读写权限(沙箱模式 + 审批策略)");
@@ -8764,6 +8895,7 @@ function handleMessage(msg: any) {
       state.userQuestions = msg.userQuestions;
       state.plan = msg.plan;
       state.continuationSeq = typeof msg.continuation === "number" ? msg.continuation : null;
+      state.agentTeam = msg.agentTeam && typeof msg.agentTeam.enabled === "boolean" ? msg.agentTeam : undefined;
       state.planReview = undefined;
       if (msg.plan) state.planMode = msg.plan.active === true;
       state.lang = msg.lang ?? "zh-cn";
@@ -9168,6 +9300,16 @@ function handleMessage(msg: any) {
       if (msg.sessionId && msg.sessionId !== state.current) break;
       state.continuationSeq = typeof msg.seq === "number" ? msg.seq : null;
       renderContinuation();
+      break;
+    }
+    case "agentTeam": {
+      if (msg.sessionId && msg.sessionId !== state.current) break;
+      state.agentTeam = msg.value && typeof msg.value.enabled === "boolean" ? msg.value : undefined;
+      renderAgentTeamToggle();
+      if (activeTeamBoardMenu?.isConnected) {
+        activeTeamBoardMenu.querySelector(".team-board")?.remove();
+        appendAgentTeamBoard(activeTeamBoardMenu);
+      }
       break;
     }
     case "userQuestions": {

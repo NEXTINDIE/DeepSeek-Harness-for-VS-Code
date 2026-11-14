@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "هذا المضيف (DSH < 0.2.2) لا يدعم تعديل مهام الأتمتة على مستوى المضيف.",
   "hub.scheduleUnsupportedRun": "هذا المضيف (DSH < 0.2.2) لا يدعم تشغيل مهام الأتمتة فورًا.",
   "hub.scheduleUnsupportedDeleteInactive": "هذا المضيف (DSH < 0.2.2) لا يدعم مسح المهام المنتهية دفعة واحدة.",
-  "notice.continueGenerationFailed": "فشل متابعة التوليد: {error}"
+  "notice.continueGenerationFailed": "فشل متابعة التوليد: {error}",
+  "notice.agentTeamToggleFailed": "فشل تبديل تعاون فريق الوكلاء: {error}"
 }

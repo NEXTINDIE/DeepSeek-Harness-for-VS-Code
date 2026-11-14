@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "현재 호스트(DSH < 0.2.2)는 호스트 수준 자동화 작업 편집을 지원하지 않습니다.",
   "hub.scheduleUnsupportedRun": "현재 호스트(DSH < 0.2.2)는 자동화 작업 즉시 실행을 지원하지 않습니다.",
   "hub.scheduleUnsupportedDeleteInactive": "현재 호스트(DSH < 0.2.2)는 종료된 작업 일괄 지우기를 지원하지 않습니다.",
-  "notice.continueGenerationFailed": "계속 생성 실패: {error}"
+  "notice.continueGenerationFailed": "계속 생성 실패: {error}",
+  "notice.agentTeamToggleFailed": "에이전트 팀 협업 전환 실패: {error}"
 }

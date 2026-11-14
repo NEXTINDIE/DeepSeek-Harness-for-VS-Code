@@ -6,7 +6,7 @@
 > npx @deepseek-ai/dsh web
 > ```
 
-[中文版](#chinese) | Publisher: Jager · Latest: 0.13.70
+[中文版](#chinese) | Publisher: Jager · Latest: 0.13.73
 
 Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) directly in VS Code, alongside ChatGPT / Copilot: the built-in `@dsh` chat participant, secondary sidebar / standalone chat windows, workspaces / jobs / trajectory / settings panels, turn-level Git rollback, and a **multi-language UI** (简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية — follows the VS Code display language or switch manually).
 
@@ -46,7 +46,7 @@ Use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) 
 - **Automation tasks panel** (⏰ button, host-side `schedule/*`, DSH 0.1.7+; full host-level task management on DSH 0.2.2+): every retained task with its rule text, next scheduled time and countdown, status (active / paused / ended), delivery target and search/status filters. On 0.2.2+ you can **create** tasks (name, prompt, one-shot delay / absolute time / fixed interval / daily / weekly / cron / RRULE timing, and a target session, a session created on first delivery, or a new session per run), **edit** them, **pause / resume**, **run now**, **delete** with optimistic-concurrency protection (`updatedAt` CAS — a concurrent edit refreshes the list instead of overwriting it), and **clear all ended tasks**. Open a task for its instruction, timing, time zone, target session (jump straight to it), last delivery and its **delivery records** (newest-first with paging, retention and "earlier records unavailable" facts). The catalog refreshes itself from the host's `schedule/changed` event; on 0.1.7–0.2.1 the panel stays read-only (delete + history) and says so instead of erroring.
 - **Session menu** (⋯): fork / rename / copy session ID / **copy the full conversation as Markdown** (0.2.2 parity — session ID, working directory, export time, then the user and assistant text, ready to paste into an issue or a doc) / archive.
 - **Continue generating** (DSH 0.2.2-rc.2+): when a turn ends in a retryable failure, the host marks it via `conversationContinuation`; a **Continue generating** button appears above the composer and retries with an empty prompt — no need to retype the request. It is hidden while the session is running or when the host reports no eligible failure.
-- **Named subagents / AgentTeam** (DSH 0.2.2-rc.2+): child names from the host catalog are shown first (falling back to the creation label), and subagent prompts/interrupts use the rc.2+ `interruptByUser` and parent-less prompt shape with automatic fallback for older hosts.
+- **Named subagents / AgentTeam** (DSH 0.2.2-rc.2+): child names from the host catalog are shown first (falling back to the creation label), and subagent prompts/interrupts use the rc.2+ `interruptByUser` and parent-less prompt shape with automatic fallback for older hosts. The model popover also carries the web UI's **Enable agent team collaboration** switch: it reads the `agentTeam` projection and calls `agentTeams/setEnabled` for the current session, staying hidden when the host does not compose the plugin. When teamwork is enabled, the subagent catalog shows the **Shared tasks** board with a progress summary, status dots, blocked-by warnings, and expandable description/owner details.
 - **Trajectory view** (🧭 button, web Trajectory parity): turn-aware event ledger (seq · time · type · summary · token usage), click to expand the full event JSON, type filter. The header toolbar is all line icons (workspace / background jobs / automation tasks / trajectory / settings / subagent catalog) drawn at 15px; the Cordis plugin button keeps its 🧩 emoji, and the Activity Bar / Secondary Side Bar container and the chat view use a line-robot mark (media/robot.svg, masked to the theme icon colour by VS Code) in the theme's icon colour.
 - **Settings panel** (⚙️ button, web Settings parity): general settings (schema-driven forms for every namespace, restart badges, per-namespace reset), models & providers (provider route directory + model catalog + endpoint model discovery), credential management (API key set/clear), agent preset authoring on hosts that still expose it — DSH 0.1.7 removed the preset authoring endpoints, so the copy / open-directory / delete buttons only appear when `settings/canOpenAgentPresetDirectory` reports support and presets are otherwise read-only composition text.
 
@@ -143,7 +143,7 @@ npm run package     # → Releases/
 > npx @deepseek-ai/dsh web
 > ```
 
-[English version](#) | 发布者:Jager · 最新版本:0.13.70
+[English version](#) | 发布者:Jager · 最新版本:0.13.73
 
 在 VS Code 中直接使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`),与 ChatGPT / Copilot 一样融入 VS Code 聊天体系:内置聊天参与者 `@dsh`、辅助侧栏 / 独立聊天窗口、工作区 / 后台任务 / 轨迹 / 设置面板、回合级 Git 回退,以及**多语言界面**(简体中文 / 繁體中文 / English / 日本語 / 한국어 / Deutsch / Français / Español / Português / ไทย / Bahasa Indonesia / Türkçe / Русский / العربية,跟随 VS Code 显示语言或手动切换)。
 
@@ -181,7 +181,7 @@ npm run package     # → Releases/
 - **自动化任务面板**(⏰ 按钮,宿主侧 `schedule/*`,需 DSH 0.1.7+;0.2.2+ 为完整宿主级任务管理):列出全部任务(规则文案 · 下次计划时间与倒计时 · 状态 已开启/已暂停/已结束 · 投递目标),支持搜索与状态筛选。0.2.2+ 可直接**新建**(名称、提示词、一次性延迟 / 指定时刻 / 固定间隔 / 每天 / 每周 / Cron / RRULE 规则,目标可选现有会话、首次投递时新建会话或每次运行新建会话)、**编辑**、**暂停/继续**、**立即运行**、**删除**(带 `updatedAt` CAS 乐观并发保护——别处已修改时刷新列表而不是覆盖)与**一次清除全部已结束任务**;点开任务可看提示词、规则、时区、目标会话(一键跳转)、最近一次投递及其**运行记录**(新→旧分页、保留策略与「更早记录不可用」)。目录随宿主 `schedule/changed` 事件自动刷新;0.1.7–0.2.1 老宿主保持只读(删除 + 历史)并给出说明,不会报错。
 - **会话菜单**(⋯):分叉 / 重命名 / 复制会话 ID / **复制完整会话为 Markdown**(0.2.2 同款:会话 ID、工作目录、导出时间,再按用户/助手导出正文,可直接贴进 issue 或文档)/ 归档。
 - **继续生成**(DSH 0.2.2-rc.2+):回合以可重试的失败结束时,宿主通过 `conversationContinuation` 标记;输入框上方出现「继续生成」按钮,以空内容 prompt 重试,无需重新输入。会话运行中或宿主报告没有可继续的失败回合时自动隐藏。
-- **具名子代理 / AgentTeam**(DSH 0.2.2-rc.2+):优先显示宿主目录里的子代理 `name`(缺失时回退创建标签);子代理追问/打断改用 rc.2+ 的 `interruptByUser` 与无父会话请求体,并对老宿主自动回退。
+- **具名子代理 / AgentTeam**(DSH 0.2.2-rc.2+):优先显示宿主目录里的子代理 `name`(缺失时回退创建标签);子代理追问/打断改用 rc.2+ 的 `interruptByUser` 与无父会话请求体,并对老宿主自动回退。模型弹层还提供与网页端一致的**启用智能体团队协作**开关:状态来自 `agentTeam` 投影,切换调用当前会话的 `agentTeams/setEnabled`;宿主未组合该插件时自动隐藏。开启团队协作后,子代理目录会显示 **共享任务** 面板:进度摘要、状态点、依赖阻塞提示,以及可展开的描述/负责人详情。
 - **轨迹视图**(🧭 按钮,网页端 Trajectory 对齐):按回合组织的事件台账(序号 / 时间 / 类型 / 摘要 / token 用量),点击展开完整事件 JSON,支持类型筛选。头部工具栏统一为线条图标(工作区 / 后台任务 / 自动化任务 / 轨迹 / 设置 / 子代理目录),15px、跟随主题图标色;Cordis 插件按钮保留 🧩 emoji,活动栏 / 辅助侧栏容器与聊天视图改用线条机器人图标(media/robot.svg,由 VS Code 按主题图标色蒙版着色)。
 - **设置面板**(⚙️ 按钮,网页端 Settings 对齐):常规设置(schema 驱动表单,全部命名空间,含"需重启"标注与命名空间重置)、模型与供应商(供应商路由目录 + 模型目录 + 发现模型端点探测)、凭据管理(API Key 写入 / 清除)、Agent 预设管理(在仍提供作者端点的宿主上可 查看组合文本 / 复制新预设 / 打开预设目录编辑 cordis.yml / 删除用户预设——DSH 0.1.7 移除了预设作者端点,此时按钮隐藏,预设只能查看组合文本)。
 

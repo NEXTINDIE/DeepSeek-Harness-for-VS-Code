@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "Этот хост (DSH < 0.2.2) не поддерживает редактирование задач автоматизации на уровне хоста.",
   "hub.scheduleUnsupportedRun": "Этот хост (DSH < 0.2.2) не поддерживает немедленный запуск задач автоматизации.",
   "hub.scheduleUnsupportedDeleteInactive": "Этот хост (DSH < 0.2.2) не поддерживает массовую очистку завершённых задач.",
-  "notice.continueGenerationFailed": "Не удалось продолжить генерацию: {error}"
+  "notice.continueGenerationFailed": "Не удалось продолжить генерацию: {error}",
+  "notice.agentTeamToggleFailed": "Не удалось переключить командную работу агентов: {error}"
 }

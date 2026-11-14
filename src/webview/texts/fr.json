@@ -321,7 +321,7 @@
   "智能体": "Agents",
   "系统提示词": "Invite système",
   "任务": "Tâches",
-  "{n} 已完成": "{n} terminées",
+  "{n} 已完成": "{n} terminé(s)",
   "{n} 进行中": "{n} en cours",
   "{n} 待处理": "{n} en attente",
   "工具定义": "Définitions d'outils",
@@ -808,5 +808,15 @@
   "任务已不存在,已刷新列表": "La tâche n'existe plus ; la liste a été actualisée",
   "继续生成": "Continuer la génération",
   "继续上一次未完成的回答(无需重新输入)": "Continuer la réponse précédente inachevée (aucune saisie nécessaire)",
-  "正在准备登录页,稍后会自动打开浏览器": "La page de connexion est en préparation ; le navigateur va s'ouvrir automatiquement"
+  "正在准备登录页,稍后会自动打开浏览器": "La page de connexion est en préparation ; le navigateur va s'ouvrir automatiquement",
+  "启用智能体团队协作": "Activer la collaboration d'équipe d'agents",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Plusieurs sous-agents nommés peuvent former une équipe et partager un tableau de tâches (par session)",
+  "点击启用智能体团队协作": "Cliquez pour activer la collaboration d'équipe",
+  "点击关闭智能体团队协作": "Cliquez pour la désactiver",
+  "任务板": "Tableau des tâches",
+  "共享任务": "Tâches partagées",
+  "负责人": "Propriétaire",
+  "未分配": "Non attribué",
+  "被依赖阻塞": "Bloqué par des dépendances",
+  "任务记录无效:{message}": "Enregistrement de tâche persistant invalide : {message}"
 }

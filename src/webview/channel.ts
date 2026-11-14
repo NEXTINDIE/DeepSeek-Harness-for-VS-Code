@@ -450,6 +450,13 @@ export class ChatChannel {
         }),
       },
       {
+        // 0.2.2-rc.2+ AgentTeam 按会话开关/任务板
+        dispose: store.on("agentTeam", (sid: string, value: { enabled: boolean; tasks?: unknown[]; failure?: string }) => {
+          if (sid !== store.currentSessionId) return;
+          this.post({ kind: "agentTeam", sessionId: sid, value });
+        }),
+      },
+      {
         // 0.1.7 逐消息反馈:会话就绪后拉一次 messageFeedback/list(老宿主无此端点时静默跳过)
         dispose: this.hub.onFollowReady((sid: string) => {
           // 权限目录(进程级)+ 投影基线:下拉选项来自目录,当前值来自投影
@@ -1021,6 +1028,8 @@ export class ChatChannel {
       plan: current ? store.plans.get(current) : undefined,
       // 0.2.2-rc.2:失败回合的继续生成资格
       continuation: current ? (store.continuations.get(current) ?? null) : null,
+      // 0.2.2-rc.2+:按会话的 AgentTeam 开关(投影缺席 = 未组合该插件)
+      agentTeam: current ? store.agentTeams.get(current) : undefined,
       feedback: current ? [...(store.feedback.get(current)?.values() ?? [])] : undefined,
       hasMore: current ? (store.historyHasMore.get(current) ?? false) : false,
       planFile: current ? this.planFiles.get(current) : undefined,
@@ -1659,6 +1668,18 @@ export class ChatChannel {
             this.post({ kind: "continuation", sessionId: current, seq: null });
           } catch (error) {
             this.post({ kind: "notice", message: t("notice.continueGenerationFailed", { error: String(error) }), level: "error" });
+          }
+        }
+        break;
+      }
+      case "setAgentTeam": {
+        if (current && typeof msg.enabled === "boolean") {
+          try {
+            await this.hub.setAgentTeam(current, msg.enabled);
+          } catch (error) {
+            this.post({ kind: "notice", message: t("notice.agentTeamToggleFailed", { error: String(error) }), level: "error" });
+            const old = store.agentTeams.get(current);
+            if (old) this.post({ kind: "agentTeam", sessionId: current, value: old });
           }
         }
         break;

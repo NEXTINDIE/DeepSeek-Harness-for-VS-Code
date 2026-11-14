@@ -322,7 +322,7 @@
   "系统提示词": "Prompt sistem",
   "任务": "Tugas",
   "{n} 已完成": "{n} selesai",
-  "{n} 进行中": "{n} berjalan",
+  "{n} 进行中": "{n} sedang berjalan",
   "{n} 待处理": "{n} tertunda",
   "工具定义": "Definisi alat",
   "对话消息": "Pesan percakapan",
@@ -808,5 +808,15 @@
   "任务已不存在,已刷新列表": "Tugas sudah tidak ada; daftar dimuat ulang",
   "继续生成": "Lanjutkan pembuatan",
   "继续上一次未完成的回答(无需重新输入)": "Lanjutkan jawaban sebelumnya yang belum selesai (tanpa mengetik ulang)",
-  "正在准备登录页,稍后会自动打开浏览器": "Halaman masuk sedang disiapkan; browser akan segera terbuka otomatis"
+  "正在准备登录页,稍后会自动打开浏览器": "Halaman masuk sedang disiapkan; browser akan segera terbuka otomatis",
+  "启用智能体团队协作": "Aktifkan kolaborasi tim agen",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Beberapa subagen bernama dapat membentuk tim dan berbagi papan tugas (per sesi)",
+  "点击启用智能体团队协作": "Klik untuk mengaktifkan kolaborasi tim agen",
+  "点击关闭智能体团队协作": "Klik untuk menonaktifkannya",
+  "任务板": "Papan tugas",
+  "共享任务": "Tugas bersama",
+  "负责人": "Pemilik",
+  "未分配": "Belum ditugaskan",
+  "被依赖阻塞": "Diblokir oleh dependensi",
+  "任务记录无效:{message}": "Catatan tugas tersimpan tidak valid: {message}"
 }

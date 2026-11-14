@@ -322,7 +322,7 @@
   "系统提示词": "System-Prompt",
   "任务": "Aufgaben",
   "{n} 已完成": "{n} abgeschlossen",
-  "{n} 进行中": "{n} in Arbeit",
+  "{n} 进行中": "{n} in Bearbeitung",
   "{n} 待处理": "{n} ausstehend",
   "工具定义": "Werkzeugdefinitionen",
   "对话消息": "Nachrichten",
@@ -808,5 +808,15 @@
   "任务已不存在,已刷新列表": "Die Aufgabe existiert nicht mehr; die Liste wurde aktualisiert",
   "继续生成": "Weiter generieren",
   "继续上一次未完成的回答(无需重新输入)": "Die vorherige unvollständige Antwort fortsetzen (keine erneute Eingabe nötig)",
-  "正在准备登录页,稍后会自动打开浏览器": "Die Anmeldeseite wird vorbereitet; der Browser öffnet sich gleich automatisch"
+  "正在准备登录页,稍后会自动打开浏览器": "Die Anmeldeseite wird vorbereitet; der Browser öffnet sich gleich automatisch",
+  "启用智能体团队协作": "Agent-Team-Zusammenarbeit aktivieren",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Mehrere benannte Subagenten können als Team zusammenarbeiten und ein Aufgabenboard teilen (pro Sitzung)",
+  "点击启用智能体团队协作": "Klicken, um die Agent-Team-Zusammenarbeit zu aktivieren",
+  "点击关闭智能体团队协作": "Klicken, um sie zu deaktivieren",
+  "任务板": "Aufgabenübersicht",
+  "共享任务": "Geteilte Aufgaben",
+  "负责人": "Besitzer",
+  "未分配": "Nicht zugewiesen",
+  "被依赖阻塞": "Durch Abhängigkeiten blockiert",
+  "任务记录无效:{message}": "Ungültiger gespeicherter Aufgabeneintrag: {message}"
 }

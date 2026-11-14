@@ -118,6 +118,8 @@ export class SessionStore {
   readonly subagentCatalog = new Map<string, { id: string; createdAt?: number; mode?: string; label?: string; name?: string }[]>();
   /** 0.2.2-rc.2「继续生成」投影:可继续的失败回合 seq,null = 不可继续。 */
   readonly continuations = new Map<string, number | null>();
+  /** 0.2.2-rc.2+ AgentTeam 投影(按会话开启状态 + 任务板)。 */
+  readonly agentTeams = new Map<string, { enabled: boolean; tasks?: unknown[]; failure?: string }>();
   /**
    * 逐消息反馈(sessionId → messageId → 当前值)。
    * 来源:0.1.7 的 feedback/message-put|delete 会话事件(仅入日志,不入模型历史)
@@ -161,6 +163,7 @@ export class SessionStore {
   on(name: "todos", fn: (sessionId: string, value: unknown) => void): () => void;
   on(name: "subagentCatalog", fn: (sessionId: string) => void): () => void;
   on(name: "continuation", fn: (sessionId: string, seq: number | null) => void): () => void;
+  on(name: "agentTeam", fn: (sessionId: string, value: { enabled: boolean; tasks?: unknown[]; failure?: string }) => void): () => void;
   on(name: "workingDirectory", fn: (sessionId: string, cwd: string | null) => void): () => void;
   on(name: "userQuestions", fn: (sessionId: string, value: UserQuestionProjection) => void): () => void;
   on(name: "plan", fn: (sessionId: string, value: PlanProjection) => void): () => void;
@@ -654,6 +657,25 @@ export class SessionStore {
       const seq = typeof value === "number" ? value : null;
       this.continuations.set(sessionId, seq);
       this.emit("continuation", sessionId, seq);
+      return;
+    }
+    // 0.2.2-rc.2+:按会话的 AgentTeam 开关与任务板。
+    // 注意 rc.1 的实验性 AgentTeam 投影是 {members,tasks},没有 enabled,也没有
+    // agentTeams/setEnabled 端点;这里只接受带布尔 enabled 的新投影,避免在 rc.1
+    // 上显示一个点了必然 404 的开关。
+    if (key === "agentTeam") {
+      const raw = (value ?? {}) as { enabled?: unknown; tasks?: unknown; failure?: unknown };
+      if (typeof raw.enabled !== "boolean") {
+        if (this.agentTeams.delete(sessionId)) this.emit("agentTeam", sessionId, undefined);
+        return;
+      }
+      const team = {
+        enabled: raw.enabled,
+        ...(Array.isArray(raw.tasks) ? { tasks: raw.tasks } : {}),
+        ...(typeof raw.failure === "string" ? { failure: raw.failure } : {}),
+      };
+      this.agentTeams.set(sessionId, team);
+      this.emit("agentTeam", sessionId, team);
       return;
     }
   }

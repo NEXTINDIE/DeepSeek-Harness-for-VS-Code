@@ -206,5 +206,6 @@
   "hub.scheduleUnsupportedEdit": "Bu ana makine (DSH < 0.2.2) ana makine düzeyinde otomasyon görevi düzenlemeyi desteklemiyor.",
   "hub.scheduleUnsupportedRun": "Bu ana makine (DSH < 0.2.2) otomasyon görevlerini hemen çalıştırmayı desteklemiyor.",
   "hub.scheduleUnsupportedDeleteInactive": "Bu ana makine (DSH < 0.2.2) biten görevleri toplu temizlemeyi desteklemiyor.",
-  "notice.continueGenerationFailed": "Üretmeye devam etme başarısız: {error}"
+  "notice.continueGenerationFailed": "Üretmeye devam etme başarısız: {error}",
+  "notice.agentTeamToggleFailed": "Ajan ekibi işbirliği değiştirilemedi: {error}"
 }

@@ -808,5 +808,15 @@
   "任务已不存在,已刷新列表": "A tarefa não existe mais; a lista foi atualizada",
   "继续生成": "Continuar gerando",
   "继续上一次未完成的回答(无需重新输入)": "Continuar a resposta anterior incompleta (sem digitar novamente)",
-  "正在准备登录页,稍后会自动打开浏览器": "A página de login está sendo preparada; o navegador abrirá automaticamente"
+  "正在准备登录页,稍后会自动打开浏览器": "A página de login está sendo preparada; o navegador abrirá automaticamente",
+  "启用智能体团队协作": "Ativar a colaboração de equipe de agentes",
+  "允许多个具名子代理组队协作、共享任务板;按会话开启": "Vários subagentes nomeados podem formar equipe e compartilhar um quadro de tarefas (por sessão)",
+  "点击启用智能体团队协作": "Clique para ativar a colaboração de equipe",
+  "点击关闭智能体团队协作": "Clique para desativá-la",
+  "任务板": "Quadro de tarefas",
+  "共享任务": "Tarefas compartilhadas",
+  "负责人": "Proprietário",
+  "未分配": "Não atribuído",
+  "被依赖阻塞": "Bloqueado por dependências",
+  "任务记录无效:{message}": "Registro de tarefa persistente inválido: {message}"
 }
