@@ -393,7 +393,7 @@
     "test:team": "node tools/test-agent-team.mjs"
   },
   "dependencies": {
-    "dompurify": "^3.2.4",
+    "dompurify": "^3.4.17",
     "marked": "^15.0.7",
     "ws": "^8.18.0"
   },
